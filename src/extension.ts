@@ -735,11 +735,77 @@ async function getSettingsHtml(config: vscode.WorkspaceConfiguration, actualPort
 			vscode.postMessage({ command: 'injectScript' });
 		}
 		
-		function createTask() {
+	function createTask() {
+		const tbody = document.getElementById('task-tbody');
+		if (!tbody) {
 			vscode.postMessage({ command: 'createTask' });
+			return;
 		}
 		
-		function editField(cell, taskId, field) {
+		// Check if there's already a new task row
+		if (document.getElementById('new-task-row')) {
+			return;
+		}
+		
+		const newRow = document.createElement('tr');
+		newRow.id = 'new-task-row';
+		newRow.style.opacity = '0.7';
+		newRow.innerHTML = \`
+			<td>⏳</td>
+			<td><input type="text" id="new-title" placeholder="Task title..." style="width: 100%; padding: 4px; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border);" autofocus></td>
+			<td><input type="text" id="new-description" placeholder="Description (optional)..." style="width: 100%; padding: 4px; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border);"></td>
+			<td>
+				<select id="new-category" style="padding: 4px; font-size: 12px; background: var(--vscode-dropdown-background); color: var(--vscode-dropdown-foreground); border: 1px solid var(--vscode-dropdown-border);">
+					<option value="bug">bug</option>
+					<option value="feature">feature</option>
+					<option value="improvement">improvement</option>
+					<option value="documentation">documentation</option>
+					<option value="testing">testing</option>
+					<option value="other">other</option>
+				</select>
+			</td>
+			<td>
+				<button onclick="saveNewTask()" style="padding: 4px 12px; font-size: 12px;">Save</button>
+			</td>
+		\`;
+		
+		tbody.insertBefore(newRow, tbody.firstChild);
+		document.getElementById('new-title').focus();
+		
+		// Handle Enter key to save, Escape to cancel
+		document.getElementById('new-title').addEventListener('keydown', (e) => {
+			if (e.key === 'Enter') saveNewTask();
+			if (e.key === 'Escape') cancelNewTask();
+		});
+		document.getElementById('new-description').addEventListener('keydown', (e) => {
+			if (e.key === 'Enter') saveNewTask();
+			if (e.key === 'Escape') cancelNewTask();
+		});
+	}
+	
+	function saveNewTask() {
+		const title = document.getElementById('new-title')?.value.trim();
+		const description = document.getElementById('new-description')?.value.trim();
+		const category = document.getElementById('new-category')?.value;
+		
+		if (!title) {
+			cancelNewTask();
+			return;
+		}
+		
+		vscode.postMessage({ 
+			command: 'saveNewTask',
+			title: title,
+			description: description || '',
+			category: category || 'other'
+		});
+	}
+	
+	function cancelNewTask() {
+		const row = document.getElementById('new-task-row');
+		if (row) row.remove();
+	}
+			function editField(cell, taskId, field) {
 			const currentValue = cell.textContent.trim();
 			const input = document.createElement('input');
 			input.type = 'text';
