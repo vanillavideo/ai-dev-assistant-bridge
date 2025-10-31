@@ -221,6 +221,7 @@ function getSettingsHtml(config: vscode.WorkspaceConfiguration): string {
 
 	const autoContinueEnabled = config.get<boolean>('autoContinue.enabled', false);
 	const autoApprovalEnabled = config.get<boolean>('autoApproval.enabled', false);
+	const autoInjectEnabled = config.get<boolean>('autoApproval.autoInject', false);
 	const port = config.get<number>('port', 3737);
 
 	let categoriesRows = '';
@@ -397,9 +398,19 @@ function getSettingsHtml(config: vscode.WorkspaceConfiguration): string {
 		<div class="section-title">Auto-Approval</div>
 		<div class="row">
 			<label>Enable monitoring</label>
-			<input type="checkbox" data-key="autoApproval.enabled" ${autoApprovalEnabled ? 'checked' : ''} 
-			       class="toggle-cb" id="cb-approval">
-			<label for="cb-approval" class="toggle-label"></label>
+			<div style="display: flex; align-items: center; gap: 8px;">
+				<input type="checkbox" data-key="autoApproval.enabled" ${autoApprovalEnabled ? 'checked' : ''} 
+				       class="toggle-cb" id="cb-approval">
+				<label for="cb-approval" class="toggle-label"></label>
+			</div>
+		</div>
+		<div class="row">
+			<label>Auto-inject script on startup</label>
+			<div style="display: flex; align-items: center; gap: 8px;">
+				<input type="checkbox" data-key="autoApproval.autoInject" ${autoInjectEnabled ? 'checked' : ''} 
+				       class="toggle-cb" id="cb-autoinject" ${autoApprovalEnabled ? '' : 'disabled'}>
+				<label for="cb-autoinject" class="toggle-label"></label>
+			</div>
 		</div>
 	</div>
 	
@@ -407,9 +418,11 @@ function getSettingsHtml(config: vscode.WorkspaceConfiguration): string {
 		<div class="section-title">Auto-Continue</div>
 		<div class="row" style="margin-bottom: 8px;">
 			<label>Enable reminders</label>
-			<input type="checkbox" data-key="autoContinue.enabled" ${autoContinueEnabled ? 'checked' : ''} 
-			       class="toggle-cb" id="cb-autocontinue">
-			<label for="cb-autocontinue" class="toggle-label"></label>
+			<div style="display: flex; align-items: center; gap: 8px;">
+				<input type="checkbox" data-key="autoContinue.enabled" ${autoContinueEnabled ? 'checked' : ''} 
+				       class="toggle-cb" id="cb-autocontinue">
+				<label for="cb-autocontinue" class="toggle-label"></label>
+			</div>
 		</div>
 		<table>
 			<thead>
@@ -445,13 +458,21 @@ function getSettingsHtml(config: vscode.WorkspaceConfiguration): string {
 					value: value
 				});
 				
-				// Update row state
+				// Update row state for auto-continue categories
 				if (key.includes('.enabled')) {
 					const row = e.target.closest('tr');
 					if (row) {
 						row.classList.toggle('disabled', !value);
 						const input = row.querySelector('input[type="number"]');
 						if (input) input.disabled = !value;
+					}
+				}
+				
+				// Handle auto-approval enabled toggle - enable/disable auto-inject
+				if (key === 'autoApproval.enabled') {
+					const autoInjectCheckbox = document.getElementById('cb-autoinject');
+					if (autoInjectCheckbox) {
+						autoInjectCheckbox.disabled = !value;
 					}
 				}
 			});
@@ -1068,9 +1089,21 @@ function startFeedbackServer(context: vscode.ExtensionContext) {
 function initializeAutoApproval() {
 	const config = getConfig();
 	const autoApprovalEnabled = config.get<boolean>('autoApproval.enabled', false);
+	const autoInjectEnabled = config.get<boolean>('autoApproval.autoInject', false);
 	
 	if (autoApprovalEnabled) {
 		log(LogLevel.INFO, 'Auto-approval enabled. Use "AI Feedback Bridge: Copy Auto-Approval Script" command to get the script.');
+		
+		// Auto-inject if enabled
+		if (autoInjectEnabled) {
+			log(LogLevel.INFO, 'Auto-inject enabled. Attempting to inject script...');
+			// Delay slightly to ensure extension is fully initialized
+			setTimeout(() => {
+				autoInjectScript().catch(err => {
+					log(LogLevel.WARN, 'Auto-inject failed:', err);
+				});
+			}, 1000);
+		}
 	}
 }
 
