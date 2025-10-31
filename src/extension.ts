@@ -10,6 +10,7 @@ let outputChannel: vscode.OutputChannel;
 let chatParticipant: vscode.ChatParticipant | undefined;
 let statusBarToggle: vscode.StatusBarItem | undefined;
 let statusBarSettings: vscode.StatusBarItem | undefined;
+let statusBarRunNow: vscode.StatusBarItem | undefined;
 let statusBarInject: vscode.StatusBarItem | undefined;
 let autoContinueTimer: NodeJS.Timeout | undefined;
 let currentPort: number = 3737;
@@ -527,8 +528,16 @@ export async function activate(context: vscode.ExtensionContext) {
 	statusBarToggle.show();
 	context.subscriptions.push(statusBarToggle);
 	
-	// Button 3: Inject Script - quick access to copy script
-	statusBarInject = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 98);
+	// Button 3: Run Now - manually trigger reminder check
+	statusBarRunNow = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 98);
+	statusBarRunNow.command = 'ai-feedback-bridge.runNow';
+	statusBarRunNow.text = '$(run) Run Now';
+	statusBarRunNow.tooltip = 'Manually trigger reminder check';
+	statusBarRunNow.show();
+	context.subscriptions.push(statusBarRunNow);
+	
+	// Button 4: Inject Script - quick access to copy script
+	statusBarInject = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 97);
 	statusBarInject.command = 'ai-feedback-bridge.injectScript';
 	statusBarInject.text = '$(clippy) Inject';
 	statusBarInject.tooltip = 'Copy auto-approval script to clipboard';
@@ -543,6 +552,27 @@ export async function activate(context: vscode.ExtensionContext) {
 		showSettingsPanel(context);
 	});
 	context.subscriptions.push(openSettingsCmd);
+	
+	// Register run now command - manually trigger reminder check
+	const runNowCmd = vscode.commands.registerCommand('ai-feedback-bridge.runNow', async () => {
+		try {
+			const message = await getSmartAutoContinueMessage(context);
+			if (message) {
+				log(LogLevel.INFO, '[Run Now] Manually triggered reminder');
+				await sendToAgent(message, { 
+					source: 'manual_trigger', 
+					timestamp: new Date().toISOString()
+				});
+				vscode.window.showInformationMessage('✅ Reminder sent!');
+			} else {
+				vscode.window.showInformationMessage('⏱️ No reminders due yet (check intervals in settings)');
+			}
+		} catch (error) {
+			log(LogLevel.ERROR, '[Run Now] Failed to send message', { error });
+			vscode.window.showErrorMessage('❌ Failed to send reminder');
+		}
+	});
+	context.subscriptions.push(runNowCmd);
 	
 	// Register inject script command
 	const injectScriptCmd = vscode.commands.registerCommand('ai-feedback-bridge.injectScript', async () => {
