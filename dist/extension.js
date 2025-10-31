@@ -1,4 +1,4 @@
-"use strict";var V=Object.create;var S=Object.defineProperty;var K=Object.getOwnPropertyDescriptor;var q=Object.getOwnPropertyNames;var G=Object.getPrototypeOf,Y=Object.prototype.hasOwnProperty;var _=(e,o)=>{for(var t in o)S(e,t,{get:o[t],enumerable:!0})},P=(e,o,t,r)=>{if(o&&typeof o=="object"||typeof o=="function")for(let l of q(o))!Y.call(e,l)&&l!==t&&S(e,l,{get:()=>o[l],enumerable:!(r=K(o,l))||r.enumerable});return e};var L=(e,o,t)=>(t=e!=null?V(G(e)):{},P(o||!e||!e.__esModule?S(t,"default",{value:e,enumerable:!0}):t,e)),X=e=>P(S({},"__esModule",{value:!0}),e);var me={};_(me,{activate:()=>ne,deactivate:()=>be});module.exports=X(me);var n=L(require("vscode")),N=L(require("http")),M=L(require("fs")),D=L(require("path")),C,p,R,k,x,I,v=3737,b,O;function a(e,o,t){let l=`[${new Date().toISOString()}] [${e}]`,s=t?`${l} ${o} ${JSON.stringify(t)}`:`${l} ${o}`;p.appendLine(s),e==="ERROR"&&console.error(s)}function m(){return n.workspace.getConfiguration("aiFeedbackBridge",null)}async function E(e,o){await m().update(e,o,n.ConfigurationTarget.Global)}var W="aiFeedbackBridge.portRegistry",T=3737,Q=50;async function z(e){return e.globalState.get(W,[])}async function F(e,o){await e.globalState.update(W,o)}async function Z(e){let o=await z(e),t=n.workspace.name||"No Workspace",r=n.workspace.workspaceFolders?.[0]?.uri.fsPath||"no-workspace",l=Date.now()-60*60*1e3,s=o.filter(g=>g.timestamp>l),i=s.find(g=>g.workspace===r);if(i)return a("INFO",`Reusing existing port ${i.port} for workspace`),i.timestamp=Date.now(),await F(e,s),i.port;let c=new Set(s.map(g=>g.port)),d=T;for(let g=0;g<Q;g++){let h=T+g;if(!c.has(h)&&await ee(h)){d=h;break}}return s.push({port:d,workspace:r,timestamp:Date.now()}),await F(e,s),a("INFO",`Auto-assigned port ${d} for workspace: ${t}`),d}async function ee(e){return new Promise(o=>{let t=N.createServer();t.once("error",r=>{r.code==="EADDRINUSE"?o(!1):o(!0)}),t.once("listening",()=>{t.close(),o(!0)}),t.listen(e)})}async function te(e,o){let t=await z(e),r=n.workspace.workspaceFolders?.[0]?.uri.fsPath||"no-workspace",l=t.filter(s=>!(s.port===o&&s.workspace===r));await F(e,l),a("INFO",`Released port ${o}`)}function oe(e){let o=n.window.createWebviewPanel("aiFeedbackBridgeSettings","AI Feedback Bridge Settings",n.ViewColumn.One,{enableScripts:!0,retainContextWhenHidden:!0}),t=m();o.webview.html=j(t),o.webview.onDidReceiveMessage(async r=>{switch(r.command){case"updateSetting":await E(r.key,r.value),a("INFO",`Setting updated: ${r.key} = ${r.value}`);break;case"reload":o.webview.html=j(m());break;case"injectScript":await n.commands.executeCommand("ai-agent-feedback-bridge.showAutoApprovalScript"),n.commands.executeCommand("workbench.action.toggleDevTools"),a("INFO","Auto-approval script copied to clipboard, dev tools opened");break}},void 0,e.subscriptions)}function j(e){let o=[{key:"tasks",icon:"\u{1F4CB}",name:"Tasks",interval:300},{key:"improvements",icon:"\u2728",name:"Improvements",interval:600},{key:"coverage",icon:"\u{1F9EA}",name:"Coverage",interval:900},{key:"robustness",icon:"\u{1F6E1}\uFE0F",name:"Robustness",interval:600},{key:"cleanup",icon:"\u{1F9F9}",name:"Cleanup",interval:1200},{key:"commits",icon:"\u{1F4BE}",name:"Commits",interval:900}],t=e.get("autoContinue.enabled",!1),r=e.get("autoApproval.enabled",!1),l=e.get("autoApproval.autoInject",!1),s=e.get("port",3737),i="";for(let c of o){let d=e.get(`autoContinue.${c.key}.enabled`,!0),g=e.get(`autoContinue.${c.key}.interval`,c.interval);i+=`
+"use strict";var V=Object.create;var S=Object.defineProperty;var K=Object.getOwnPropertyDescriptor;var Y=Object.getOwnPropertyNames;var q=Object.getPrototypeOf,G=Object.prototype.hasOwnProperty;var _=(e,o)=>{for(var t in o)S(e,t,{get:o[t],enumerable:!0})},P=(e,o,t,s)=>{if(o&&typeof o=="object"||typeof o=="function")for(let l of Y(o))!G.call(e,l)&&l!==t&&S(e,l,{get:()=>o[l],enumerable:!(s=K(o,l))||s.enumerable});return e};var I=(e,o,t)=>(t=e!=null?V(q(e)):{},P(o||!e||!e.__esModule?S(t,"default",{value:e,enumerable:!0}):t,e)),X=e=>P(S({},"__esModule",{value:!0}),e);var me={};_(me,{activate:()=>ne,deactivate:()=>be});module.exports=X(me);var n=I(require("vscode")),N=I(require("http")),D=I(require("fs")),M=I(require("path")),x,p,R,y,A,L,v=3737,b,O;function a(e,o,t){let l=`[${new Date().toISOString()}] [${e}]`,r=t?`${l} ${o} ${JSON.stringify(t)}`:`${l} ${o}`;p.appendLine(r),e==="ERROR"&&console.error(r)}function m(){return n.workspace.getConfiguration("aiFeedbackBridge",null)}async function E(e,o){await m().update(e,o,n.ConfigurationTarget.Global)}var W="aiFeedbackBridge.portRegistry",T=3737,Q=50;async function z(e){return e.globalState.get(W,[])}async function F(e,o){await e.globalState.update(W,o)}async function Z(e){let o=await z(e),t=n.workspace.name||"No Workspace",s=n.workspace.workspaceFolders?.[0]?.uri.fsPath||"no-workspace",l=Date.now()-60*60*1e3,r=o.filter(g=>g.timestamp>l),i=r.find(g=>g.workspace===s);if(i)return a("INFO",`Reusing existing port ${i.port} for workspace`),i.timestamp=Date.now(),await F(e,r),i.port;let c=new Set(r.map(g=>g.port)),d=T;for(let g=0;g<Q;g++){let h=T+g;if(!c.has(h)&&await ee(h)){d=h;break}}return r.push({port:d,workspace:s,timestamp:Date.now()}),await F(e,r),a("INFO",`Auto-assigned port ${d} for workspace: ${t}`),d}async function ee(e){return new Promise(o=>{let t=N.createServer();t.once("error",s=>{s.code==="EADDRINUSE"?o(!1):o(!0)}),t.once("listening",()=>{t.close(),o(!0)}),t.listen(e)})}async function te(e,o){let t=await z(e),s=n.workspace.workspaceFolders?.[0]?.uri.fsPath||"no-workspace",l=t.filter(r=>!(r.port===o&&r.workspace===s));await F(e,l),a("INFO",`Released port ${o}`)}function oe(e){let o=n.window.createWebviewPanel("aiFeedbackBridgeSettings","AI Feedback Bridge Settings",n.ViewColumn.One,{enableScripts:!0,retainContextWhenHidden:!0}),t=m();o.webview.html=B(t),o.webview.onDidReceiveMessage(async s=>{switch(s.command){case"updateSetting":await E(s.key,s.value),a("INFO",`Setting updated: ${s.key} = ${s.value}`);break;case"reload":o.webview.html=B(m());break;case"injectScript":await n.commands.executeCommand("ai-agent-feedback-bridge.showAutoApprovalScript"),n.commands.executeCommand("workbench.action.toggleDevTools"),a("INFO","Auto-approval script copied to clipboard, dev tools opened");break}},void 0,e.subscriptions)}function B(e){let o=[{key:"tasks",icon:"\u{1F4CB}",name:"Tasks",interval:300},{key:"improvements",icon:"\u2728",name:"Improvements",interval:600},{key:"coverage",icon:"\u{1F9EA}",name:"Coverage",interval:900},{key:"robustness",icon:"\u{1F6E1}\uFE0F",name:"Robustness",interval:600},{key:"cleanup",icon:"\u{1F9F9}",name:"Cleanup",interval:1200},{key:"commits",icon:"\u{1F4BE}",name:"Commits",interval:900}],t=e.get("autoContinue.enabled",!1),s=e.get("autoApproval.enabled",!1),l=e.get("autoApproval.autoInject",!1),r=e.get("port",3737),i="";for(let c of o){let d=e.get(`autoContinue.${c.key}.enabled`,!0),g=e.get(`autoContinue.${c.key}.interval`,c.interval);i+=`
 			<tr class="${d?"":"disabled"}">
 				<td class="cat-icon">${c.icon}</td>
 				<td class="cat-name">${c.name}</td>
@@ -95,11 +95,11 @@
 		.toggle-cb { display: none; }
 		.toggle-label {
 			display: inline-block;
-			width: 34px;
-			height: 18px;
+			width: 32px;
+			height: 16px;
 			background: var(--vscode-input-background);
 			border: 1px solid var(--vscode-input-border);
-			border-radius: 9px;
+			border-radius: 8px;
 			position: relative;
 			cursor: pointer;
 			transition: all 0.2s;
@@ -107,8 +107,8 @@
 		.toggle-label:after {
 			content: '';
 			position: absolute;
-			width: 12px;
-			height: 12px;
+			width: 10px;
+			height: 10px;
 			border-radius: 50%;
 			background: var(--vscode-input-foreground);
 			top: 2px;
@@ -156,7 +156,7 @@
 		<div class="section-title">Server</div>
 		<div class="row">
 			<label>Port (auto-assigned)</label>
-			<span class="port-display">${s}</span>
+			<span class="port-display">${r}</span>
 		</div>
 	</div>
 	
@@ -165,7 +165,7 @@
 		<div class="row">
 			<label>Enable monitoring</label>
 			<div style="display: flex; align-items: center; gap: 8px;">
-				<input type="checkbox" data-key="autoApproval.enabled" ${r?"checked":""} 
+				<input type="checkbox" data-key="autoApproval.enabled" ${s?"checked":""} 
 				       class="toggle-cb" id="cb-approval">
 				<label for="cb-approval" class="toggle-label"></label>
 			</div>
@@ -174,7 +174,7 @@
 			<label>Auto-inject script on startup</label>
 			<div style="display: flex; align-items: center; gap: 8px;">
 				<input type="checkbox" data-key="autoApproval.autoInject" ${l?"checked":""} 
-				       class="toggle-cb" id="cb-autoinject" ${r?"":"disabled"}>
+				       class="toggle-cb" id="cb-autoinject" ${s?"":"disabled"}>
 				<label for="cb-autoinject" class="toggle-label"></label>
 			</div>
 		</div>
@@ -249,15 +249,15 @@
 		}
 	</script>
 </body>
-</html>`}async function ne(e){console.log("AI Agent Feedback Bridge is now active!"),O=e,p=n.window.createOutputChannel("AI Agent Feedback"),e.subscriptions.push(p),a("INFO","\u{1F680} AI Agent Feedback Bridge activated");let o=m(),t=o.get("port");!t||t===3737?(v=await Z(e),await E("port",v),a("INFO",`Auto-selected port: ${v}`)):(v=t,a("INFO",`Using configured port: ${v}`));let r=n.workspace.name||"No Workspace",l=n.workspace.workspaceFolders?.length||0;a("INFO",`Window context: ${r} (${l} folders)`),x=n.window.createStatusBarItem(n.StatusBarAlignment.Right,100),x.command="ai-feedback-bridge.openSettings",x.show(),e.subscriptions.push(x),k=n.window.createStatusBarItem(n.StatusBarAlignment.Right,99),k.command="ai-feedback-bridge.toggleAutoContinue",k.show(),e.subscriptions.push(k),B(o);let s=n.commands.registerCommand("ai-feedback-bridge.openSettings",async()=>{oe(e)});e.subscriptions.push(s),ce(e);let i=n.commands.registerCommand("ai-agent-feedback-bridge.sendToCopilotChat",async u=>{u||(u=await n.window.showInputBox({prompt:"Enter feedback to send to Copilot Chat",placeHolder:"Describe the issue or request..."})),u&&await ie(u,{})});e.subscriptions.push(i);let c=n.commands.registerCommand("ai-feedback-bridge.toggleAutoContinue",async()=>{let y=m().get("autoContinue.enabled",!1);await E("autoContinue.enabled",!y),a("INFO",`Auto-Continue ${y?"disabled":"enabled"}`)});e.subscriptions.push(c);let d=n.commands.registerCommand("ai-feedback-bridge.changePort",async()=>{let u=await n.window.showInputBox({prompt:"Enter new port number",value:v.toString(),validateInput:y=>{let f=parseInt(y);return isNaN(f)||f<1024||f>65535?"Invalid port (1024-65535)":null}});u&&(await E("port",parseInt(u)),a("INFO",`Port changed to ${u}. Reloading VS Code...`),n.commands.executeCommand("workbench.action.reloadWindow"))});e.subscriptions.push(d);let g=n.commands.registerCommand("ai-feedback-bridge.showStatus",()=>{let u=m(),y=u.get("autoContinue.interval",300),f=u.get("autoContinue.enabled",!1),J=`\u{1F309} AI Feedback Bridge Status
+</html>`}async function ne(e){console.log("AI Agent Feedback Bridge is now active!"),O=e,p=n.window.createOutputChannel("AI Agent Feedback"),e.subscriptions.push(p),a("INFO","\u{1F680} AI Agent Feedback Bridge activated");let o=m(),t=o.get("port");!t||t===3737?(v=await Z(e),await E("port",v),a("INFO",`Auto-selected port: ${v}`)):(v=t,a("INFO",`Using configured port: ${v}`));let s=n.workspace.name||"No Workspace",l=n.workspace.workspaceFolders?.length||0;a("INFO",`Window context: ${s} (${l} folders)`),A=n.window.createStatusBarItem(n.StatusBarAlignment.Right,100),A.command="ai-feedback-bridge.openSettings",A.show(),e.subscriptions.push(A),y=n.window.createStatusBarItem(n.StatusBarAlignment.Right,99),y.command="ai-feedback-bridge.toggleAutoContinue",y.show(),e.subscriptions.push(y),j(o);let r=n.commands.registerCommand("ai-feedback-bridge.openSettings",async()=>{oe(e)});e.subscriptions.push(r),ce(e);let i=n.commands.registerCommand("ai-agent-feedback-bridge.sendToCopilotChat",async u=>{u||(u=await n.window.showInputBox({prompt:"Enter feedback to send to Copilot Chat",placeHolder:"Describe the issue or request..."})),u&&await ie(u,{})});e.subscriptions.push(i);let c=n.commands.registerCommand("ai-feedback-bridge.toggleAutoContinue",async()=>{let k=m().get("autoContinue.enabled",!1);await E("autoContinue.enabled",!k),a("INFO",`Auto-Continue ${k?"disabled":"enabled"}`)});e.subscriptions.push(c);let d=n.commands.registerCommand("ai-feedback-bridge.changePort",async()=>{let u=await n.window.showInputBox({prompt:"Enter new port number",value:v.toString(),validateInput:k=>{let f=parseInt(k);return isNaN(f)||f<1024||f>65535?"Invalid port (1024-65535)":null}});u&&(await E("port",parseInt(u)),a("INFO",`Port changed to ${u}. Reloading VS Code...`),n.commands.executeCommand("workbench.action.reloadWindow"))});e.subscriptions.push(d);let g=n.commands.registerCommand("ai-feedback-bridge.showStatus",()=>{let u=m(),k=u.get("autoContinue.interval",300),f=u.get("autoContinue.enabled",!1),J=`\u{1F309} AI Feedback Bridge Status
 
 Window: ${n.workspace.name||"No Workspace"}
 Port: ${v}
-Server: ${C?"Running \u2705":"Stopped \u274C"}
-Auto-Continue: ${f?`Enabled \u2705 (every ${y}s)`:"Disabled \u274C"}
-Endpoint: http://localhost:${v}`;p.appendLine(J),p.show()});e.subscriptions.push(g),H(e),de(),e.subscriptions.push(n.workspace.onDidChangeConfiguration(u=>{if(u.affectsConfiguration("aiFeedbackBridge")){let y=m();if(a("DEBUG","Configuration changed",{workspace:n.workspace.name,affectedKeys:["port","autoContinue"].filter(f=>u.affectsConfiguration(`aiFeedbackBridge.${f}`))}),u.affectsConfiguration("aiFeedbackBridge.port")){let f=y.get("port",3737);f!==v&&(a("INFO",`Port change detected: ${v} \u2192 ${f}. Reloading window...`),n.commands.executeCommand("workbench.action.reloadWindow"))}B(y),u.affectsConfiguration("aiFeedbackBridge.autoContinue")&&re(e)}})),R=n.chat.createChatParticipant("ai-agent-feedback-bridge.agent",se),R.iconPath=n.Uri.file(e.asAbsolutePath("icon.png")),e.subscriptions.push(R);let h=n.commands.registerCommand("ai-agent-feedback-bridge.enableAutoApproval",()=>pe(e));e.subscriptions.push(h);let A=n.commands.registerCommand("ai-agent-feedback-bridge.disableAutoApproval",()=>ue());e.subscriptions.push(A);let w=n.commands.registerCommand("ai-agent-feedback-bridge.injectAutoApprovalScript",()=>ge());e.subscriptions.push(w),a("INFO",`Feedback server started on http://localhost:${v}`)}function B(e){if(!k||!x)return;let o=e.get("autoContinue.enabled",!1);x.text=`AI Bridge: ${v}`,x.tooltip="Click to configure AI Feedback Bridge",o?(k.text="$(sync~spin) Stop",k.tooltip=`Auto-Continue active
-Click to stop`):(k.text="$(play) Start",k.tooltip=`Auto-Continue inactive
-Click to start`)}async function ae(e){let o=m(),t=["tasks","improvements","coverage","robustness","cleanup","commits"],r=Date.now(),l=[],s="autoContinue.lastSent",i=e.globalState.get(s,{}),c={...i};for(let d of t){let g=o.get(`autoContinue.${d}.enabled`,!0),h=o.get(`autoContinue.${d}.interval`,300),A=o.get(`autoContinue.${d}.message`,"");if(!g||!A)continue;let w=i[d]||0;(r-w)/1e3>=h&&(l.push(A),c[d]=r)}return await e.globalState.update(s,c),l.length===0?"":l.join(". ")+"."}function H(e){if(m().get("autoContinue.enabled",!1)){let l=n.workspace.name||"No Workspace";a("INFO",`\u2705 Auto-Continue enabled for window: ${l}`),I=setInterval(async()=>{try{let s=await ae(e);s&&(a("INFO","[Auto-Continue] Sending periodic reminder"),await $(s,{source:"auto_continue",timestamp:new Date().toISOString()}))}catch(s){a("ERROR","[Auto-Continue] Failed to send message",{error:s})}},500)}else a("DEBUG","Auto-Continue is disabled")}function re(e){I&&(clearInterval(I),I=void 0,p.appendLine("Auto-Continue stopped")),H(e)}async function se(e,o,t,r){p.appendLine(`Chat request received: ${e.prompt}`),t.markdown(`### \u{1F504} Processing Feedback
+Server: ${x?"Running \u2705":"Stopped \u274C"}
+Auto-Continue: ${f?`Enabled \u2705 (every ${k}s)`:"Disabled \u274C"}
+Endpoint: http://localhost:${v}`;p.appendLine(J),p.show()});e.subscriptions.push(g),H(e),de(),e.subscriptions.push(n.workspace.onDidChangeConfiguration(u=>{if(u.affectsConfiguration("aiFeedbackBridge")){let k=m();if(a("DEBUG","Configuration changed",{workspace:n.workspace.name,affectedKeys:["port","autoContinue"].filter(f=>u.affectsConfiguration(`aiFeedbackBridge.${f}`))}),u.affectsConfiguration("aiFeedbackBridge.port")){let f=k.get("port",3737);f!==v&&(a("INFO",`Port change detected: ${v} \u2192 ${f}. Reloading window...`),n.commands.executeCommand("workbench.action.reloadWindow"))}j(k),u.affectsConfiguration("aiFeedbackBridge.autoContinue")&&se(e)}})),R=n.chat.createChatParticipant("ai-agent-feedback-bridge.agent",re),R.iconPath=n.Uri.file(e.asAbsolutePath("icon.png")),e.subscriptions.push(R);let h=n.commands.registerCommand("ai-agent-feedback-bridge.enableAutoApproval",()=>pe(e));e.subscriptions.push(h);let C=n.commands.registerCommand("ai-agent-feedback-bridge.disableAutoApproval",()=>ue());e.subscriptions.push(C);let w=n.commands.registerCommand("ai-agent-feedback-bridge.injectAutoApprovalScript",()=>ge());e.subscriptions.push(w),a("INFO",`Feedback server started on http://localhost:${v}`)}function j(e){if(!y||!A)return;let o=e.get("autoContinue.enabled",!1);A.text=`AI Bridge: ${v}`,A.tooltip="Click to configure AI Feedback Bridge",o?(y.text="$(sync~spin) Stop",y.tooltip=`Auto-Continue active
+Click to stop`):(y.text="$(play) Start",y.tooltip=`Auto-Continue inactive
+Click to start`)}async function ae(e){let o=m(),t=["tasks","improvements","coverage","robustness","cleanup","commits"],s=Date.now(),l=[],r="autoContinue.lastSent",i=e.globalState.get(r,{}),c={...i};for(let d of t){let g=o.get(`autoContinue.${d}.enabled`,!0),h=o.get(`autoContinue.${d}.interval`,300),C=o.get(`autoContinue.${d}.message`,"");if(!g||!C)continue;let w=i[d]||0;(s-w)/1e3>=h&&(l.push(C),c[d]=s)}return await e.globalState.update(r,c),l.length===0?"":l.join(". ")+"."}function H(e){if(m().get("autoContinue.enabled",!1)){let l=n.workspace.name||"No Workspace";a("INFO",`\u2705 Auto-Continue enabled for window: ${l}`),L=setInterval(async()=>{try{let r=await ae(e);r&&(a("INFO","[Auto-Continue] Sending periodic reminder"),await $(r,{source:"auto_continue",timestamp:new Date().toISOString()}))}catch(r){a("ERROR","[Auto-Continue] Failed to send message",{error:r})}},500)}else a("DEBUG","Auto-Continue is disabled")}function se(e){L&&(clearInterval(L),L=void 0,p.appendLine("Auto-Continue stopped")),H(e)}async function re(e,o,t,s){p.appendLine(`Chat request received: ${e.prompt}`),t.markdown(`### \u{1F504} Processing Feedback
 
 `),t.markdown(`**Message:** ${e.prompt}
 
@@ -265,7 +265,7 @@ Click to start`)}async function ae(e){let o=m(),t=["tasks","improvements","cover
 
 `):t.markdown(`Processing your message...
 
-`);try{let[s]=await n.lm.selectChatModels({vendor:"copilot",family:"gpt-4o"});if(s){let i=[n.LanguageModelChatMessage.User(e.prompt)],c=await s.sendRequest(i,{},r);for await(let d of c.text)t.markdown(d)}}catch(s){s instanceof n.LanguageModelError&&(p.appendLine(`Language model error: ${s.message}`),t.markdown(`\u26A0\uFE0F Error: ${s.message}
+`);try{let[r]=await n.lm.selectChatModels({vendor:"copilot",family:"gpt-4o"});if(r){let i=[n.LanguageModelChatMessage.User(e.prompt)],c=await r.sendRequest(i,{},s);for await(let d of c.text)t.markdown(d)}}catch(r){r instanceof n.LanguageModelError&&(p.appendLine(`Language model error: ${r.message}`),t.markdown(`\u26A0\uFE0F Error: ${r.message}
 
 `))}return{metadata:{command:"process-feedback"}}}async function $(e,o){try{let t=`# \u{1F504} FEEDBACK FROM EXTERNAL AI SYSTEM
 
@@ -280,125 +280,183 @@ ${JSON.stringify(o,null,2)}
 `),t+=`**Instructions:**
 `,t+="Analyze this feedback and provide actionable responses. ",t+="If it's a bug, analyze the root cause. ",t+="If it's a feature request, provide an implementation plan. ",t+=`Make code changes if needed using available tools.
 
-`,p.appendLine("Processing feedback through AI agent..."),p.appendLine(t);try{let[r]=await n.lm.selectChatModels({vendor:"copilot",family:"gpt-4o"});if(r)return p.appendLine("\u2705 AI Agent processing request..."),await n.commands.executeCommand("workbench.action.chat.open",{query:`@agent ${t}`}),setTimeout(async()=>{try{await n.commands.executeCommand("workbench.action.chat.submit")}catch{p.appendLine("Note: Could not auto-submit. User can press Enter to submit.")}},500),a("INFO","Feedback sent to AI Agent"),!0}catch(r){p.appendLine(`Could not access language model: ${r}`)}return await n.env.clipboard.writeText(t),a("INFO","Feedback copied to clipboard"),!0}catch(t){return a("ERROR",`Error sending to agent: ${t}`),!1}}async function ie(e,o){return $(e,o)}function ce(e){C=N.createServer(async(o,t)=>{if(t.setHeader("Access-Control-Allow-Origin","*"),t.setHeader("Access-Control-Allow-Methods","POST, OPTIONS"),t.setHeader("Access-Control-Allow-Headers","Content-Type"),o.method==="OPTIONS"){t.writeHead(200),t.end();return}if(o.method!=="POST"){t.writeHead(405,{"Content-Type":"application/json"}),t.end(JSON.stringify({error:"Method not allowed"}));return}if(o.url==="/restart-app"||o.url?.startsWith("/restart-app?")){let i=o.url.split("?"),c=new URLSearchParams(i[1]||""),d=parseInt(c.get("delay")||"30",10);p.appendLine(`Received restart request for Electron app (delay: ${d}s)`),t.writeHead(200,{"Content-Type":"application/json"}),t.end(JSON.stringify({success:!0,message:`App restart initiated (will restart in ${d}s)`,delay:d})),setTimeout(async()=>{try{let{exec:g}=require("child_process"),{promisify:h}=require("util"),A=h(g);p.appendLine("Killing Electron process...");try{await A('pkill -f "electron.*Code/AI"')}catch{p.appendLine("Kill command completed (process may not have been running)")}p.appendLine(`Waiting ${d} seconds before restart...`),await new Promise(u=>setTimeout(u,d*1e3));let w=n.workspace.workspaceFolders?.[0]?.uri.fsPath;w&&w.includes("/AI")?(p.appendLine(`Restarting Electron app in: ${w}`),g(`cd "${w}" && npm run dev > /dev/null 2>&1 &`),p.appendLine("Electron app restart command sent")):p.appendLine(`Could not find workspace path: ${w}`)}catch(g){p.appendLine(`Restart error: ${g}`)}},100);return}let r="",l=1024*1024,s=0;o.on("data",i=>{if(s+=i.length,s>l){a("WARN","Request body too large",{size:s}),t.writeHead(413,{"Content-Type":"application/json"}),t.end(JSON.stringify({error:"Request body too large (max 1MB)"})),o.destroy();return}r+=i.toString()}),o.on("end",async()=>{try{let i=JSON.parse(r);if(!i||typeof i!="object")throw new Error("Invalid feedback structure: must be an object");if(!i.message||typeof i.message!="string")throw new Error('Invalid feedback: missing or invalid "message" field');let c=i.message.trim();if(c.length===0)throw new Error("Invalid feedback: message cannot be empty");if(c.length>5e4)throw new Error("Invalid feedback: message too long (max 50000 characters)");a("INFO","Received feedback",{messageLength:c.length,hasContext:!!i.context});let d=await $(c,i.context);t.writeHead(200,{"Content-Type":"application/json"}),t.end(JSON.stringify({success:d,message:d?"Feedback sent to AI Agent":"Failed to send to AI Agent"}))}catch(i){let c=i instanceof Error?i.message:String(i);a("ERROR","Error processing feedback",{error:c}),i instanceof SyntaxError?(t.writeHead(400,{"Content-Type":"application/json"}),t.end(JSON.stringify({error:"Invalid JSON format"}))):(t.writeHead(400,{"Content-Type":"application/json"}),t.end(JSON.stringify({error:c})))}})});try{C.listen(v,()=>{a("INFO",`\u2705 Server listening on port ${v}`)}),C.on("error",o=>{o.code==="EADDRINUSE"?a("ERROR",`Port ${v} is already in use. Please change the port in settings.`):a("ERROR","Server error occurred",{error:o.message,code:o.code})})}catch(o){a("ERROR","Failed to start server",{error:o})}e.subscriptions.push({dispose:()=>{C&&(a("INFO","Closing server"),C.close())}})}function de(){let e=m(),o=e.get("autoApproval.enabled",!1),t=e.get("autoApproval.autoInject",!1);o&&(a("INFO",'Auto-approval enabled. Use "AI Feedback Bridge: Copy Auto-Approval Script" command to get the script.'),t&&(a("INFO","Auto-inject enabled. Attempting to inject script..."),setTimeout(()=>{le().catch(r=>{a("WARN","Auto-inject failed:",r)})},1e3)))}async function le(){let e=U();await n.env.clipboard.writeText(e);let o=n.window.createWebviewPanel("autoInject","Auto-Approval Auto-Injection",n.ViewColumn.One,{enableScripts:!0,retainContextWhenHidden:!0});o.webview.html=`
-		<!DOCTYPE html>
-		<html>
-		<head>
-			<meta charset="UTF-8">
-			<meta name="viewport" content="width=device-width, initial-scale=1.0">
-			<title>Auto-Approval Auto-Injection</title>
-			<style>
-				body { 
-					font-family: var(--vscode-font-family); 
-					padding: 20px; 
-					background: var(--vscode-editor-background);
-					color: var(--vscode-editor-foreground);
-				}
-				.status { padding: 10px; border-radius: 4px; margin: 10px 0; }
-				.success { background: var(--vscode-inputValidation-infoBorder); }
-				.warning { background: var(--vscode-inputValidation-warningBorder); }
-				.error { background: var(--vscode-inputValidation-errorBorder); }
-				button { 
-					background: var(--vscode-button-background);
-					color: var(--vscode-button-foreground);
-					border: none;
-					padding: 8px 16px;
-					border-radius: 4px;
-					cursor: pointer;
-					margin: 5px;
-				}
-				button:hover { background: var(--vscode-button-hoverBackground); }
-				pre { 
-					background: var(--vscode-textCodeBlock-background);
-					padding: 10px;
-					border-radius: 4px;
-					overflow-x: auto;
-					font-size: 12px;
-				}
-			</style>
-		</head>
-		<body>
-			<h2>\u{1F680} Auto-Approval Auto-Injection</h2>
-			
-			<div class="status warning">
-				<strong>\u26A1 Attempting Automatic Injection...</strong><br>
-				The script is being automatically injected into the developer console.
-			</div>
-			
-			<div id="status">
-				<p>Status: <span id="statusText">Initializing...</span></p>
-			</div>
-			
-			<div>
-				<button onclick="retryInjection()">\u{1F504} Retry Injection</button>
-				<button onclick="manualCopy()">\u{1F4CB} Manual Copy</button>
-				<button onclick="closePanel()">\u274C Close</button>
-			</div>
-			
-			<details>
-				<summary>\u{1F4DD} Script Contents (Click to expand)</summary>
-				<pre id="scriptContent"></pre>
-			</details>
-
-			<script>
-				const vscode = acquireVsCodeApi();
-				
-				// Store the script
-				const script = ${JSON.stringify(e)};
-				document.getElementById('scriptContent').textContent = script;
-				
-				// Attempt automatic injection
-				function attemptAutoInjection() {
-					try {
-						document.getElementById('statusText').textContent = 'Attempting injection...';
-						
-						// Try to inject into parent console
-						if (window.parent && window.parent.console) {
-							window.parent.eval(script);
-							document.getElementById('statusText').textContent = '\u2705 Injected successfully!';
-							document.getElementById('status').className = 'status success';
-							vscode.postMessage({ command: 'injectionSuccess' });
-							return true;
-						}
-						
-						// Alternative: try to access the main window
-						if (window.top && window.top !== window) {
-							window.top.eval(script);
-							document.getElementById('statusText').textContent = '\u2705 Injected successfully!';
-							document.getElementById('status').className = 'status success';
-							vscode.postMessage({ command: 'injectionSuccess' });
-							return true;
-						}
-						
-						throw new Error('Cannot access parent console');
-					} catch (error) {
-						document.getElementById('statusText').textContent = '\u274C Auto-injection failed: ' + error.message;
-						document.getElementById('status').className = 'status error';
-						vscode.postMessage({ command: 'injectionFailed', error: error.message });
-						return false;
+`,p.appendLine("Processing feedback through AI agent..."),p.appendLine(t);try{let[s]=await n.lm.selectChatModels({vendor:"copilot",family:"gpt-4o"});if(s)return p.appendLine("\u2705 AI Agent processing request..."),await n.commands.executeCommand("workbench.action.chat.open",{query:`@agent ${t}`}),setTimeout(async()=>{try{await n.commands.executeCommand("workbench.action.chat.submit")}catch{p.appendLine("Note: Could not auto-submit. User can press Enter to submit.")}},500),a("INFO","Feedback sent to AI Agent"),!0}catch(s){p.appendLine(`Could not access language model: ${s}`)}return await n.env.clipboard.writeText(t),a("INFO","Feedback copied to clipboard"),!0}catch(t){return a("ERROR",`Error sending to agent: ${t}`),!1}}async function ie(e,o){return $(e,o)}function ce(e){x=N.createServer(async(o,t)=>{if(t.setHeader("Access-Control-Allow-Origin","*"),t.setHeader("Access-Control-Allow-Methods","POST, OPTIONS"),t.setHeader("Access-Control-Allow-Headers","Content-Type"),o.method==="OPTIONS"){t.writeHead(200),t.end();return}if(o.method!=="POST"){t.writeHead(405,{"Content-Type":"application/json"}),t.end(JSON.stringify({error:"Method not allowed"}));return}if(o.url==="/restart-app"||o.url?.startsWith("/restart-app?")){let i=o.url.split("?"),c=new URLSearchParams(i[1]||""),d=parseInt(c.get("delay")||"30",10);p.appendLine(`Received restart request for Electron app (delay: ${d}s)`),t.writeHead(200,{"Content-Type":"application/json"}),t.end(JSON.stringify({success:!0,message:`App restart initiated (will restart in ${d}s)`,delay:d})),setTimeout(async()=>{try{let{exec:g}=require("child_process"),{promisify:h}=require("util"),C=h(g);p.appendLine("Killing Electron process...");try{await C('pkill -f "electron.*Code/AI"')}catch{p.appendLine("Kill command completed (process may not have been running)")}p.appendLine(`Waiting ${d} seconds before restart...`),await new Promise(u=>setTimeout(u,d*1e3));let w=n.workspace.workspaceFolders?.[0]?.uri.fsPath;w&&w.includes("/AI")?(p.appendLine(`Restarting Electron app in: ${w}`),g(`cd "${w}" && npm run dev > /dev/null 2>&1 &`),p.appendLine("Electron app restart command sent")):p.appendLine(`Could not find workspace path: ${w}`)}catch(g){p.appendLine(`Restart error: ${g}`)}},100);return}let s="",l=1024*1024,r=0;o.on("data",i=>{if(r+=i.length,r>l){a("WARN","Request body too large",{size:r}),t.writeHead(413,{"Content-Type":"application/json"}),t.end(JSON.stringify({error:"Request body too large (max 1MB)"})),o.destroy();return}s+=i.toString()}),o.on("end",async()=>{try{let i=JSON.parse(s);if(!i||typeof i!="object")throw new Error("Invalid feedback structure: must be an object");if(!i.message||typeof i.message!="string")throw new Error('Invalid feedback: missing or invalid "message" field');let c=i.message.trim();if(c.length===0)throw new Error("Invalid feedback: message cannot be empty");if(c.length>5e4)throw new Error("Invalid feedback: message too long (max 50000 characters)");a("INFO","Received feedback",{messageLength:c.length,hasContext:!!i.context});let d=await $(c,i.context);t.writeHead(200,{"Content-Type":"application/json"}),t.end(JSON.stringify({success:d,message:d?"Feedback sent to AI Agent":"Failed to send to AI Agent"}))}catch(i){let c=i instanceof Error?i.message:String(i);a("ERROR","Error processing feedback",{error:c}),i instanceof SyntaxError?(t.writeHead(400,{"Content-Type":"application/json"}),t.end(JSON.stringify({error:"Invalid JSON format"}))):(t.writeHead(400,{"Content-Type":"application/json"}),t.end(JSON.stringify({error:c})))}})});try{x.listen(v,()=>{a("INFO",`\u2705 Server listening on port ${v}`)}),x.on("error",o=>{o.code==="EADDRINUSE"?a("ERROR",`Port ${v} is already in use. Please change the port in settings.`):a("ERROR","Server error occurred",{error:o.message,code:o.code})})}catch(o){a("ERROR","Failed to start server",{error:o})}e.subscriptions.push({dispose:()=>{x&&(a("INFO","Closing server"),x.close())}})}function de(){let e=m(),o=e.get("autoApproval.enabled",!1),t=e.get("autoApproval.autoInject",!1);o&&(a("INFO",'Auto-approval enabled. Use "AI Feedback Bridge: Copy Auto-Approval Script" command to get the script.'),t&&(a("INFO","Auto-inject enabled. Attempting to inject script..."),setTimeout(()=>{le().catch(s=>{a("WARN","Auto-inject failed:",s)})},1e3)))}async function le(){try{let e=U();await n.env.clipboard.writeText(e),a("INFO","\u{1F4CB} Auto-approval script copied to clipboard");try{await n.commands.executeCommand("workbench.action.toggleDevTools"),a("INFO","\u{1F6E0}\uFE0F Developer Tools opened")}catch(t){a("WARN","Could not auto-open Developer Tools. Please open manually with Cmd+Option+I",t)}let o=n.window.createWebviewPanel("autoInject","\u{1F680} Auto-Approval Setup",n.ViewColumn.Beside,{enableScripts:!0,retainContextWhenHidden:!1});o.webview.html=`
+			<!DOCTYPE html>
+			<html>
+			<head>
+				<meta charset="UTF-8">
+				<meta name="viewport" content="width=device-width, initial-scale=1.0">
+				<title>Auto-Approval Setup</title>
+				<style>
+					* { box-sizing: border-box; margin: 0; padding: 0; }
+					body { 
+						font-family: var(--vscode-font-family); 
+						padding: 20px; 
+						background: var(--vscode-editor-background);
+						color: var(--vscode-editor-foreground);
+						line-height: 1.6;
 					}
-				}
+					h2 { 
+						margin-bottom: 20px; 
+						color: var(--vscode-textLink-foreground);
+					}
+					.steps {
+						background: var(--vscode-textCodeBlock-background);
+						padding: 20px;
+						border-radius: 6px;
+						margin: 20px 0;
+					}
+					.step {
+						display: flex;
+						gap: 12px;
+						margin: 15px 0;
+						align-items: flex-start;
+					}
+					.step-num {
+						background: var(--vscode-button-background);
+						color: var(--vscode-button-foreground);
+						width: 28px;
+						height: 28px;
+						border-radius: 50%;
+						display: flex;
+						align-items: center;
+						justify-content: center;
+						font-weight: bold;
+						flex-shrink: 0;
+					}
+					.step-text {
+						flex: 1;
+						padding-top: 4px;
+					}
+					.highlight {
+						background: var(--vscode-textLink-foreground);
+						color: var(--vscode-editor-background);
+						padding: 2px 6px;
+						border-radius: 3px;
+						font-weight: 600;
+					}
+					button { 
+						background: var(--vscode-button-background);
+						color: var(--vscode-button-foreground);
+						border: none;
+						padding: 10px 20px;
+						border-radius: 4px;
+						cursor: pointer;
+						margin: 5px 5px 5px 0;
+						font-size: 13px;
+						font-family: var(--vscode-font-family);
+					}
+					button:hover { background: var(--vscode-button-hoverBackground); }
+					.success {
+						background: rgba(0, 200, 0, 0.15);
+						border-left: 3px solid #0c0;
+						padding: 10px 15px;
+						margin: 15px 0;
+						border-radius: 3px;
+					}
+					.code-box {
+						background: var(--vscode-editor-background);
+						border: 1px solid var(--vscode-panel-border);
+						padding: 15px;
+						border-radius: 4px;
+						margin: 15px 0;
+						max-height: 300px;
+						overflow-y: auto;
+						font-family: 'Monaco', 'Courier New', monospace;
+						font-size: 11px;
+						white-space: pre-wrap;
+						word-break: break-all;
+					}
+					.actions {
+						margin-top: 20px;
+						padding-top: 20px;
+						border-top: 1px solid var(--vscode-panel-border);
+					}
+				</style>
+			</head>
+			<body>
+				<h2>\u{1F680} Auto-Approval Script Ready!</h2>
 				
-				function retryInjection() {
-					attemptAutoInjection();
-				}
-				
-				function manualCopy() {
-					navigator.clipboard.writeText(script).then(() => {
-						vscode.postMessage({ command: 'manualCopy' });
-					});
-				}
-				
-				function closePanel() {
-					vscode.postMessage({ command: 'close' });
-				}
-				
-				// Try injection on load
-				setTimeout(attemptAutoInjection, 500);
-			</script>
-		</body>
-		</html>
-	`,o.webview.onDidReceiveMessage(async t=>{switch(t.command){case"injectionSuccess":a("INFO","Auto-approval script injected successfully"),o.dispose(),setTimeout(async()=>{try{await n.commands.executeCommand("workbench.action.toggleDevTools"),a("INFO","Developer Tools auto-closed after successful injection")}catch(r){a("WARN","Could not auto-close Developer Tools",r)}},1e3);break;case"injectionFailed":a("WARN",`Auto-injection failed: ${t.error}. Use manual copy instead.`);break;case"manualCopy":a("INFO","Script copied to clipboard");break;case"close":o.dispose();break}})}function U(){try{let e=D.join(O.extensionPath,"auto-approval-script.js");return M.readFileSync(e,"utf8")}catch(e){return a("ERROR","Failed to read auto-approval-script.js",e),"// Error: Could not load auto-approval script"}}function pe(e){if(b){p.appendLine("Auto-approval is already enabled");return}let t=m().get("autoApproval.intervalMs",2e3);a("INFO",`Enabling auto-approval with ${t}ms interval`),b=setInterval(async()=>{try{await n.commands.executeCommand("workbench.action.acceptSelectedQuickOpenItem")}catch{}},t),e.subscriptions.push({dispose:()=>{b&&(clearInterval(b),b=void 0)}}),a("INFO",'Auto-approval enabled. Use "AI Feedback Bridge: Copy Auto-Approval Script" command to get the script.')}function ue(){b?(clearInterval(b),b=void 0,p.appendLine("Auto-approval disabled"),a("INFO","Auto-approval disabled")):a("INFO","Auto-approval is not currently enabled")}function ge(){let e=U(),o=n.window.createWebviewPanel("autoApprovalScript","Auto-Approval Script",n.ViewColumn.One,{enableScripts:!0});o.webview.html=ve(e),n.env.clipboard.writeText(e),a("INFO","Auto-approval script copied to clipboard")}function ve(e){return`<!DOCTYPE html>
+				<div class="success">
+					<strong>\u2705 Script copied to clipboard!</strong><br>
+					Follow the steps below to complete the setup.
+				</div>
+
+				<div class="steps">
+					<div class="step">
+						<div class="step-num">1</div>
+						<div class="step-text">
+							Open Developer Tools in your browser window<br>
+							<span style="opacity: 0.7; font-size: 11px;">
+								(Usually <span class="highlight">Cmd+Option+I</span> on Mac or <span class="highlight">F12</span> on Windows/Linux)
+							</span>
+						</div>
+					</div>
+					
+					<div class="step">
+						<div class="step-num">2</div>
+						<div class="step-text">
+							Click on the <span class="highlight">Console</span> tab in the developer tools
+						</div>
+					</div>
+					
+					<div class="step">
+						<div class="step-num">3</div>
+						<div class="step-text">
+							Paste the script with <span class="highlight">Cmd+V</span> (Mac) or <span class="highlight">Ctrl+V</span> (Windows/Linux)
+						</div>
+					</div>
+					
+					<div class="step">
+						<div class="step-num">4</div>
+						<div class="step-text">
+							Press <span class="highlight">Enter</span> to execute the script
+						</div>
+					</div>
+					
+					<div class="step">
+						<div class="step-num">5</div>
+						<div class="step-text">
+							You should see: <span style="color: #0c0;">"\u2705 AI Auto-Approval enabled!"</span>
+						</div>
+					</div>
+				</div>
+
+				<details>
+					<summary style="cursor: pointer; user-select: none; margin: 15px 0;">
+						<strong>\u{1F4DD} Script Contents</strong> (click to view)
+					</summary>
+					<div class="code-box" id="scriptContent"></div>
+				</details>
+
+				<div class="actions">
+					<button onclick="copyAgain()">\u{1F4CB} Copy Script Again</button>
+					<button onclick="openDevTools()">\u{1F6E0}\uFE0F Open Developer Tools</button>
+					<button onclick="done()">\u2705 Done</button>
+				</div>
+
+				<script>
+					const vscode = acquireVsCodeApi();
+					const script = ${JSON.stringify(e)};
+					document.getElementById('scriptContent').textContent = script;
+					
+					function copyAgain() {
+						navigator.clipboard.writeText(script).then(() => {
+							vscode.postMessage({ command: 'copied' });
+						});
+					}
+					
+					function openDevTools() {
+						vscode.postMessage({ command: 'openDevTools' });
+					}
+					
+					function done() {
+						vscode.postMessage({ command: 'close' });
+					}
+				</script>
+			</body>
+			</html>
+		`,o.webview.onDidReceiveMessage(async t=>{switch(t.command){case"copied":a("INFO","\u{1F4CB} Script copied to clipboard again");break;case"openDevTools":try{await n.commands.executeCommand("workbench.action.toggleDevTools"),a("INFO","\u{1F6E0}\uFE0F Developer Tools toggled")}catch(s){a("WARN","Could not toggle Developer Tools",s)}break;case"close":o.dispose(),a("INFO","\u2705 Auto-inject setup completed");break}})}catch(e){a("ERROR","Failed to auto-inject script",e)}}function U(){try{let e=M.join(O.extensionPath,"auto-approval-script.js");return D.readFileSync(e,"utf8")}catch(e){return a("ERROR","Failed to read auto-approval-script.js",e),"// Error: Could not load auto-approval script"}}function pe(e){if(b){p.appendLine("Auto-approval is already enabled");return}let t=m().get("autoApproval.intervalMs",2e3);a("INFO",`Enabling auto-approval with ${t}ms interval`),b=setInterval(async()=>{try{await n.commands.executeCommand("workbench.action.acceptSelectedQuickOpenItem")}catch{}},t),e.subscriptions.push({dispose:()=>{b&&(clearInterval(b),b=void 0)}}),a("INFO",'Auto-approval enabled. Use "AI Feedback Bridge: Copy Auto-Approval Script" command to get the script.')}function ue(){b?(clearInterval(b),b=void 0,p.appendLine("Auto-approval disabled"),a("INFO","Auto-approval disabled")):a("INFO","Auto-approval is not currently enabled")}function ge(){let e=U(),o=n.window.createWebviewPanel("autoApprovalScript","Auto-Approval Script",n.ViewColumn.One,{enableScripts:!0});o.webview.html=ve(e),n.env.clipboard.writeText(e),a("INFO","Auto-approval script copied to clipboard")}function ve(e){return`<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -510,4 +568,4 @@ ${JSON.stringify(o,null,2)}
         }
     </script>
 </body>
-</html>`}async function be(){C&&(C.close(),a("INFO","HTTP server closed")),I&&(clearInterval(I),I=void 0,a("INFO","Auto-continue timer cleared")),b&&(clearInterval(b),b=void 0,a("INFO","Auto-approval interval cleared")),O&&await te(O,v),a("INFO","\u{1F44B} AI Agent Feedback Bridge deactivated")}0&&(module.exports={activate,deactivate});
+</html>`}async function be(){x&&(x.close(),a("INFO","HTTP server closed")),L&&(clearInterval(L),L=void 0,a("INFO","Auto-continue timer cleared")),b&&(clearInterval(b),b=void 0,a("INFO","Auto-approval interval cleared")),O&&await te(O,v),a("INFO","\u{1F44B} AI Agent Feedback Bridge deactivated")}0&&(module.exports={activate,deactivate});

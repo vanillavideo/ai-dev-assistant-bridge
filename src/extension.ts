@@ -329,11 +329,11 @@ function getSettingsHtml(config: vscode.WorkspaceConfiguration): string {
 		.toggle-cb { display: none; }
 		.toggle-label {
 			display: inline-block;
-			width: 34px;
-			height: 18px;
+			width: 32px;
+			height: 16px;
 			background: var(--vscode-input-background);
 			border: 1px solid var(--vscode-input-border);
-			border-radius: 9px;
+			border-radius: 8px;
 			position: relative;
 			cursor: pointer;
 			transition: all 0.2s;
@@ -341,8 +341,8 @@ function getSettingsHtml(config: vscode.WorkspaceConfiguration): string {
 		.toggle-label:after {
 			content: '';
 			position: absolute;
-			width: 12px;
-			height: 12px;
+			width: 10px;
+			height: 10px;
 			border-radius: 50%;
 			background: var(--vscode-input-foreground);
 			top: 2px;
@@ -1109,171 +1109,238 @@ function initializeAutoApproval() {
 
 /**
  * Attempt to automatically inject the script into the console
+ * Since we can't directly inject into browser console from VS Code extension,
+ * we'll do the next best thing: open dev tools, copy script, and show notification
  */
 async function autoInjectScript() {
-	const script = getAutoApprovalScript();
-	
-	// Copy script to clipboard
-	await vscode.env.clipboard.writeText(script);
-	
-	// Create a webview panel that can inject the script
-	const panel = vscode.window.createWebviewPanel(
-		'autoInject',
-		'Auto-Approval Auto-Injection',
-		vscode.ViewColumn.One,
-		{
-			enableScripts: true,
-			retainContextWhenHidden: true
+	try {
+		const script = getAutoApprovalScript();
+		
+		// Step 1: Copy script to clipboard
+		await vscode.env.clipboard.writeText(script);
+		log(LogLevel.INFO, '📋 Auto-approval script copied to clipboard');
+		
+		// Step 2: Try to open developer tools
+		try {
+			await vscode.commands.executeCommand('workbench.action.toggleDevTools');
+			log(LogLevel.INFO, '🛠️ Developer Tools opened');
+		} catch (error) {
+			log(LogLevel.WARN, 'Could not auto-open Developer Tools. Please open manually with Cmd+Option+I', error);
 		}
-	);
+		
+		// Step 3: Show a helpful webview panel with instructions
+		const panel = vscode.window.createWebviewPanel(
+			'autoInject',
+			'🚀 Auto-Approval Setup',
+			vscode.ViewColumn.Beside,
+			{
+				enableScripts: true,
+				retainContextWhenHidden: false
+			}
+		);
 
-	panel.webview.html = `
-		<!DOCTYPE html>
-		<html>
-		<head>
-			<meta charset="UTF-8">
-			<meta name="viewport" content="width=device-width, initial-scale=1.0">
-			<title>Auto-Approval Auto-Injection</title>
-			<style>
-				body { 
-					font-family: var(--vscode-font-family); 
-					padding: 20px; 
-					background: var(--vscode-editor-background);
-					color: var(--vscode-editor-foreground);
-				}
-				.status { padding: 10px; border-radius: 4px; margin: 10px 0; }
-				.success { background: var(--vscode-inputValidation-infoBorder); }
-				.warning { background: var(--vscode-inputValidation-warningBorder); }
-				.error { background: var(--vscode-inputValidation-errorBorder); }
-				button { 
-					background: var(--vscode-button-background);
-					color: var(--vscode-button-foreground);
-					border: none;
-					padding: 8px 16px;
-					border-radius: 4px;
-					cursor: pointer;
-					margin: 5px;
-				}
-				button:hover { background: var(--vscode-button-hoverBackground); }
-				pre { 
-					background: var(--vscode-textCodeBlock-background);
-					padding: 10px;
-					border-radius: 4px;
-					overflow-x: auto;
-					font-size: 12px;
-				}
-			</style>
-		</head>
-		<body>
-			<h2>🚀 Auto-Approval Auto-Injection</h2>
-			
-			<div class="status warning">
-				<strong>⚡ Attempting Automatic Injection...</strong><br>
-				The script is being automatically injected into the developer console.
-			</div>
-			
-			<div id="status">
-				<p>Status: <span id="statusText">Initializing...</span></p>
-			</div>
-			
-			<div>
-				<button onclick="retryInjection()">🔄 Retry Injection</button>
-				<button onclick="manualCopy()">📋 Manual Copy</button>
-				<button onclick="closePanel()">❌ Close</button>
-			</div>
-			
-			<details>
-				<summary>📝 Script Contents (Click to expand)</summary>
-				<pre id="scriptContent"></pre>
-			</details>
-
-			<script>
-				const vscode = acquireVsCodeApi();
-				
-				// Store the script
-				const script = ${JSON.stringify(script)};
-				document.getElementById('scriptContent').textContent = script;
-				
-				// Attempt automatic injection
-				function attemptAutoInjection() {
-					try {
-						document.getElementById('statusText').textContent = 'Attempting injection...';
-						
-						// Try to inject into parent console
-						if (window.parent && window.parent.console) {
-							window.parent.eval(script);
-							document.getElementById('statusText').textContent = '✅ Injected successfully!';
-							document.getElementById('status').className = 'status success';
-							vscode.postMessage({ command: 'injectionSuccess' });
-							return true;
-						}
-						
-						// Alternative: try to access the main window
-						if (window.top && window.top !== window) {
-							window.top.eval(script);
-							document.getElementById('statusText').textContent = '✅ Injected successfully!';
-							document.getElementById('status').className = 'status success';
-							vscode.postMessage({ command: 'injectionSuccess' });
-							return true;
-						}
-						
-						throw new Error('Cannot access parent console');
-					} catch (error) {
-						document.getElementById('statusText').textContent = '❌ Auto-injection failed: ' + error.message;
-						document.getElementById('status').className = 'status error';
-						vscode.postMessage({ command: 'injectionFailed', error: error.message });
-						return false;
+		panel.webview.html = `
+			<!DOCTYPE html>
+			<html>
+			<head>
+				<meta charset="UTF-8">
+				<meta name="viewport" content="width=device-width, initial-scale=1.0">
+				<title>Auto-Approval Setup</title>
+				<style>
+					* { box-sizing: border-box; margin: 0; padding: 0; }
+					body { 
+						font-family: var(--vscode-font-family); 
+						padding: 20px; 
+						background: var(--vscode-editor-background);
+						color: var(--vscode-editor-foreground);
+						line-height: 1.6;
 					}
-				}
+					h2 { 
+						margin-bottom: 20px; 
+						color: var(--vscode-textLink-foreground);
+					}
+					.steps {
+						background: var(--vscode-textCodeBlock-background);
+						padding: 20px;
+						border-radius: 6px;
+						margin: 20px 0;
+					}
+					.step {
+						display: flex;
+						gap: 12px;
+						margin: 15px 0;
+						align-items: flex-start;
+					}
+					.step-num {
+						background: var(--vscode-button-background);
+						color: var(--vscode-button-foreground);
+						width: 28px;
+						height: 28px;
+						border-radius: 50%;
+						display: flex;
+						align-items: center;
+						justify-content: center;
+						font-weight: bold;
+						flex-shrink: 0;
+					}
+					.step-text {
+						flex: 1;
+						padding-top: 4px;
+					}
+					.highlight {
+						background: var(--vscode-textLink-foreground);
+						color: var(--vscode-editor-background);
+						padding: 2px 6px;
+						border-radius: 3px;
+						font-weight: 600;
+					}
+					button { 
+						background: var(--vscode-button-background);
+						color: var(--vscode-button-foreground);
+						border: none;
+						padding: 10px 20px;
+						border-radius: 4px;
+						cursor: pointer;
+						margin: 5px 5px 5px 0;
+						font-size: 13px;
+						font-family: var(--vscode-font-family);
+					}
+					button:hover { background: var(--vscode-button-hoverBackground); }
+					.success {
+						background: rgba(0, 200, 0, 0.15);
+						border-left: 3px solid #0c0;
+						padding: 10px 15px;
+						margin: 15px 0;
+						border-radius: 3px;
+					}
+					.code-box {
+						background: var(--vscode-editor-background);
+						border: 1px solid var(--vscode-panel-border);
+						padding: 15px;
+						border-radius: 4px;
+						margin: 15px 0;
+						max-height: 300px;
+						overflow-y: auto;
+						font-family: 'Monaco', 'Courier New', monospace;
+						font-size: 11px;
+						white-space: pre-wrap;
+						word-break: break-all;
+					}
+					.actions {
+						margin-top: 20px;
+						padding-top: 20px;
+						border-top: 1px solid var(--vscode-panel-border);
+					}
+				</style>
+			</head>
+			<body>
+				<h2>🚀 Auto-Approval Script Ready!</h2>
 				
-				function retryInjection() {
-					attemptAutoInjection();
-				}
-				
-				function manualCopy() {
-					navigator.clipboard.writeText(script).then(() => {
-						vscode.postMessage({ command: 'manualCopy' });
-					});
-				}
-				
-				function closePanel() {
-					vscode.postMessage({ command: 'close' });
-				}
-				
-				// Try injection on load
-				setTimeout(attemptAutoInjection, 500);
-			</script>
-		</body>
-		</html>
-	`;
+				<div class="success">
+					<strong>✅ Script copied to clipboard!</strong><br>
+					Follow the steps below to complete the setup.
+				</div>
 
-	// Handle messages from webview
-	panel.webview.onDidReceiveMessage(async (message) => {
-		switch (message.command) {
-			case 'injectionSuccess':
-				log(LogLevel.INFO, 'Auto-approval script injected successfully');
-				panel.dispose();
-				// Auto-close developer tools after successful injection
-				setTimeout(async () => {
+				<div class="steps">
+					<div class="step">
+						<div class="step-num">1</div>
+						<div class="step-text">
+							Open Developer Tools in your browser window<br>
+							<span style="opacity: 0.7; font-size: 11px;">
+								(Usually <span class="highlight">Cmd+Option+I</span> on Mac or <span class="highlight">F12</span> on Windows/Linux)
+							</span>
+						</div>
+					</div>
+					
+					<div class="step">
+						<div class="step-num">2</div>
+						<div class="step-text">
+							Click on the <span class="highlight">Console</span> tab in the developer tools
+						</div>
+					</div>
+					
+					<div class="step">
+						<div class="step-num">3</div>
+						<div class="step-text">
+							Paste the script with <span class="highlight">Cmd+V</span> (Mac) or <span class="highlight">Ctrl+V</span> (Windows/Linux)
+						</div>
+					</div>
+					
+					<div class="step">
+						<div class="step-num">4</div>
+						<div class="step-text">
+							Press <span class="highlight">Enter</span> to execute the script
+						</div>
+					</div>
+					
+					<div class="step">
+						<div class="step-num">5</div>
+						<div class="step-text">
+							You should see: <span style="color: #0c0;">"✅ AI Auto-Approval enabled!"</span>
+						</div>
+					</div>
+				</div>
+
+				<details>
+					<summary style="cursor: pointer; user-select: none; margin: 15px 0;">
+						<strong>📝 Script Contents</strong> (click to view)
+					</summary>
+					<div class="code-box" id="scriptContent"></div>
+				</details>
+
+				<div class="actions">
+					<button onclick="copyAgain()">📋 Copy Script Again</button>
+					<button onclick="openDevTools()">🛠️ Open Developer Tools</button>
+					<button onclick="done()">✅ Done</button>
+				</div>
+
+				<script>
+					const vscode = acquireVsCodeApi();
+					const script = ${JSON.stringify(script)};
+					document.getElementById('scriptContent').textContent = script;
+					
+					function copyAgain() {
+						navigator.clipboard.writeText(script).then(() => {
+							vscode.postMessage({ command: 'copied' });
+						});
+					}
+					
+					function openDevTools() {
+						vscode.postMessage({ command: 'openDevTools' });
+					}
+					
+					function done() {
+						vscode.postMessage({ command: 'close' });
+					}
+				</script>
+			</body>
+			</html>
+		`;
+
+		// Handle messages from webview
+		panel.webview.onDidReceiveMessage(async (message) => {
+			switch (message.command) {
+				case 'copied':
+					log(LogLevel.INFO, '📋 Script copied to clipboard again');
+					break;
+				case 'openDevTools':
 					try {
 						await vscode.commands.executeCommand('workbench.action.toggleDevTools');
-						log(LogLevel.INFO, 'Developer Tools auto-closed after successful injection');
+						log(LogLevel.INFO, '🛠️ Developer Tools toggled');
 					} catch (error) {
-						log(LogLevel.WARN, 'Could not auto-close Developer Tools', error);
+						log(LogLevel.WARN, 'Could not toggle Developer Tools', error);
 					}
-				}, 1000);
-				break;
-			case 'injectionFailed':
-				log(LogLevel.WARN, `Auto-injection failed: ${message.error}. Use manual copy instead.`);
-				break;
-			case 'manualCopy':
-				log(LogLevel.INFO, 'Script copied to clipboard');
-				break;
-			case 'close':
-				panel.dispose();
-				break;
-		}
-	});
+					break;
+				case 'close':
+					panel.dispose();
+					log(LogLevel.INFO, '✅ Auto-inject setup completed');
+					break;
+			}
+		});
+		
+	} catch (error) {
+		log(LogLevel.ERROR, 'Failed to auto-inject script', error);
+	}
 }
 
 /**
