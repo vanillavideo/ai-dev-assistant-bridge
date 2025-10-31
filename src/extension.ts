@@ -30,17 +30,38 @@ enum LogLevel {
 /**
  * Structured logging helper with timestamps
  */
-function log(level: LogLevel, message: string, data?: any) {
+function log(level: LogLevel, message: string, data?: unknown) {
 	const timestamp = new Date().toISOString();
 	const prefix = `[${timestamp}] [${level}]`;
 	const fullMessage = data ? `${prefix} ${message} ${JSON.stringify(data)}` : `${prefix} ${message}`;
 	
+
 	outputChannel.appendLine(fullMessage);
 	
 	// Also log errors to console for debugging
 	if (level === LogLevel.ERROR) {
 		console.error(fullMessage);
 	}
+}
+
+/**
+ * Type guard to check if error is an Error instance
+ */
+function isError(error: unknown): error is Error {
+	return error instanceof Error;
+}
+
+/**
+ * Safely extract error message from unknown error type
+ */
+function getErrorMessage(error: unknown): string {
+	if (isError(error)) {
+		return error.message;
+	}
+	if (typeof error === 'string') {
+		return error;
+	}
+	return JSON.stringify(error);
 }
 
 /**
@@ -55,7 +76,7 @@ function getConfig(): vscode.WorkspaceConfiguration {
 /**
  * Update configuration for workspace scope
  */
-async function updateConfig(key: string, value: any): Promise<void> {
+async function updateConfig(key: string, value: unknown): Promise<void> {
 	const config = getConfig();
 	// Use Workspace target so settings are workspace-specific
 	await config.update(key, value, vscode.ConfigurationTarget.Workspace);
@@ -150,7 +171,7 @@ async function isPortAvailable(port: number): Promise<boolean> {
 	return new Promise((resolve) => {
 		const testServer = http.createServer();
 		
-		testServer.once('error', (err: any) => {
+		testServer.once('error', (err: NodeJS.ErrnoException) => {
 			if (err.code === 'EADDRINUSE') {
 				resolve(false);
 			} else {
@@ -238,7 +259,9 @@ function showSettingsPanel(context: vscode.ExtensionContext) {
 							vscode.window.showInformationMessage('No enabled categories (check settings)');
 						}
 					} catch (error) {
-						log(LogLevel.ERROR, '[Run Now] Failed to send message', { error });
+						log(LogLevel.ERROR, '[Run Now] Failed to send message', { 
+							error: getErrorMessage(error)
+						});
 						vscode.window.showErrorMessage('Failed to send reminders');
 					}
 					break;
@@ -648,7 +671,10 @@ export async function activate(context: vscode.ExtensionContext) {
 		}
 
 		if (feedbackText) {
-			await sendToCopilotChat(feedbackText, {});
+			await sendToCopilotChat(feedbackText, {
+				source: 'manual_command',
+				timestamp: new Date().toISOString()
+			});
 		}
 	});
 
@@ -890,7 +916,9 @@ function startAutoContinue(context: vscode.ExtensionContext) {
 					});
 				}
 			} catch (error) {
-				log(LogLevel.ERROR, '[Auto-Continue] Failed to send message', { error });
+				log(LogLevel.ERROR, '[Auto-Continue] Failed to send message', { 
+					error: getErrorMessage(error)
+				});
 			}
 		}, checkInterval);
 	} else {
@@ -963,24 +991,34 @@ async function handleChatRequest(
 }
 
 /**
+ * Context object for feedback messages
+ */
+interface FeedbackContext {
+	source: string;
+	timestamp: string;
+	[key: string]: unknown;
+}
+
+/**
  * Send feedback directly to the AI agent for automatic processing
  */
-async function sendToAgent(feedbackMessage: string, appContext: any): Promise<boolean> {
+async function sendToAgent(feedbackMessage: string, appContext: FeedbackContext): Promise<boolean> {
 	try {
-		// Format the message with context
-		let fullMessage = `# 🔄 FEEDBACK FROM EXTERNAL AI SYSTEM\n\n`;
+		// Ultra-concise format to minimize token usage
+		let fullMessage = `# � AI DEV MODE\n\n`;
 		fullMessage += `**User Feedback:**\n${feedbackMessage}\n\n`;
 
-		if (appContext && Object.keys(appContext).length > 0) {
-			fullMessage += `**Context:**\n`;
-			fullMessage += `\`\`\`json\n${JSON.stringify(appContext, null, 2)}\n\`\`\`\n\n`;
+		// Only include context if it has meaningful data beyond source/timestamp
+		const contextKeys = Object.keys(appContext).filter(k => k !== 'source' && k !== 'timestamp');
+		if (contextKeys.length > 0) {
+			fullMessage += `**Context:**\n\`\`\`json\n${JSON.stringify(appContext, null, 2)}\n\`\`\`\n\n`;
 		}
 
 		fullMessage += `**Instructions:**\n`;
-		fullMessage += `Analyze this feedback and provide actionable responses. `;
-		fullMessage += `If it's a bug, analyze the root cause. `;
-		fullMessage += `If it's a feature request, provide an implementation plan. `;
-		fullMessage += `Make code changes if needed using available tools.\n\n`;
+		fullMessage += `Analyze feedback, take appropriate action:\n`;
+		fullMessage += `• If a bug → find and fix root cause\n`;
+		fullMessage += `• If a feature → draft implementation plan\n`;
+		fullMessage += `• Apply and commit changes\n`;
 
 		outputChannel.appendLine('Processing feedback through AI agent...');
 		outputChannel.appendLine(fullMessage);
@@ -998,21 +1036,21 @@ async function sendToAgent(feedbackMessage: string, appContext: any): Promise<bo
 				});
 				
 				// Auto-submit by sending the submit command
-				// Wait a tiny bit for the text to populate
+				// Short delay to allow chat UI to populate (300ms is sufficient)
 				setTimeout(async () => {
 					try {
 						await vscode.commands.executeCommand('workbench.action.chat.submit');
 					} catch (e) {
 						outputChannel.appendLine('Note: Could not auto-submit. User can press Enter to submit.');
 					}
-				}, 500);
+				}, 300);
 				
 				// Silent success - logged only
 				log(LogLevel.INFO, 'Feedback sent to AI Agent');
 				return true;
 			}
 		} catch (modelError) {
-			outputChannel.appendLine(`Could not access language model: ${modelError}`);
+			outputChannel.appendLine(`Could not access language model: ${getErrorMessage(modelError)}`);
 		}
 
 		// Fallback: copy to clipboard
@@ -1022,7 +1060,7 @@ async function sendToAgent(feedbackMessage: string, appContext: any): Promise<bo
 		return true;
 
 	} catch (error) {
-		log(LogLevel.ERROR, `Error sending to agent: ${error}`);
+		log(LogLevel.ERROR, `Error sending to agent: ${getErrorMessage(error)}`);
 		return false;
 	}
 }
@@ -1030,7 +1068,7 @@ async function sendToAgent(feedbackMessage: string, appContext: any): Promise<bo
 /**
  * Send feedback to GitHub Copilot Chat (legacy method - kept for manual command)
  */
-async function sendToCopilotChat(feedbackMessage: string, appContext: any): Promise<boolean> {
+async function sendToCopilotChat(feedbackMessage: string, appContext: FeedbackContext): Promise<boolean> {
 	return sendToAgent(feedbackMessage, appContext);
 }
 
@@ -1223,12 +1261,12 @@ function initializeAutoApproval() {
 		// Auto-inject if enabled
 		if (autoInjectEnabled) {
 			log(LogLevel.INFO, 'Auto-inject enabled. Launching quick setup...');
-			// Delay slightly to ensure extension is fully initialized
+			// Minimal delay to ensure extension is fully initialized (1s is sufficient)
 			setTimeout(() => {
 				autoInjectScript().catch(err => {
-					log(LogLevel.WARN, 'Auto-inject setup failed:', err);
+					log(LogLevel.WARN, 'Auto-inject setup failed:', getErrorMessage(err));
 				});
-			}, 1500); // Slightly longer delay for better UX
+			}, 1000);
 		}
 	}
 }
@@ -1250,11 +1288,11 @@ async function autoInjectScript() {
 			await vscode.commands.executeCommand('workbench.action.toggleDevTools');
 			log(LogLevel.INFO, '🛠️ Developer Tools toggled');
 		} catch (error) {
-			log(LogLevel.WARN, 'Could not toggle Developer Tools', error);
+			log(LogLevel.WARN, 'Could not toggle Developer Tools', getErrorMessage(error));
 		}
 		
 	} catch (error) {
-		log(LogLevel.ERROR, 'Failed to copy script', error);
+		log(LogLevel.ERROR, 'Failed to copy script', getErrorMessage(error));
 	}
 }
 
@@ -1268,7 +1306,7 @@ function getAutoApprovalScript(): string {
 		const scriptContent = fs.readFileSync(scriptPath, 'utf8');
 		return scriptContent;
 	} catch (error) {
-		log(LogLevel.ERROR, 'Failed to read auto-approval-script.js', error);
+		log(LogLevel.ERROR, 'Failed to read auto-approval-script.js', getErrorMessage(error));
 		return '// Error: Could not load auto-approval script';
 	}
 }

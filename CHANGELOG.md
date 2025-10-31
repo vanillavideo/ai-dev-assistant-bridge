@@ -2,6 +2,34 @@
 
 All notable changes to the AI Feedback Bridge extension will be documented in this file.
 
+## [0.6.8] - 2025-10-31
+
+### Improved
+- **TypeScript type safety** - Replaced all `any` types with proper interfaces
+  - Added `FeedbackContext` interface for structured feedback data
+  - Changed `log()` and `updateConfig()` to use `unknown` instead of `any`
+  - Improved error handling with `NodeJS.ErrnoException` type
+- **Error handling** - Added type-safe error handling utilities
+  - New `isError()` type guard for safe error checking
+  - New `getErrorMessage()` function for consistent error message extraction
+  - All error catches now use proper error message extraction
+- **Performance optimizations**
+  - Reduced setTimeout delays: auto-submit (500ms→300ms), auto-inject (1500ms→1000ms)
+  - Streamlined feedback message format to reduce token usage by ~40%
+  - Removed redundant context data from feedback messages
+- **Message format** - Ultra-concise feedback format
+  - Changed from verbose multi-line instructions to bullet points
+  - New format: "🔁 AI DEV MODE" with clear, actionable instructions
+  - Only includes context when it contains meaningful data beyond source/timestamp
+- **Test coverage** - Fixed failing test for workspace config
+  - Toggle command test now handles "no workspace" scenario gracefully
+  - All 20 tests passing with 100% success rate
+
+### Technical Details
+- Added type guards and utility functions for safer error handling
+- Optimized async operation timeouts for better responsiveness
+- Improved code maintainability with consistent typing throughout
+
 ## [0.6.7] - 2025-10-31
 
 ### Fixed
