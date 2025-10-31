@@ -1,160 +1,679 @@
-"use strict";var G=Object.create;var L=Object.defineProperty;var K=Object.getOwnPropertyDescriptor;var _=Object.getOwnPropertyNames;var Y=Object.getPrototypeOf,q=Object.prototype.hasOwnProperty;var Q=(e,n)=>{for(var o in n)L(e,o,{get:n[o],enumerable:!0})},B=(e,n,o,a)=>{if(n&&typeof n=="object"||typeof n=="function")for(let d of _(n))!q.call(e,d)&&d!==o&&L(e,d,{get:()=>n[d],enumerable:!(a=K(n,d))||a.enumerable});return e};var P=(e,n,o)=>(o=e!=null?G(Y(e)):{},B(n||!e||!e.__esModule?L(o,"default",{value:e,enumerable:!0}):o,e)),X=e=>B(L({},"__esModule",{value:!0}),e);var me={};Q(me,{activate:()=>ne,deactivate:()=>ge});module.exports=X(me);var t=P(require("vscode")),F=P(require("http")),W=P(require("fs")),H=P(require("path")),C,c,R,w,A,p=3737,b,O;function s(e,n,o){let d=`[${new Date().toISOString()}] [${e}]`,i=o?`${d} ${n} ${JSON.stringify(o)}`:`${d} ${n}`;c.appendLine(i),e==="ERROR"&&console.error(i)}function h(){return t.workspace.getConfiguration("aiFeedbackBridge",null)}async function S(e,n){await h().update(e,n,t.ConfigurationTarget.Global)}var U="aiFeedbackBridge.portRegistry",j=3737,Z=50;async function J(e){return e.globalState.get(U,[])}async function $(e,n){await e.globalState.update(U,n)}async function ee(e){let n=await J(e),o=t.workspace.name||"No Workspace",a=t.workspace.workspaceFolders?.[0]?.uri.fsPath||"no-workspace",d=Date.now()-60*60*1e3,i=n.filter(g=>g.timestamp>d),r=i.find(g=>g.workspace===a);if(r)return s("INFO",`Reusing existing port ${r.port} for workspace`),r.timestamp=Date.now(),await $(e,i),r.port;let m=new Set(i.map(g=>g.port)),u=j;for(let g=0;g<Z;g++){let y=j+g;if(!m.has(y)&&await te(y)){u=y;break}}return i.push({port:u,workspace:a,timestamp:Date.now()}),await $(e,i),s("INFO",`Auto-assigned port ${u} for workspace: ${o}`),u}async function te(e){return new Promise(n=>{let o=F.createServer();o.once("error",a=>{a.code==="EADDRINUSE"?n(!1):n(!0)}),o.once("listening",()=>{o.close(),n(!0)}),o.listen(e)})}async function oe(e,n){let o=await J(e),a=t.workspace.workspaceFolders?.[0]?.uri.fsPath||"no-workspace",d=o.filter(i=>!(i.port===n&&i.workspace===a));await $(e,d),s("INFO",`Released port ${n}`)}async function ne(e){console.log("AI Agent Feedback Bridge is now active!"),O=e,c=t.window.createOutputChannel("AI Agent Feedback"),e.subscriptions.push(c),s("INFO","\u{1F680} AI Agent Feedback Bridge activated");let n=h(),o=n.get("port");!o||o===3737?(p=await ee(e),await S("port",p),s("INFO",`Auto-selected port: ${p}`)):(p=o,s("INFO",`Using configured port: ${p}`));let a=t.workspace.name||"No Workspace",d=t.workspace.workspaceFolders?.length||0;s("INFO",`Window context: ${a} (${d} folders)`),w=t.window.createStatusBarItem(t.StatusBarAlignment.Right,100),D(n),w.command={command:"ai-feedback-bridge.statusBarMenu",title:"AI Feedback Bridge Menu"},w.show(),e.subscriptions.push(w);let i=t.commands.registerCommand("ai-feedback-bridge.statusBarMenu",async()=>{let v=h().get("autoContinue.enabled",!1),f=[{label:v?"$(debug-pause) Stop Auto-Continue":"$(play) Start Auto-Continue",description:v?"Stop sending periodic reminders":"Start sending periodic reminders",action:"toggle"},{label:"$(gear) Settings",description:"Configure ports and intervals",action:"settings"}],I=await t.window.showQuickPick(f,{placeHolder:`AI Feedback Bridge - Port ${p}`});if(I)switch(I.action){case"toggle":await t.commands.executeCommand("ai-feedback-bridge.toggleAutoContinue");break;case"settings":await t.commands.executeCommand("workbench.action.openSettings","aiFeedbackBridge");break}});e.subscriptions.push(i),ie(e);let r=t.commands.registerCommand("ai-agent-feedback-bridge.sendToCopilotChat",async l=>{l||(l=await t.window.showInputBox({prompt:"Enter feedback to send to Copilot Chat",placeHolder:"Describe the issue or request..."})),l&&await re(l,{})});e.subscriptions.push(r);let m=t.commands.registerCommand("ai-feedback-bridge.toggleAutoContinue",async()=>{let v=h().get("autoContinue.enabled",!1);await S("autoContinue.enabled",!v),t.window.showInformationMessage(`Auto-Continue ${v?"disabled \u274C":"enabled \u2705"}`)});e.subscriptions.push(m);let u=t.commands.registerCommand("ai-feedback-bridge.changePort",async()=>{let l=await t.window.showInputBox({prompt:"Enter new port number",value:p.toString(),validateInput:v=>{let f=parseInt(v);return isNaN(f)||f<1024||f>65535?"Invalid port (1024-65535)":null}});l&&(await S("port",parseInt(l)),t.window.showInformationMessage(`Port changed to ${l}. Reload VS Code.`,"Reload").then(v=>v==="Reload"&&t.commands.executeCommand("workbench.action.reloadWindow")))});e.subscriptions.push(u);let g=t.commands.registerCommand("ai-feedback-bridge.showStatus",()=>{let l=h(),v=l.get("autoContinue.interval",300),f=l.get("autoContinue.enabled",!1),N=`\u{1F309} AI Feedback Bridge Status
+"use strict";
+var __create = Object.create;
+var __defProp = Object.defineProperty;
+var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __getProtoOf = Object.getPrototypeOf;
+var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __export = (target, all) => {
+  for (var name in all)
+    __defProp(target, name, { get: all[name], enumerable: true });
+};
+var __copyProps = (to, from, except, desc) => {
+  if (from && typeof from === "object" || typeof from === "function") {
+    for (let key of __getOwnPropNames(from))
+      if (!__hasOwnProp.call(to, key) && key !== except)
+        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+  }
+  return to;
+};
+var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(
+  // If the importer is in node compatibility mode or this is not an ESM
+  // file that has been converted to a CommonJS file using a Babel-
+  // compatible transform (i.e. "__esModule" has not been set), then set
+  // "default" to the CommonJS "module.exports" for node compatibility.
+  isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
+  mod
+));
+var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 
-Window: ${t.workspace.name||"No Workspace"}
-Port: ${p}
-Server: ${C?"Running \u2705":"Stopped \u274C"}
-Auto-Continue: ${f?`Enabled \u2705 (every ${v}s)`:"Disabled \u274C"}
-Endpoint: http://localhost:${p}`;t.window.showInformationMessage(N,"Open Settings","Toggle Auto-Continue").then(M=>{M==="Open Settings"?t.commands.executeCommand("workbench.action.openSettings","aiFeedbackBridge"):M==="Toggle Auto-Continue"&&t.commands.executeCommand("ai-feedback-bridge.toggleAutoContinue")}),c.appendLine(N)});e.subscriptions.push(g),z(e),ce(),e.subscriptions.push(t.workspace.onDidChangeConfiguration(l=>{if(l.affectsConfiguration("aiFeedbackBridge")){let v=h();if(s("DEBUG","Configuration changed",{workspace:t.workspace.name,affectedKeys:["port","autoContinue"].filter(f=>l.affectsConfiguration(`aiFeedbackBridge.${f}`))}),l.affectsConfiguration("aiFeedbackBridge.port")){let f=v.get("port",3737);f!==p&&(s("INFO",`Port change detected: ${p} \u2192 ${f}`),t.window.showInformationMessage(`Port changed from ${p} to ${f}. Reload this window to apply.`,"Reload Now","Later").then(I=>{I==="Reload Now"&&t.commands.executeCommand("workbench.action.reloadWindow")}))}w&&D(v),l.affectsConfiguration("aiFeedbackBridge.autoContinue")&&ae(e)}})),R=t.chat.createChatParticipant("ai-agent-feedback-bridge.agent",se),R.iconPath=t.Uri.file(e.asAbsolutePath("icon.png")),e.subscriptions.push(R);let y=t.commands.registerCommand("ai-agent-feedback-bridge.enableAutoApproval",()=>le(e));e.subscriptions.push(y);let E=t.commands.registerCommand("ai-agent-feedback-bridge.disableAutoApproval",()=>pe());e.subscriptions.push(E);let k=t.commands.registerCommand("ai-agent-feedback-bridge.injectAutoApprovalScript",()=>x());e.subscriptions.push(k),s("INFO",`Feedback server started on http://localhost:${p}`)}function D(e){if(!w)return;let n=e.get("autoContinue.enabled",!1),o=e.get("autoContinue.interval",300),a="$(radio-tower)",d=n?"$(sync~spin)":"$(debug-pause)";w.text=`${a} ${p} ${d}`,w.tooltip=new t.MarkdownString(`**AI Feedback Bridge**
+// src/extension.ts
+var extension_exports = {};
+__export(extension_exports, {
+  activate: () => activate,
+  deactivate: () => deactivate
+});
+module.exports = __toCommonJS(extension_exports);
+var vscode = __toESM(require("vscode"));
+var http = __toESM(require("http"));
+var fs = __toESM(require("fs"));
+var path = __toESM(require("path"));
+var server;
+var outputChannel;
+var chatParticipant;
+var statusBarItem;
+var autoContinueTimer;
+var currentPort = 3737;
+var autoApprovalInterval;
+var extensionContext;
+function log(level, message, data) {
+  const timestamp = (/* @__PURE__ */ new Date()).toISOString();
+  const prefix = `[${timestamp}] [${level}]`;
+  const fullMessage = data ? `${prefix} ${message} ${JSON.stringify(data)}` : `${prefix} ${message}`;
+  outputChannel.appendLine(fullMessage);
+  if (level === "ERROR" /* ERROR */) {
+    console.error(fullMessage);
+  }
+}
+function getConfig() {
+  return vscode.workspace.getConfiguration("aiFeedbackBridge", null);
+}
+async function updateConfig(key, value) {
+  const config = getConfig();
+  await config.update(key, value, vscode.ConfigurationTarget.Global);
+}
+var PORT_REGISTRY_KEY = "aiFeedbackBridge.portRegistry";
+var BASE_PORT = 3737;
+var MAX_PORT_SEARCH = 50;
+async function getPortRegistry(context) {
+  return context.globalState.get(PORT_REGISTRY_KEY, []);
+}
+async function savePortRegistry(context, registry) {
+  await context.globalState.update(PORT_REGISTRY_KEY, registry);
+}
+async function findAvailablePort(context) {
+  const registry = await getPortRegistry(context);
+  const workspaceName = vscode.workspace.name || "No Workspace";
+  const workspaceId = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || "no-workspace";
+  const oneHourAgo = Date.now() - 60 * 60 * 1e3;
+  const activeRegistry = registry.filter((entry) => entry.timestamp > oneHourAgo);
+  const existingEntry = activeRegistry.find((entry) => entry.workspace === workspaceId);
+  if (existingEntry) {
+    log("INFO" /* INFO */, `Reusing existing port ${existingEntry.port} for workspace`);
+    existingEntry.timestamp = Date.now();
+    await savePortRegistry(context, activeRegistry);
+    return existingEntry.port;
+  }
+  const usedPorts = new Set(activeRegistry.map((e) => e.port));
+  let port = BASE_PORT;
+  for (let i = 0; i < MAX_PORT_SEARCH; i++) {
+    const candidatePort = BASE_PORT + i;
+    if (!usedPorts.has(candidatePort)) {
+      const isAvailable = await isPortAvailable(candidatePort);
+      if (isAvailable) {
+        port = candidatePort;
+        break;
+      }
+    }
+  }
+  activeRegistry.push({
+    port,
+    workspace: workspaceId,
+    timestamp: Date.now()
+  });
+  await savePortRegistry(context, activeRegistry);
+  log("INFO" /* INFO */, `Auto-assigned port ${port} for workspace: ${workspaceName}`);
+  return port;
+}
+async function isPortAvailable(port) {
+  return new Promise((resolve) => {
+    const testServer = http.createServer();
+    testServer.once("error", (err) => {
+      if (err.code === "EADDRINUSE") {
+        resolve(false);
+      } else {
+        resolve(true);
+      }
+    });
+    testServer.once("listening", () => {
+      testServer.close();
+      resolve(true);
+    });
+    testServer.listen(port);
+  });
+}
+async function releasePort(context, port) {
+  const registry = await getPortRegistry(context);
+  const workspaceId = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || "no-workspace";
+  const filtered = registry.filter(
+    (entry) => !(entry.port === port && entry.workspace === workspaceId)
+  );
+  await savePortRegistry(context, filtered);
+  log("INFO" /* INFO */, `Released port ${port}`);
+}
+async function activate(context) {
+  console.log("AI Agent Feedback Bridge is now active!");
+  extensionContext = context;
+  outputChannel = vscode.window.createOutputChannel("AI Agent Feedback");
+  context.subscriptions.push(outputChannel);
+  log("INFO" /* INFO */, "\u{1F680} AI Agent Feedback Bridge activated");
+  const config = getConfig();
+  const configuredPort = config.get("port");
+  if (!configuredPort || configuredPort === 3737) {
+    currentPort = await findAvailablePort(context);
+    await updateConfig("port", currentPort);
+    log("INFO" /* INFO */, `Auto-selected port: ${currentPort}`);
+  } else {
+    currentPort = configuredPort;
+    log("INFO" /* INFO */, `Using configured port: ${currentPort}`);
+  }
+  const workspaceName = vscode.workspace.name || "No Workspace";
+  const workspaceFolders = vscode.workspace.workspaceFolders?.length || 0;
+  log("INFO" /* INFO */, `Window context: ${workspaceName} (${workspaceFolders} folders)`);
+  statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
+  updateStatusBar(config);
+  statusBarItem.command = {
+    command: "ai-feedback-bridge.statusBarMenu",
+    title: "AI Feedback Bridge Menu"
+  };
+  statusBarItem.show();
+  context.subscriptions.push(statusBarItem);
+  const statusBarMenuCmd = vscode.commands.registerCommand("ai-feedback-bridge.statusBarMenu", async () => {
+    const cfg = getConfig();
+    const autoContinueEnabled = cfg.get("autoContinue.enabled", false);
+    const items = [
+      {
+        label: autoContinueEnabled ? "$(debug-pause) Stop Auto-Continue" : "$(play) Start Auto-Continue",
+        description: autoContinueEnabled ? "Stop sending periodic reminders" : "Start sending periodic reminders",
+        action: "toggle"
+      },
+      {
+        label: "$(gear) Settings",
+        description: "Configure ports and intervals",
+        action: "settings"
+      }
+    ];
+    const selected = await vscode.window.showQuickPick(items, {
+      placeHolder: `AI Feedback Bridge - Port ${currentPort}`
+    });
+    if (selected) {
+      switch (selected.action) {
+        case "toggle":
+          await vscode.commands.executeCommand("ai-feedback-bridge.toggleAutoContinue");
+          break;
+        case "settings":
+          await vscode.commands.executeCommand("workbench.action.openSettings", "aiFeedbackBridge");
+          break;
+      }
+    }
+  });
+  context.subscriptions.push(statusBarMenuCmd);
+  startFeedbackServer(context);
+  const disposable = vscode.commands.registerCommand("ai-agent-feedback-bridge.sendToCopilotChat", async (feedbackText) => {
+    if (!feedbackText) {
+      feedbackText = await vscode.window.showInputBox({
+        prompt: "Enter feedback to send to Copilot Chat",
+        placeHolder: "Describe the issue or request..."
+      });
+    }
+    if (feedbackText) {
+      await sendToCopilotChat(feedbackText, {});
+    }
+  });
+  context.subscriptions.push(disposable);
+  const toggleAutoContinueCmd = vscode.commands.registerCommand("ai-feedback-bridge.toggleAutoContinue", async () => {
+    const cfg = getConfig();
+    const currentState = cfg.get("autoContinue.enabled", false);
+    await updateConfig("autoContinue.enabled", !currentState);
+    log("INFO" /* INFO */, `Auto-Continue ${!currentState ? "enabled" : "disabled"}`);
+  });
+  context.subscriptions.push(toggleAutoContinueCmd);
+  const changePortCmd = vscode.commands.registerCommand("ai-feedback-bridge.changePort", async () => {
+    const newPort = await vscode.window.showInputBox({
+      prompt: "Enter new port number",
+      value: currentPort.toString(),
+      validateInput: (value) => {
+        const port = parseInt(value);
+        return isNaN(port) || port < 1024 || port > 65535 ? "Invalid port (1024-65535)" : null;
+      }
+    });
+    if (newPort) {
+      await updateConfig("port", parseInt(newPort));
+      log("INFO" /* INFO */, `Port changed to ${newPort}. Reloading VS Code...`);
+      vscode.commands.executeCommand("workbench.action.reloadWindow");
+    }
+  });
+  context.subscriptions.push(changePortCmd);
+  const showStatusCmd = vscode.commands.registerCommand("ai-feedback-bridge.showStatus", () => {
+    const cfg = getConfig();
+    const autoInterval = cfg.get("autoContinue.interval", 300);
+    const autoEnabled = cfg.get("autoContinue.enabled", false);
+    const workspaceName2 = vscode.workspace.name || "No Workspace";
+    const msg = `\u{1F309} AI Feedback Bridge Status
 
-**Port:** ${p}
-**Auto-Continue:** ${n?`ON (every ${o}s)`:"OFF"}
+Window: ${workspaceName2}
+Port: ${currentPort}
+Server: ${server ? "Running \u2705" : "Stopped \u274C"}
+Auto-Continue: ${autoEnabled ? `Enabled \u2705 (every ${autoInterval}s)` : "Disabled \u274C"}
+Endpoint: http://localhost:${currentPort}`;
+    outputChannel.appendLine(msg);
+    outputChannel.show();
+  });
+  context.subscriptions.push(showStatusCmd);
+  startAutoContinue(context);
+  initializeAutoApproval();
+  context.subscriptions.push(
+    vscode.workspace.onDidChangeConfiguration((e) => {
+      if (e.affectsConfiguration("aiFeedbackBridge")) {
+        const cfg = getConfig();
+        log("DEBUG" /* DEBUG */, "Configuration changed", {
+          workspace: vscode.workspace.name,
+          affectedKeys: ["port", "autoContinue"].filter(
+            (k) => e.affectsConfiguration(`aiFeedbackBridge.${k}`)
+          )
+        });
+        if (e.affectsConfiguration("aiFeedbackBridge.port")) {
+          const newPort = cfg.get("port", 3737);
+          if (newPort !== currentPort) {
+            log("INFO" /* INFO */, `Port change detected: ${currentPort} \u2192 ${newPort}. Reloading window...`);
+            vscode.commands.executeCommand("workbench.action.reloadWindow");
+          }
+        }
+        if (statusBarItem) {
+          updateStatusBar(cfg);
+        }
+        if (e.affectsConfiguration("aiFeedbackBridge.autoContinue")) {
+          restartAutoContinue(context);
+        }
+      }
+    })
+  );
+  chatParticipant = vscode.chat.createChatParticipant("ai-agent-feedback-bridge.agent", handleChatRequest);
+  chatParticipant.iconPath = vscode.Uri.file(context.asAbsolutePath("icon.png"));
+  context.subscriptions.push(chatParticipant);
+  const enableAutoApprovalCommand = vscode.commands.registerCommand(
+    "ai-agent-feedback-bridge.enableAutoApproval",
+    () => enableAutoApproval(context)
+  );
+  context.subscriptions.push(enableAutoApprovalCommand);
+  const disableAutoApprovalCommand = vscode.commands.registerCommand(
+    "ai-agent-feedback-bridge.disableAutoApproval",
+    () => disableAutoApproval()
+  );
+  context.subscriptions.push(disableAutoApprovalCommand);
+  const injectAutoApprovalScriptCommand = vscode.commands.registerCommand(
+    "ai-agent-feedback-bridge.injectAutoApprovalScript",
+    () => injectAutoApprovalScript()
+  );
+  context.subscriptions.push(injectAutoApprovalScriptCommand);
+  log("INFO" /* INFO */, `Feedback server started on http://localhost:${currentPort}`);
+}
+function updateStatusBar(config) {
+  if (!statusBarItem) {
+    return;
+  }
+  const autoEnabled = config.get("autoContinue.enabled", false);
+  const autoInterval = config.get("autoContinue.interval", 300);
+  const portIcon = "$(radio-tower)";
+  const autoIcon = autoEnabled ? "$(sync~spin)" : "$(debug-pause)";
+  statusBarItem.text = `${portIcon} ${currentPort} ${autoIcon}`;
+  statusBarItem.tooltip = new vscode.MarkdownString(
+    `**AI Feedback Bridge**
+
+**Port:** ${currentPort}
+**Auto-Continue:** ${autoEnabled ? `ON (every ${autoInterval}s)` : "OFF"}
 
 ---
 
 \u{1F5B1}\uFE0F **Click for:**
 \u2022 Start/Stop Auto-Continue
-\u2022 Settings`),w.tooltip.supportHtml=!0}function z(e){let n=h();if(n.get("autoContinue.enabled",!1)){let a=n.get("autoContinue.interval",300)*1e3,d=n.get("autoContinue.message","Continue with tasks, improvements, code coverage, please. Prioritize improvements, code robustness, maintainability. Cleanup unused files if you need to. Periodically commit."),i=t.workspace.name||"No Workspace";s("INFO",`\u2705 Auto-Continue enabled for window: ${i} (every ${a/1e3}s)`),A=setInterval(async()=>{try{s("INFO","[Auto-Continue] Sending periodic reminder"),await T(d,{source:"auto_continue",timestamp:new Date().toISOString(),interval:a/1e3})}catch(r){s("ERROR","[Auto-Continue] Failed to send message",{error:r})}},a)}else s("DEBUG","Auto-Continue is disabled")}function ae(e){A&&(clearInterval(A),A=void 0,c.appendLine("Auto-Continue stopped")),z(e)}async function se(e,n,o,a){c.appendLine(`Chat request received: ${e.prompt}`),o.markdown(`### \u{1F504} Processing Feedback
+\u2022 Settings`
+  );
+  statusBarItem.tooltip.supportHtml = true;
+}
+async function getSmartAutoContinueMessage(context) {
+  const config = getConfig();
+  const categories = ["tasks", "improvements", "coverage", "robustness", "cleanup", "commits"];
+  const now = Date.now();
+  const messages = [];
+  const lastSentKey = "autoContinue.lastSent";
+  const lastSent = context.globalState.get(lastSentKey, {});
+  const newLastSent = { ...lastSent };
+  for (const category of categories) {
+    const categoryConfig = config.get(`autoContinue.messages.${category}`);
+    if (!categoryConfig || !categoryConfig.enabled) {
+      continue;
+    }
+    const lastSentTime = lastSent[category] || 0;
+    const elapsed = (now - lastSentTime) / 1e3;
+    if (elapsed >= categoryConfig.interval) {
+      messages.push(categoryConfig.message);
+      newLastSent[category] = now;
+    }
+  }
+  await context.globalState.update(lastSentKey, newLastSent);
+  if (messages.length === 0) {
+    return "";
+  }
+  return messages.join(". ") + ".";
+}
+function startAutoContinue(context) {
+  const config = getConfig();
+  const enabled = config.get("autoContinue.enabled", false);
+  if (enabled) {
+    const interval = config.get("autoContinue.interval", 300) * 1e3;
+    const workspaceName = vscode.workspace.name || "No Workspace";
+    log("INFO" /* INFO */, `\u2705 Auto-Continue enabled for window: ${workspaceName} (checking every ${interval / 1e3}s)`);
+    autoContinueTimer = setInterval(async () => {
+      try {
+        const message = await getSmartAutoContinueMessage(context);
+        if (message) {
+          log("INFO" /* INFO */, "[Auto-Continue] Sending periodic reminder");
+          await sendToAgent(message, {
+            source: "auto_continue",
+            timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+            interval: interval / 1e3
+          });
+        } else {
+          log("DEBUG" /* DEBUG */, "[Auto-Continue] No messages due yet");
+        }
+      } catch (error) {
+        log("ERROR" /* ERROR */, "[Auto-Continue] Failed to send message", { error });
+      }
+    }, interval);
+  } else {
+    log("DEBUG" /* DEBUG */, "Auto-Continue is disabled");
+  }
+}
+function restartAutoContinue(context) {
+  if (autoContinueTimer) {
+    clearInterval(autoContinueTimer);
+    autoContinueTimer = void 0;
+    outputChannel.appendLine("Auto-Continue stopped");
+  }
+  startAutoContinue(context);
+}
+async function handleChatRequest(request, context, stream, token) {
+  outputChannel.appendLine(`Chat request received: ${request.prompt}`);
+  stream.markdown(`### \u{1F504} Processing Feedback
 
-`),o.markdown(`**Message:** ${e.prompt}
+`);
+  stream.markdown(`**Message:** ${request.prompt}
 
-`),e.prompt.match(/# 🔄 FEEDBACK FROM AI AGENT SYSTEM APP/)?o.markdown(`I've received feedback from your external AI agent system. Let me analyze it:
+`);
+  const feedbackMatch = request.prompt.match(/# 🔄 FEEDBACK FROM AI AGENT SYSTEM APP/);
+  if (feedbackMatch) {
+    stream.markdown(`I've received feedback from your external AI agent system. Let me analyze it:
 
-`):o.markdown(`Processing your message...
+`);
+  } else {
+    stream.markdown(`Processing your message...
 
-`);try{let[i]=await t.lm.selectChatModels({vendor:"copilot",family:"gpt-4o"});if(i){let r=[t.LanguageModelChatMessage.User(e.prompt)],m=await i.sendRequest(r,{},a);for await(let u of m.text)o.markdown(u)}}catch(i){i instanceof t.LanguageModelError&&(c.appendLine(`Language model error: ${i.message}`),o.markdown(`\u26A0\uFE0F Error: ${i.message}
+`);
+  }
+  try {
+    const [model] = await vscode.lm.selectChatModels({ vendor: "copilot", family: "gpt-4o" });
+    if (model) {
+      const messages = [
+        vscode.LanguageModelChatMessage.User(request.prompt)
+      ];
+      const response = await model.sendRequest(messages, {}, token);
+      for await (const fragment of response.text) {
+        stream.markdown(fragment);
+      }
+    }
+  } catch (err) {
+    if (err instanceof vscode.LanguageModelError) {
+      outputChannel.appendLine(`Language model error: ${err.message}`);
+      stream.markdown(`\u26A0\uFE0F Error: ${err.message}
 
-`))}return{metadata:{command:"process-feedback"}}}async function T(e,n){try{let o=`# \u{1F504} FEEDBACK FROM EXTERNAL AI SYSTEM
+`);
+    }
+  }
+  return { metadata: { command: "process-feedback" } };
+}
+async function sendToAgent(feedbackMessage, appContext) {
+  try {
+    let fullMessage = `# \u{1F504} FEEDBACK FROM EXTERNAL AI SYSTEM
 
-`;o+=`**User Feedback:**
-${e}
+`;
+    fullMessage += `**User Feedback:**
+${feedbackMessage}
 
-`,n&&Object.keys(n).length>0&&(o+=`**Context:**
-`,o+=`\`\`\`json
-${JSON.stringify(n,null,2)}
+`;
+    if (appContext && Object.keys(appContext).length > 0) {
+      fullMessage += `**Context:**
+`;
+      fullMessage += `\`\`\`json
+${JSON.stringify(appContext, null, 2)}
 \`\`\`
 
-`),o+=`**Instructions:**
-`,o+="Analyze this feedback and provide actionable responses. ",o+="If it's a bug, analyze the root cause. ",o+="If it's a feature request, provide an implementation plan. ",o+=`Make code changes if needed using available tools.
+`;
+    }
+    fullMessage += `**Instructions:**
+`;
+    fullMessage += `Analyze this feedback and provide actionable responses. `;
+    fullMessage += `If it's a bug, analyze the root cause. `;
+    fullMessage += `If it's a feature request, provide an implementation plan. `;
+    fullMessage += `Make code changes if needed using available tools.
 
-`,c.appendLine("Processing feedback through AI agent..."),c.appendLine(o);try{let[a]=await t.lm.selectChatModels({vendor:"copilot",family:"gpt-4o"});if(a)return c.appendLine("\u2705 AI Agent processing request..."),await t.commands.executeCommand("workbench.action.chat.open",{query:`@agent ${o}`}),setTimeout(async()=>{try{await t.commands.executeCommand("workbench.action.chat.submit")}catch{c.appendLine("Note: Could not auto-submit. User can press Enter to submit.")}},500),s("INFO","Feedback sent to AI Agent"),!0}catch(a){c.appendLine(`Could not access language model: ${a}`)}return await t.env.clipboard.writeText(o),t.window.showInformationMessage("Feedback copied to clipboard! Open Copilot Chat (@workspace) and paste it.","Open Chat").then(a=>{a==="Open Chat"&&t.commands.executeCommand("workbench.action.chat.open")}),!0}catch(o){return c.appendLine(`Error sending to agent: ${o}`),t.window.showErrorMessage(`Failed to send to agent: ${o}`),!1}}async function re(e,n){return T(e,n)}function ie(e){C=F.createServer(async(n,o)=>{if(o.setHeader("Access-Control-Allow-Origin","*"),o.setHeader("Access-Control-Allow-Methods","POST, OPTIONS"),o.setHeader("Access-Control-Allow-Headers","Content-Type"),n.method==="OPTIONS"){o.writeHead(200),o.end();return}if(n.method!=="POST"){o.writeHead(405,{"Content-Type":"application/json"}),o.end(JSON.stringify({error:"Method not allowed"}));return}if(n.url==="/restart-app"||n.url?.startsWith("/restart-app?")){let r=n.url.split("?"),m=new URLSearchParams(r[1]||""),u=parseInt(m.get("delay")||"30",10);c.appendLine(`Received restart request for Electron app (delay: ${u}s)`),o.writeHead(200,{"Content-Type":"application/json"}),o.end(JSON.stringify({success:!0,message:`App restart initiated (will restart in ${u}s)`,delay:u})),setTimeout(async()=>{try{let{exec:g}=require("child_process"),{promisify:y}=require("util"),E=y(g);c.appendLine("Killing Electron process...");try{await E('pkill -f "electron.*Code/AI"')}catch{c.appendLine("Kill command completed (process may not have been running)")}c.appendLine(`Waiting ${u} seconds before restart...`),await new Promise(l=>setTimeout(l,u*1e3));let k=t.workspace.workspaceFolders?.[0]?.uri.fsPath;k&&k.includes("/AI")?(c.appendLine(`Restarting Electron app in: ${k}`),g(`cd "${k}" && npm run dev > /dev/null 2>&1 &`),c.appendLine("Electron app restart command sent")):c.appendLine(`Could not find workspace path: ${k}`)}catch(g){c.appendLine(`Restart error: ${g}`)}},100);return}let a="",d=1024*1024,i=0;n.on("data",r=>{if(i+=r.length,i>d){s("WARN","Request body too large",{size:i}),o.writeHead(413,{"Content-Type":"application/json"}),o.end(JSON.stringify({error:"Request body too large (max 1MB)"})),n.destroy();return}a+=r.toString()}),n.on("end",async()=>{try{let r=JSON.parse(a);if(!r||typeof r!="object")throw new Error("Invalid feedback structure: must be an object");if(!r.message||typeof r.message!="string")throw new Error('Invalid feedback: missing or invalid "message" field');let m=r.message.trim();if(m.length===0)throw new Error("Invalid feedback: message cannot be empty");if(m.length>5e4)throw new Error("Invalid feedback: message too long (max 50000 characters)");s("INFO","Received feedback",{messageLength:m.length,hasContext:!!r.context});let u=await T(m,r.context);o.writeHead(200,{"Content-Type":"application/json"}),o.end(JSON.stringify({success:u,message:u?"Feedback sent to AI Agent":"Failed to send to AI Agent"}))}catch(r){let m=r instanceof Error?r.message:String(r);s("ERROR","Error processing feedback",{error:m}),r instanceof SyntaxError?(o.writeHead(400,{"Content-Type":"application/json"}),o.end(JSON.stringify({error:"Invalid JSON format"}))):(o.writeHead(400,{"Content-Type":"application/json"}),o.end(JSON.stringify({error:m})))}})});try{C.listen(p,()=>{s("INFO",`\u2705 Server listening on port ${p}`)}),C.on("error",n=>{n.code==="EADDRINUSE"?(s("ERROR",`Port ${p} is already in use`,{error:n.message}),t.window.showErrorMessage(`Port ${p} is already in use. Please change the port in settings.`,"Open Settings").then(o=>{o==="Open Settings"&&t.commands.executeCommand("workbench.action.openSettings","aiFeedbackBridge")})):(s("ERROR","Server error occurred",{error:n.message,code:n.code}),t.window.showErrorMessage(`Server error: ${n.message}`))})}catch(n){s("ERROR","Failed to start server",{error:n}),t.window.showErrorMessage(`Failed to start feedback server: ${n}`)}e.subscriptions.push({dispose:()=>{C&&(s("INFO","Closing server"),C.close())}})}function ce(){h().get("autoApproval.enabled",!1)&&setTimeout(async()=>{try{await t.commands.executeCommand("workbench.action.toggleDevTools"),setTimeout(()=>{t.window.showInformationMessage('Auto-Approval enabled! Developer Tools opened. Click "Auto-Inject Script" to automatically paste and run the script.',"Auto-Inject Script","Manual Copy","Disable").then(o=>{o==="Auto-Inject Script"?de():o==="Manual Copy"?x():o==="Disable"&&S("autoApproval.enabled",!1)})},1e3)}catch{t.window.showInformationMessage("Auto-Approval is enabled! Click to get the console script.","Get Script","Disable").then(a=>{a==="Get Script"?x():a==="Disable"&&S("autoApproval.enabled",!1)})}},2e3)}async function de(){let e=V();await t.env.clipboard.writeText(e);let n=t.window.createWebviewPanel("autoInject","Auto-Approval Auto-Injection",t.ViewColumn.One,{enableScripts:!0,retainContextWhenHidden:!0});n.webview.html=`
-		<!DOCTYPE html>
-		<html>
-		<head>
-			<meta charset="UTF-8">
-			<meta name="viewport" content="width=device-width, initial-scale=1.0">
-			<title>Auto-Approval Auto-Injection</title>
-			<style>
-				body { 
-					font-family: var(--vscode-font-family); 
-					padding: 20px; 
-					background: var(--vscode-editor-background);
-					color: var(--vscode-editor-foreground);
-				}
-				.status { padding: 10px; border-radius: 4px; margin: 10px 0; }
-				.success { background: var(--vscode-inputValidation-infoBorder); }
-				.warning { background: var(--vscode-inputValidation-warningBorder); }
-				.error { background: var(--vscode-inputValidation-errorBorder); }
-				button { 
-					background: var(--vscode-button-background);
-					color: var(--vscode-button-foreground);
-					border: none;
-					padding: 8px 16px;
-					border-radius: 4px;
-					cursor: pointer;
-					margin: 5px;
-				}
-				button:hover { background: var(--vscode-button-hoverBackground); }
-				pre { 
-					background: var(--vscode-textCodeBlock-background);
-					padding: 10px;
-					border-radius: 4px;
-					overflow-x: auto;
-					font-size: 12px;
-				}
-			</style>
-		</head>
-		<body>
-			<h2>\u{1F680} Auto-Approval Auto-Injection</h2>
-			
-			<div class="status warning">
-				<strong>\u26A1 Attempting Automatic Injection...</strong><br>
-				The script is being automatically injected into the developer console.
-			</div>
-			
-			<div id="status">
-				<p>Status: <span id="statusText">Initializing...</span></p>
-			</div>
-			
-			<div>
-				<button onclick="retryInjection()">\u{1F504} Retry Injection</button>
-				<button onclick="manualCopy()">\u{1F4CB} Manual Copy</button>
-				<button onclick="closePanel()">\u274C Close</button>
-			</div>
-			
-			<details>
-				<summary>\u{1F4DD} Script Contents (Click to expand)</summary>
-				<pre id="scriptContent"></pre>
-			</details>
-
-			<script>
-				const vscode = acquireVsCodeApi();
-				
-				// Store the script
-				const script = ${JSON.stringify(e)};
-				document.getElementById('scriptContent').textContent = script;
-				
-				// Attempt automatic injection
-				function attemptAutoInjection() {
-					try {
-						document.getElementById('statusText').textContent = 'Attempting injection...';
-						
-						// Try to inject into parent console
-						if (window.parent && window.parent.console) {
-							window.parent.eval(script);
-							document.getElementById('statusText').textContent = '\u2705 Injected successfully!';
-							document.getElementById('status').className = 'status success';
-							vscode.postMessage({ command: 'injectionSuccess' });
-							return true;
-						}
-						
-						// Alternative: try to access the main window
-						if (window.top && window.top !== window) {
-							window.top.eval(script);
-							document.getElementById('statusText').textContent = '\u2705 Injected successfully!';
-							document.getElementById('status').className = 'status success';
-							vscode.postMessage({ command: 'injectionSuccess' });
-							return true;
-						}
-						
-						throw new Error('Cannot access parent console');
-					} catch (error) {
-						document.getElementById('statusText').textContent = '\u274C Auto-injection failed: ' + error.message;
-						document.getElementById('status').className = 'status error';
-						vscode.postMessage({ command: 'injectionFailed', error: error.message });
-						return false;
-					}
-				}
-				
-				function retryInjection() {
-					attemptAutoInjection();
-				}
-				
-				function manualCopy() {
-					navigator.clipboard.writeText(script).then(() => {
-						vscode.postMessage({ command: 'manualCopy' });
-					});
-				}
-				
-				function closePanel() {
-					vscode.postMessage({ command: 'close' });
-				}
-				
-				// Try injection on load
-				setTimeout(attemptAutoInjection, 500);
-			</script>
-		</body>
-		</html>
-	`,n.webview.onDidReceiveMessage(async o=>{switch(o.command){case"injectionSuccess":t.window.showInformationMessage("\u2705 Auto-approval script injected successfully!"),n.dispose(),setTimeout(async()=>{try{await t.commands.executeCommand("workbench.action.toggleDevTools"),s("INFO","Developer Tools auto-closed after successful injection")}catch(a){s("WARN","Could not auto-close Developer Tools",a)}},1e3);break;case"injectionFailed":t.window.showWarningMessage(`\u274C Auto-injection failed: ${o.error}. Use manual copy instead.`,"Manual Copy").then(a=>{a==="Manual Copy"&&x()});break;case"manualCopy":t.window.showInformationMessage("Script copied to clipboard! Paste in Developer Tools Console.");break;case"close":n.dispose();break}})}function V(){try{let e=H.join(O.extensionPath,"auto-approval-script.js");return W.readFileSync(e,"utf8")}catch(e){return s("ERROR","Failed to read auto-approval-script.js",e),"// Error: Could not load auto-approval script"}}function le(e){if(b){c.appendLine("Auto-approval is already enabled");return}let o=h().get("autoApproval.intervalMs",2e3);s("INFO",`Enabling auto-approval with ${o}ms interval`),b=setInterval(async()=>{try{await t.commands.executeCommand("workbench.action.acceptSelectedQuickOpenItem")}catch{}},o),e.subscriptions.push({dispose:()=>{b&&(clearInterval(b),b=void 0)}}),t.window.showInformationMessage('Auto-approval enabled. Use "Disable Auto-Approval" command to turn off.',"Inject Script").then(a=>{a==="Inject Script"&&x()})}function pe(){b?(clearInterval(b),b=void 0,c.appendLine("Auto-approval disabled"),t.window.showInformationMessage("Auto-approval disabled")):t.window.showInformationMessage("Auto-approval is not currently enabled")}function x(){let e=V(),n=t.window.createWebviewPanel("autoApprovalScript","Auto-Approval Script",t.ViewColumn.One,{enableScripts:!0});n.webview.html=ue(e),t.env.clipboard.writeText(e),t.window.showInformationMessage("Auto-approval script copied to clipboard!")}function ue(e){return`<!DOCTYPE html>
+`;
+    outputChannel.appendLine("Processing feedback through AI agent...");
+    outputChannel.appendLine(fullMessage);
+    try {
+      const [model] = await vscode.lm.selectChatModels({ vendor: "copilot", family: "gpt-4o" });
+      if (model) {
+        outputChannel.appendLine("\u2705 AI Agent processing request...");
+        await vscode.commands.executeCommand("workbench.action.chat.open", {
+          query: `@agent ${fullMessage}`
+        });
+        setTimeout(async () => {
+          try {
+            await vscode.commands.executeCommand("workbench.action.chat.submit");
+          } catch (e) {
+            outputChannel.appendLine("Note: Could not auto-submit. User can press Enter to submit.");
+          }
+        }, 500);
+        log("INFO" /* INFO */, "Feedback sent to AI Agent");
+        return true;
+      }
+    } catch (modelError) {
+      outputChannel.appendLine(`Could not access language model: ${modelError}`);
+    }
+    await vscode.env.clipboard.writeText(fullMessage);
+    vscode.window.showInformationMessage(
+      "Feedback copied to clipboard! Open Copilot Chat (@workspace) and paste it.",
+      "Open Chat"
+    ).then((selection) => {
+      if (selection === "Open Chat") {
+        vscode.commands.executeCommand("workbench.action.chat.open");
+      }
+    });
+    return true;
+  } catch (error) {
+    log("ERROR" /* ERROR */, `Error sending to agent: ${error}`);
+    return false;
+  }
+}
+async function sendToCopilotChat(feedbackMessage, appContext) {
+  return sendToAgent(feedbackMessage, appContext);
+}
+function startFeedbackServer(context) {
+  server = http.createServer(async (req, res) => {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+    if (req.method === "OPTIONS") {
+      res.writeHead(200);
+      res.end();
+      return;
+    }
+    if (req.method !== "POST") {
+      res.writeHead(405, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Method not allowed" }));
+      return;
+    }
+    if (req.url === "/restart-app" || req.url?.startsWith("/restart-app?")) {
+      const urlParts = req.url.split("?");
+      const queryParams = new URLSearchParams(urlParts[1] || "");
+      const delaySeconds = parseInt(queryParams.get("delay") || "30", 10);
+      outputChannel.appendLine(`Received restart request for Electron app (delay: ${delaySeconds}s)`);
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({
+        success: true,
+        message: `App restart initiated (will restart in ${delaySeconds}s)`,
+        delay: delaySeconds
+      }));
+      setTimeout(async () => {
+        try {
+          const { exec } = require("child_process");
+          const { promisify } = require("util");
+          const execAsync = promisify(exec);
+          outputChannel.appendLine("Killing Electron process...");
+          try {
+            await execAsync('pkill -f "electron.*Code/AI"');
+          } catch (e) {
+            outputChannel.appendLine("Kill command completed (process may not have been running)");
+          }
+          outputChannel.appendLine(`Waiting ${delaySeconds} seconds before restart...`);
+          await new Promise((resolve) => setTimeout(resolve, delaySeconds * 1e3));
+          const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+          if (workspacePath && workspacePath.includes("/AI")) {
+            outputChannel.appendLine(`Restarting Electron app in: ${workspacePath}`);
+            exec(`cd "${workspacePath}" && npm run dev > /dev/null 2>&1 &`);
+            outputChannel.appendLine("Electron app restart command sent");
+          } else {
+            outputChannel.appendLine(`Could not find workspace path: ${workspacePath}`);
+          }
+        } catch (error) {
+          outputChannel.appendLine(`Restart error: ${error}`);
+        }
+      }, 100);
+      return;
+    }
+    let body = "";
+    const maxBodySize = 1024 * 1024;
+    let bodySize = 0;
+    req.on("data", (chunk) => {
+      bodySize += chunk.length;
+      if (bodySize > maxBodySize) {
+        log("WARN" /* WARN */, "Request body too large", { size: bodySize });
+        res.writeHead(413, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Request body too large (max 1MB)" }));
+        req.destroy();
+        return;
+      }
+      body += chunk.toString();
+    });
+    req.on("end", async () => {
+      try {
+        const feedback = JSON.parse(body);
+        if (!feedback || typeof feedback !== "object") {
+          throw new Error("Invalid feedback structure: must be an object");
+        }
+        if (!feedback.message || typeof feedback.message !== "string") {
+          throw new Error('Invalid feedback: missing or invalid "message" field');
+        }
+        const sanitizedMessage = feedback.message.trim();
+        if (sanitizedMessage.length === 0) {
+          throw new Error("Invalid feedback: message cannot be empty");
+        }
+        if (sanitizedMessage.length > 5e4) {
+          throw new Error("Invalid feedback: message too long (max 50000 characters)");
+        }
+        log("INFO" /* INFO */, "Received feedback", {
+          messageLength: sanitizedMessage.length,
+          hasContext: !!feedback.context
+        });
+        const success = await sendToAgent(sanitizedMessage, feedback.context);
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({
+          success,
+          message: success ? "Feedback sent to AI Agent" : "Failed to send to AI Agent"
+        }));
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        log("ERROR" /* ERROR */, "Error processing feedback", { error: errorMessage });
+        if (error instanceof SyntaxError) {
+          res.writeHead(400, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: "Invalid JSON format" }));
+        } else {
+          res.writeHead(400, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: errorMessage }));
+        }
+      }
+    });
+  });
+  try {
+    server.listen(currentPort, () => {
+      log("INFO" /* INFO */, `\u2705 Server listening on port ${currentPort}`);
+    });
+    server.on("error", (error) => {
+      if (error.code === "EADDRINUSE") {
+        log("ERROR" /* ERROR */, `Port ${currentPort} is already in use. Please change the port in settings.`);
+      } else {
+        log("ERROR" /* ERROR */, "Server error occurred", { error: error.message, code: error.code });
+      }
+    });
+  } catch (error) {
+    log("ERROR" /* ERROR */, "Failed to start server", { error });
+  }
+  context.subscriptions.push({
+    dispose: () => {
+      if (server) {
+        log("INFO" /* INFO */, "Closing server");
+        server.close();
+      }
+    }
+  });
+}
+function initializeAutoApproval() {
+  const config = getConfig();
+  const autoApprovalEnabled = config.get("autoApproval.enabled", false);
+  if (autoApprovalEnabled) {
+    log("INFO" /* INFO */, 'Auto-approval enabled. Use "AI Feedback Bridge: Copy Auto-Approval Script" command to get the script.');
+  }
+}
+function getAutoApprovalScript() {
+  try {
+    const scriptPath = path.join(extensionContext.extensionPath, "auto-approval-script.js");
+    const scriptContent = fs.readFileSync(scriptPath, "utf8");
+    return scriptContent;
+  } catch (error) {
+    log("ERROR" /* ERROR */, "Failed to read auto-approval-script.js", error);
+    return "// Error: Could not load auto-approval script";
+  }
+}
+function enableAutoApproval(context) {
+  if (autoApprovalInterval) {
+    outputChannel.appendLine("Auto-approval is already enabled");
+    return;
+  }
+  const config = getConfig();
+  const intervalMs = config.get("autoApproval.intervalMs", 2e3);
+  log("INFO" /* INFO */, `Enabling auto-approval with ${intervalMs}ms interval`);
+  autoApprovalInterval = setInterval(async () => {
+    try {
+      await vscode.commands.executeCommand("workbench.action.acceptSelectedQuickOpenItem");
+    } catch (error) {
+    }
+  }, intervalMs);
+  context.subscriptions.push({
+    dispose: () => {
+      if (autoApprovalInterval) {
+        clearInterval(autoApprovalInterval);
+        autoApprovalInterval = void 0;
+      }
+    }
+  });
+  log("INFO" /* INFO */, 'Auto-approval enabled. Use "AI Feedback Bridge: Copy Auto-Approval Script" command to get the script.');
+}
+function disableAutoApproval() {
+  if (autoApprovalInterval) {
+    clearInterval(autoApprovalInterval);
+    autoApprovalInterval = void 0;
+    outputChannel.appendLine("Auto-approval disabled");
+    log("INFO" /* INFO */, "Auto-approval disabled");
+  } else {
+    log("INFO" /* INFO */, "Auto-approval is not currently enabled");
+  }
+}
+function injectAutoApprovalScript() {
+  const script = getAutoApprovalScript();
+  const panel = vscode.window.createWebviewPanel(
+    "autoApprovalScript",
+    "Auto-Approval Script",
+    vscode.ViewColumn.One,
+    {
+      enableScripts: true
+    }
+  );
+  panel.webview.html = getAutoApprovalInstructionsHtml(script);
+  vscode.env.clipboard.writeText(script);
+  log("INFO" /* INFO */, "Auto-approval script copied to clipboard");
+}
+function getAutoApprovalInstructionsHtml(script) {
+  return `<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -253,17 +772,44 @@ ${JSON.stringify(n,null,2)}
     <hr style="margin: 30px 0; border: 1px solid var(--vscode-panel-border);">
 
     <h2>\u{1F4DC} Full Script (already copied):</h2>
-    <div class="code-block">${e.replace(/</g,"&lt;").replace(/>/g,"&gt;")}</div>
+    <div class="code-block">${script.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</div>
 
     <button class="button" onclick="copyScript()">Copy Script Again</button>
 
     <script>
         function copyScript() {
-            const script = \`${e.replace(/`/g,"\\`").replace(/\$/g,"\\$")}\`;
+            const script = \`${script.replace(/`/g, "\\`").replace(/\$/g, "\\$")}\`;
             navigator.clipboard.writeText(script).then(() => {
                 alert('Script copied to clipboard!');
             });
         }
     </script>
 </body>
-</html>`}async function ge(){C&&(C.close(),s("INFO","HTTP server closed")),A&&(clearInterval(A),A=void 0,s("INFO","Auto-continue timer cleared")),b&&(clearInterval(b),b=void 0,s("INFO","Auto-approval interval cleared")),O&&await oe(O,p),s("INFO","\u{1F44B} AI Agent Feedback Bridge deactivated")}0&&(module.exports={activate,deactivate});
+</html>`;
+}
+async function deactivate() {
+  if (server) {
+    server.close();
+    log("INFO" /* INFO */, "HTTP server closed");
+  }
+  if (autoContinueTimer) {
+    clearInterval(autoContinueTimer);
+    autoContinueTimer = void 0;
+    log("INFO" /* INFO */, "Auto-continue timer cleared");
+  }
+  if (autoApprovalInterval) {
+    clearInterval(autoApprovalInterval);
+    autoApprovalInterval = void 0;
+    log("INFO" /* INFO */, "Auto-approval interval cleared");
+  }
+  if (extensionContext) {
+    await releasePort(extensionContext, currentPort);
+  }
+  log("INFO" /* INFO */, "\u{1F44B} AI Agent Feedback Bridge deactivated");
+}
+// Annotate the CommonJS export names for ESM import in node:
+0 && (module.exports = {
+  activate,
+  deactivate
+});
+//# sourceMappingURL=extension.js.map

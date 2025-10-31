@@ -267,7 +267,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		const cfg = getConfig();
 		const currentState = cfg.get<boolean>('autoContinue.enabled', false);
 		await updateConfig('autoContinue.enabled', !currentState);
-		vscode.window.showInformationMessage(`Auto-Continue ${!currentState ? 'enabled ✅' : 'disabled ❌'}`);
+		log(LogLevel.INFO, `Auto-Continue ${!currentState ? 'enabled' : 'disabled'}`);
 	});
 	context.subscriptions.push(toggleAutoContinueCmd);
 
@@ -283,8 +283,8 @@ export async function activate(context: vscode.ExtensionContext) {
 		});
 		if (newPort) {
 			await updateConfig('port', parseInt(newPort));
-			vscode.window.showInformationMessage(`Port changed to ${newPort}. Reload VS Code.`, 'Reload')
-				.then(sel => sel === 'Reload' && vscode.commands.executeCommand('workbench.action.reloadWindow'));
+			log(LogLevel.INFO, `Port changed to ${newPort}. Reloading VS Code...`);
+			vscode.commands.executeCommand('workbench.action.reloadWindow');
 		}
 	});
 	context.subscriptions.push(changePortCmd);
@@ -301,15 +301,8 @@ export async function activate(context: vscode.ExtensionContext) {
 			`Server: ${server ? 'Running ✅' : 'Stopped ❌'}\n` +
 			`Auto-Continue: ${autoEnabled ? `Enabled ✅ (every ${autoInterval}s)` : 'Disabled ❌'}\n` +
 			`Endpoint: http://localhost:${currentPort}`;
-		vscode.window.showInformationMessage(msg, 'Open Settings', 'Toggle Auto-Continue')
-			.then(selection => {
-				if (selection === 'Open Settings') {
-					vscode.commands.executeCommand('workbench.action.openSettings', 'aiFeedbackBridge');
-				} else if (selection === 'Toggle Auto-Continue') {
-					vscode.commands.executeCommand('ai-feedback-bridge.toggleAutoContinue');
-				}
-			});
 		outputChannel.appendLine(msg);
+		outputChannel.show();
 	});
 	context.subscriptions.push(showStatusCmd);
 
@@ -336,16 +329,8 @@ export async function activate(context: vscode.ExtensionContext) {
 				if (e.affectsConfiguration('aiFeedbackBridge.port')) {
 					const newPort = cfg.get<number>('port', 3737);
 					if (newPort !== currentPort) {
-						log(LogLevel.INFO, `Port change detected: ${currentPort} → ${newPort}`);
-						vscode.window.showInformationMessage(
-							`Port changed from ${currentPort} to ${newPort}. Reload this window to apply.`,
-							'Reload Now',
-							'Later'
-						).then(selection => {
-							if (selection === 'Reload Now') {
-								vscode.commands.executeCommand('workbench.action.reloadWindow');
-							}
-						});
+						log(LogLevel.INFO, `Port change detected: ${currentPort} → ${newPort}. Reloading window...`);
+						vscode.commands.executeCommand('workbench.action.reloadWindow');
 					}
 				}
 				
@@ -417,6 +402,58 @@ function updateStatusBar(config: vscode.WorkspaceConfiguration) {
 }
 
 /**
+ * Message category configuration
+ */
+interface MessageCategory {
+	enabled: boolean;
+	interval: number;
+	message: string;
+}
+
+/**
+ * Get smart auto-continue message by rotating through enabled categories
+ * based on elapsed time since last sent
+ */
+async function getSmartAutoContinueMessage(context: vscode.ExtensionContext): Promise<string> {
+	const config = getConfig();
+	const categories = ['tasks', 'improvements', 'coverage', 'robustness', 'cleanup', 'commits'];
+	const now = Date.now();
+	const messages: string[] = [];
+	
+	// Track last sent times in global state
+	const lastSentKey = 'autoContinue.lastSent';
+	const lastSent = context.globalState.get<Record<string, number>>(lastSentKey, {});
+	const newLastSent: Record<string, number> = { ...lastSent };
+	
+	for (const category of categories) {
+		const categoryConfig = config.get<MessageCategory>(`autoContinue.messages.${category}`);
+		if (!categoryConfig || !categoryConfig.enabled) {
+			continue;
+		}
+		
+		const lastSentTime = lastSent[category] || 0;
+		const elapsed = (now - lastSentTime) / 1000; // seconds
+		
+		// Include message if enough time has elapsed
+		if (elapsed >= categoryConfig.interval) {
+			messages.push(categoryConfig.message);
+			newLastSent[category] = now;
+		}
+	}
+	
+	// Save updated last sent times
+	await context.globalState.update(lastSentKey, newLastSent);
+	
+	// If no messages due yet, return empty (don't send)
+	if (messages.length === 0) {
+		return '';
+	}
+	
+	// Combine messages with proper formatting
+	return messages.join('. ') + '.';
+}
+
+/**
  * Start auto-continue feature if enabled
  */
 function startAutoContinue(context: vscode.ExtensionContext) {
@@ -425,20 +462,23 @@ function startAutoContinue(context: vscode.ExtensionContext) {
 	
 	if (enabled) {
 		const interval = config.get<number>('autoContinue.interval', 300) * 1000;
-		const message = config.get<string>('autoContinue.message', 
-			'Continue with tasks, improvements, code coverage, please. Prioritize improvements, code robustness, maintainability. Cleanup unused files if you need to. Periodically commit.');
 		
 		const workspaceName = vscode.workspace.name || 'No Workspace';
-		log(LogLevel.INFO, `✅ Auto-Continue enabled for window: ${workspaceName} (every ${interval/1000}s)`);
+		log(LogLevel.INFO, `✅ Auto-Continue enabled for window: ${workspaceName} (checking every ${interval/1000}s)`);
 		
 		autoContinueTimer = setInterval(async () => {
 			try {
-				log(LogLevel.INFO, '[Auto-Continue] Sending periodic reminder');
-				await sendToAgent(message, { 
-					source: 'auto_continue', 
-					timestamp: new Date().toISOString(),
-					interval: interval/1000
-				});
+				const message = await getSmartAutoContinueMessage(context);
+				if (message) {
+					log(LogLevel.INFO, '[Auto-Continue] Sending periodic reminder');
+					await sendToAgent(message, { 
+						source: 'auto_continue', 
+						timestamp: new Date().toISOString(),
+						interval: interval/1000
+					});
+				} else {
+					log(LogLevel.DEBUG, '[Auto-Continue] No messages due yet');
+				}
 			} catch (error) {
 				log(LogLevel.ERROR, '[Auto-Continue] Failed to send message', { error });
 			}
@@ -576,8 +616,7 @@ async function sendToAgent(feedbackMessage: string, appContext: any): Promise<bo
 		return true;
 
 	} catch (error) {
-		outputChannel.appendLine(`Error sending to agent: ${error}`);
-		vscode.window.showErrorMessage(`Failed to send to agent: ${error}`);
+		log(LogLevel.ERROR, `Error sending to agent: ${error}`);
 		return false;
 	}
 }
@@ -744,23 +783,13 @@ function startFeedbackServer(context: vscode.ExtensionContext) {
 		// Handle server errors
 		server.on('error', (error: NodeJS.ErrnoException) => {
 			if (error.code === 'EADDRINUSE') {
-				log(LogLevel.ERROR, `Port ${currentPort} is already in use`, { error: error.message });
-				vscode.window.showErrorMessage(
-					`Port ${currentPort} is already in use. Please change the port in settings.`,
-					'Open Settings'
-				).then(selection => {
-					if (selection === 'Open Settings') {
-						vscode.commands.executeCommand('workbench.action.openSettings', 'aiFeedbackBridge');
-					}
-				});
+				log(LogLevel.ERROR, `Port ${currentPort} is already in use. Please change the port in settings.`);
 			} else {
 				log(LogLevel.ERROR, 'Server error occurred', { error: error.message, code: error.code });
-				vscode.window.showErrorMessage(`Server error: ${error.message}`);
 			}
 		});
 	} catch (error) {
 		log(LogLevel.ERROR, 'Failed to start server', { error });
-		vscode.window.showErrorMessage(`Failed to start feedback server: ${error}`);
 	}
 
 	// Clean up server on deactivation
@@ -782,45 +811,7 @@ function initializeAutoApproval() {
 	const autoApprovalEnabled = config.get<boolean>('autoApproval.enabled', false);
 	
 	if (autoApprovalEnabled) {
-		// Automatically attempt to inject the script
-		setTimeout(async () => {
-			try {
-				// First try to open developer tools
-				await vscode.commands.executeCommand('workbench.action.toggleDevTools');
-				
-				// Wait a moment for dev tools to open
-				setTimeout(() => {
-					// Show instructions for auto-injection
-					vscode.window.showInformationMessage(
-						'Auto-Approval enabled! Developer Tools opened. Click "Auto-Inject Script" to automatically paste and run the script.',
-						'Auto-Inject Script',
-						'Manual Copy',
-						'Disable'
-					).then(selection => {
-						if (selection === 'Auto-Inject Script') {
-							autoInjectScript();
-						} else if (selection === 'Manual Copy') {
-							injectAutoApprovalScript();
-						} else if (selection === 'Disable') {
-							updateConfig('autoApproval.enabled', false);
-						}
-					});
-				}, 1000);
-			} catch (error) {
-				// Fallback to manual method
-				vscode.window.showInformationMessage(
-					'Auto-Approval is enabled! Click to get the console script.',
-					'Get Script',
-					'Disable'
-				).then(selection => {
-					if (selection === 'Get Script') {
-						injectAutoApprovalScript();
-					} else if (selection === 'Disable') {
-						updateConfig('autoApproval.enabled', false);
-					}
-				});
-			}
-		}, 2000); // Wait 2 seconds after activation to show notification
+		log(LogLevel.INFO, 'Auto-approval enabled. Use "AI Feedback Bridge: Copy Auto-Approval Script" command to get the script.');
 	}
 }
 
@@ -968,7 +959,7 @@ async function autoInjectScript() {
 	panel.webview.onDidReceiveMessage(async (message) => {
 		switch (message.command) {
 			case 'injectionSuccess':
-				vscode.window.showInformationMessage('✅ Auto-approval script injected successfully!');
+				log(LogLevel.INFO, 'Auto-approval script injected successfully');
 				panel.dispose();
 				// Auto-close developer tools after successful injection
 				setTimeout(async () => {
@@ -981,17 +972,10 @@ async function autoInjectScript() {
 				}, 1000);
 				break;
 			case 'injectionFailed':
-				vscode.window.showWarningMessage(
-					`❌ Auto-injection failed: ${message.error}. Use manual copy instead.`,
-					'Manual Copy'
-				).then(selection => {
-					if (selection === 'Manual Copy') {
-						injectAutoApprovalScript();
-					}
-				});
+				log(LogLevel.WARN, `Auto-injection failed: ${message.error}. Use manual copy instead.`);
 				break;
 			case 'manualCopy':
-				vscode.window.showInformationMessage('Script copied to clipboard! Paste in Developer Tools Console.');
+				log(LogLevel.INFO, 'Script copied to clipboard');
 				break;
 			case 'close':
 				panel.dispose();
@@ -1050,14 +1034,7 @@ function enableAutoApproval(context: vscode.ExtensionContext) {
 		}
 	});
 
-	vscode.window.showInformationMessage(
-		'Auto-approval enabled. Use "Disable Auto-Approval" command to turn off.',
-		'Inject Script'
-	).then(selection => {
-		if (selection === 'Inject Script') {
-			injectAutoApprovalScript();
-		}
-	});
+	log(LogLevel.INFO, 'Auto-approval enabled. Use "AI Feedback Bridge: Copy Auto-Approval Script" command to get the script.');
 }
 
 /**
@@ -1068,9 +1045,9 @@ function disableAutoApproval() {
 		clearInterval(autoApprovalInterval);
 		autoApprovalInterval = undefined;
 		outputChannel.appendLine('Auto-approval disabled');
-		vscode.window.showInformationMessage('Auto-approval disabled');
+		log(LogLevel.INFO, 'Auto-approval disabled');
 	} else {
-		vscode.window.showInformationMessage('Auto-approval is not currently enabled');
+		log(LogLevel.INFO, 'Auto-approval is not currently enabled');
 	}
 }
 
@@ -1093,7 +1070,7 @@ function injectAutoApprovalScript() {
 
 	// Also copy to clipboard
 	vscode.env.clipboard.writeText(script);
-	vscode.window.showInformationMessage('Auto-approval script copied to clipboard!');
+	log(LogLevel.INFO, 'Auto-approval script copied to clipboard');
 }
 
 /**

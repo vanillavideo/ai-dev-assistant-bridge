@@ -67,13 +67,67 @@
           "type": "number",
           "default": 300,
           "scope": "window",
-          "description": "Auto-continue interval in seconds"
+          "description": "Base interval in seconds between auto-continue messages"
         },
-        "aiFeedbackBridge.autoContinue.message": {
-          "type": "string",
-          "default": "Continue with tasks, improvements, code coverage, please. Prioritize improvements, code robustness, maintainability. Cleanup unused files if you need to. Periodically commit.",
+        "aiFeedbackBridge.autoContinue.messages.tasks": {
+          "type": "object",
+          "default": {
+            "enabled": true,
+            "interval": 300,
+            "message": "Continue with current tasks"
+          },
           "scope": "window",
-          "description": "Message sent to Copilot Chat at each interval"
+          "description": "Task continuation reminders"
+        },
+        "aiFeedbackBridge.autoContinue.messages.improvements": {
+          "type": "object",
+          "default": {
+            "enabled": true,
+            "interval": 600,
+            "message": "Focus on code improvements and optimizations"
+          },
+          "scope": "window",
+          "description": "Code improvement reminders"
+        },
+        "aiFeedbackBridge.autoContinue.messages.coverage": {
+          "type": "object",
+          "default": {
+            "enabled": true,
+            "interval": 900,
+            "message": "Review code coverage and add tests where needed"
+          },
+          "scope": "window",
+          "description": "Code coverage reminders"
+        },
+        "aiFeedbackBridge.autoContinue.messages.robustness": {
+          "type": "object",
+          "default": {
+            "enabled": true,
+            "interval": 600,
+            "message": "Prioritize code robustness and error handling"
+          },
+          "scope": "window",
+          "description": "Robustness and maintainability reminders"
+        },
+        "aiFeedbackBridge.autoContinue.messages.cleanup": {
+          "type": "object",
+          "default": {
+            "enabled": true,
+            "interval": 1200,
+            "message": "Cleanup unused files and dead code"
+          },
+          "scope": "window",
+          "description": "Code cleanup reminders"
+        },
+        "aiFeedbackBridge.autoContinue.messages.commits": {
+          "type": "object",
+          "default": {
+            "enabled": true,
+            "interval": 900,
+            "message": "Commit your progress with clear messages"
+          },
+          "scope": "window",
+          "description": "Git commit reminders"
         },
         "aiFeedbackBridge.autoApproval.enabled": {
           "type": "boolean",
