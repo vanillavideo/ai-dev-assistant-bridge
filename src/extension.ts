@@ -11,9 +11,9 @@ import * as portManager from './modules/portManager';
 import * as server from './modules/server';
 import { autoInjectScript } from './modules/autoApproval';
 import * as settingsPanelModule from './modules/settingsPanel';
+import * as chatIntegration from './modules/chatIntegration';
 
 let outputChannel: vscode.OutputChannel;
-let chatParticipant: vscode.ChatParticipant | undefined;
 let statusBarToggle: vscode.StatusBarItem | undefined;
 let statusBarSettings: vscode.StatusBarItem | undefined;
 let statusBarInject: vscode.StatusBarItem | undefined;
@@ -55,6 +55,9 @@ export async function activate(context: vscode.ExtensionContext) {
 	
 	// Initialize logging module
 	initLogging(outputChannel);
+	
+	// Initialize chat integration module
+	chatIntegration.initChat(outputChannel);
 	
 	log(LogLevel.INFO, '🚀 AI Agent Feedback Bridge activated');
 
@@ -107,7 +110,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	// Register open settings command with custom webview
 	const openSettingsCmd = vscode.commands.registerCommand('ai-feedback-bridge.openSettings', async () => {
-		settingsPanelModule.showSettingsPanel(context, currentPort, getConfig, updateConfig, sendToAgent, getSmartAutoContinueMessage);
+		settingsPanelModule.showSettingsPanel(context, currentPort, getConfig, updateConfig, chatIntegration.sendToAgent, getSmartAutoContinueMessage);
 	});
 	context.subscriptions.push(openSettingsCmd);
 	
@@ -117,7 +120,7 @@ export async function activate(context: vscode.ExtensionContext) {
 			const message = await getSmartAutoContinueMessage(context, true); // force=true to ignore intervals
 			if (message) {
 				log(LogLevel.INFO, '[Run Now] Manually triggered all enabled reminders');
-				await sendToAgent(message, { 
+				await chatIntegration.sendToAgent(message, { 
 					source: 'manual_trigger', 
 					timestamp: new Date().toISOString()
 				});
@@ -212,7 +215,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		}
 
 		if (feedbackText) {
-			await sendToCopilotChat(feedbackText, {
+			await chatIntegration.sendToCopilotChat(feedbackText, {
 				source: 'manual_command',
 				timestamp: new Date().toISOString()
 			});
@@ -322,9 +325,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	);
 
 	// Register chat participant for automatic processing
-	chatParticipant = vscode.chat.createChatParticipant('ai-agent-feedback-bridge.agent', handleChatRequest);
-	chatParticipant.iconPath = vscode.Uri.file(context.asAbsolutePath('icon.png'));
-	context.subscriptions.push(chatParticipant);
+	chatIntegration.createChatParticipant(context);
 
 	// Register auto-approval commands
 	const enableAutoApprovalCommand = vscode.commands.registerCommand(
@@ -451,7 +452,7 @@ function startAutoContinue(context: vscode.ExtensionContext) {
 				const message = await getSmartAutoContinueMessage(context);
 				if (message) {
 					log(LogLevel.INFO, '[Auto-Continue] Sending periodic reminder');
-					await sendToAgent(message, { 
+					await chatIntegration.sendToAgent(message, { 
 						source: 'auto_continue', 
 						timestamp: new Date().toISOString()
 					});
@@ -483,142 +484,10 @@ function restartAutoContinue(context: vscode.ExtensionContext) {
 }
 
 /**
- * Handle chat requests from the agent participant
- */
-async function handleChatRequest(
-	request: vscode.ChatRequest,
-	context: vscode.ChatContext,
-	stream: vscode.ChatResponseStream,
-	token: vscode.CancellationToken
-): Promise<vscode.ChatResult> {
-	
-	outputChannel.appendLine(`Chat request received: ${request.prompt}`);
-	
-	stream.markdown(`### 🔄 Processing Feedback\n\n`);
-	stream.markdown(`**Message:** ${request.prompt}\n\n`);
-	
-	// Parse the prompt to extract structured feedback
-	const feedbackMatch = request.prompt.match(/# 🔄 FEEDBACK FROM AI AGENT SYSTEM APP/);
-	
-	if (feedbackMatch) {
-		stream.markdown(`I've received feedback from your external AI agent system. Let me analyze it:\n\n`);
-	} else {
-		stream.markdown(`Processing your message...\n\n`);
-	}
-	
-	// Use the language model to process the request
-	try {
-		const [model] = await vscode.lm.selectChatModels({ vendor: 'copilot', family: 'gpt-4o' });
-		
-		if (model) {
-			const messages = [
-				vscode.LanguageModelChatMessage.User(request.prompt)
-			];
-			
-			const response = await model.sendRequest(messages, {}, token);
-			
-			for await (const fragment of response.text) {
-				stream.markdown(fragment);
-			}
-		}
-	} catch (err) {
-		if (err instanceof vscode.LanguageModelError) {
-			outputChannel.appendLine(`Language model error: ${err.message}`);
-			stream.markdown(`⚠️ Error: ${err.message}\n\n`);
-		}
-	}
-	
-	return { metadata: { command: 'process-feedback' } };
-}
-
-/**
- * Context object for feedback messages
- */
-interface FeedbackContext {
-	source: string;
-	timestamp: string;
-	[key: string]: unknown;
-}
-
-/**
- * Send feedback directly to the AI agent for automatic processing
- */
-async function sendToAgent(feedbackMessage: string, appContext?: unknown): Promise<boolean> {
-	const context: FeedbackContext = (appContext as FeedbackContext) || { source: "unknown", timestamp: new Date().toISOString() };
-	try {
-		// Ultra-concise format to minimize token usage
-		let fullMessage = `# � AI DEV MODE\n\n`;
-		fullMessage += `**User Feedback:**\n${feedbackMessage}\n\n`;
-
-		// Only include context if it has meaningful data beyond source/timestamp
-		const contextKeys = Object.keys(context).filter(k => k !== 'source' && k !== 'timestamp');
-		if (contextKeys.length > 0) {
-			fullMessage += `**Context:**\n\`\`\`json\n${JSON.stringify(context, null, 2)}\n\`\`\`\n\n`;
-		}
-
-		fullMessage += `**Instructions:**\n`;
-		fullMessage += `Analyze feedback, take appropriate action:\n`;
-		fullMessage += `• If a bug → find and fix root cause\n`;
-		fullMessage += `• If a feature → draft implementation plan\n`;
-		fullMessage += `• Apply and commit changes\n`;
-
-		outputChannel.appendLine('Processing feedback through AI agent...');
-		outputChannel.appendLine(fullMessage);
-
-		// Process directly using the language model without opening chat UI
-		try {
-			const [model] = await vscode.lm.selectChatModels({ vendor: 'copilot', family: 'gpt-4o' });
-			
-			if (model) {
-				outputChannel.appendLine('✅ AI Agent processing request...');
-				
-				// Send directly to chat with the @agent prefix to use the participant
-				await vscode.commands.executeCommand('workbench.action.chat.open', {
-					query: `@agent ${fullMessage}`
-				});
-				
-				// Auto-submit by sending the submit command
-				// Short delay to allow chat UI to populate (300ms is sufficient)
-				setTimeout(async () => {
-					try {
-						await vscode.commands.executeCommand('workbench.action.chat.submit');
-					} catch (e) {
-						outputChannel.appendLine('Note: Could not auto-submit. User can press Enter to submit.');
-					}
-				}, 300);
-				
-				// Silent success - logged only
-				log(LogLevel.INFO, 'Feedback sent to AI Agent');
-				return true;
-			}
-		} catch (modelError) {
-			outputChannel.appendLine(`Could not access language model: ${getErrorMessage(modelError)}`);
-		}
-
-		// Fallback: copy to clipboard
-		await vscode.env.clipboard.writeText(fullMessage);
-		log(LogLevel.INFO, 'Feedback copied to clipboard');
-		
-		return true;
-
-	} catch (error) {
-		log(LogLevel.ERROR, `Error sending to agent: ${getErrorMessage(error)}`);
-		return false;
-	}
-}
-
-/**
- * Send feedback to GitHub Copilot Chat (legacy method - kept for manual command)
- */
-async function sendToCopilotChat(feedbackMessage: string, appContext: FeedbackContext): Promise<boolean> {
-	return sendToAgent(feedbackMessage, appContext);
-}
-
-/**
  * Start HTTP server to receive feedback from Electron app
  */
 function startFeedbackServer(context: vscode.ExtensionContext) {
-	server.startServer(context, currentPort, sendToAgent);
+	server.startServer(context, currentPort, chatIntegration.sendToAgent);
 }
 
 /**
@@ -873,6 +742,9 @@ export async function deactivate() {
 		autoApprovalInterval = undefined;
 		log(LogLevel.INFO, 'Auto-approval interval cleared');
 	}
+	
+	// Dispose chat integration
+	chatIntegration.disposeChat();
 	
 	// Release port from registry
 	if (extensionContext) {
