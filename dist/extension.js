@@ -111,8 +111,8 @@
 			height: 10px;
 			border-radius: 50%;
 			background: var(--vscode-input-foreground);
-			top: 2px;
-			left: 2px;
+			top: 2.5px;
+			left: 2.5px;
 			transition: all 0.2s;
 		}
 		.toggle-cb:checked + .toggle-label {
@@ -120,7 +120,7 @@
 			border-color: var(--vscode-button-background);
 		}
 		.toggle-cb:checked + .toggle-label:after {
-			left: 18px;
+			left: 18.5px;
 			background: white;
 		}
 		
