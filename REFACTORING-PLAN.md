@@ -1,14 +1,14 @@
 # Extension.ts Refactoring Plan
 
-## Current Status (After Phase 2)
-- **extension.ts**: 1536 lines (down from 1936)
-- **Modules created**: 6 files, 810 lines
-- **Issue**: Still need to extract settings panel, chat integration, auto-continue, status bar, commands
+## Current Status (After Phase 3)
+- **extension.ts**: 883 lines (down from 1936, -54%)
+- **Modules created**: 7 files, 1613 lines  
+- **Progress**: 73% complete (1613/2210 lines modularized)
 - **Goal**: Reduce extension.ts to ~200 lines (activation/deactivation only)
 
 ## Module Structure
 
-### ✅ Created Modules (Phase 1 & 2 Complete)
+### ✅ Created Modules (Phases 1-3 Complete)
 
 1. **`modules/types.ts`** (50 lines)
    - Task interface
@@ -35,13 +35,13 @@
    - autoInjectScript()
    - getAutoApprovalScript()
 
-5. **`modules/portManager.ts`** (122 lines) ✅ NEW
+5. **`modules/portManager.ts`** (122 lines)
    - findAvailablePort()
    - releasePort()
    - isPortAvailable()
    - Port registry management
 
-6. **`modules/server.ts`** (447 lines) ✅ NEW
+6. **`modules/server.ts`** (447 lines)
    - startServer()
    - stopServer()
    - All HTTP request handlers:
@@ -55,14 +55,15 @@
    - CORS handling
    - Request body parsing
 
-### 📋 Pending Modules
-
-7. **`modules/settingsPanel.ts`** (~600 lines)
+7. **`modules/settingsPanel.ts`** (803 lines) ✅ NEW
    - showSettingsPanel()
    - getSettingsHtml()
-   - All webview message handlers
-   - HTML/CSS generation
-   - Panel state management
+   - handleWebviewMessage()
+   - 11 message handlers (updateSetting, reload, runNow, etc.)
+   - HTML/CSS/JavaScript generation
+   - Task UI rendering with inline editing
+
+### 📋 Pending Modules
 
 8. **`modules/chatIntegration.ts`** (~200 lines)
    - sendToAgent()
@@ -75,6 +76,7 @@
    - stopAutoContinue()
    - runAllReminders()
    - Timer management
+   - getSmartAutoContinueMessage()
 
 10. **`modules/statusBar.ts`** (~100 lines)
     - createStatusBarItems()
@@ -84,6 +86,37 @@
 11. **`modules/commands.ts`** (~150 lines)
     - Command registration
     - Command handlers (addTask, listTasks, etc.)
+
+## Implementation Steps
+
+### Phase 1: Core Infrastructure ✅ DONE
+- [x] Create modules directory
+- [x] Extract types to types.ts
+- [x] Extract logging to logging.ts
+- [x] Extract task management to taskManager.ts
+- [x] Extract auto-approval to autoApproval.ts
+
+### Phase 2: Server Module ✅ DONE
+- [x] Create server.ts
+- [x] Move HTTP server logic
+- [x] Move all endpoint handlers
+- [x] Create portManager.ts
+- [x] Move port registry logic
+- [x] Update imports in extension.ts
+- [x] Test server functionality
+- [x] Add comprehensive task API endpoints
+- [x] Compile and package successfully
+
+### Phase 3: Settings Panel Module ✅ DONE
+- [x] Create settingsPanel.ts
+- [x] Move webview creation
+- [x] Move HTML generation (803 lines)
+- [x] Move all 11 message handlers
+- [x] Separate CSS and JavaScript generation
+- [x] Update imports and function calls
+- [x] Remove 654 lines from extension.ts
+- [x] Test settings panel
+- [x] Compile and package successfully
 
 ## Implementation Steps
 
@@ -137,23 +170,24 @@
 5. **Code Reuse**: Functions can be imported across modules
 6. **Debugging**: Easier to locate and fix bugs in specific areas
 
-## Estimated Final Sizes (Updated)
+## Estimated Final Sizes (Updated After Phase 3)
 
-- extension.ts: ~200 lines (activation/deactivation only)  [Current: 1536]
+- extension.ts: ~200 lines (activation/deactivation only)  [Current: 883]
 - types.ts: 50 lines ✅
 - logging.ts: 46 lines ✅
 - taskManager.ts: 98 lines ✅
 - autoApproval.ts: 47 lines ✅
 - portManager.ts: 122 lines ✅
 - server.ts: 447 lines ✅
-- settingsPanel.ts: ~600 lines
+- settingsPanel.ts: 803 lines ✅
 - chatIntegration.ts: ~200 lines
 - autoContinue.ts: ~150 lines
 - statusBar.ts: ~100 lines
 - commands.ts: ~150 lines
 
-**Total**: ~2,210 lines (better organization, same functionality)
-**Progress**: 810/2,210 lines extracted (37% complete)
+**Total**: ~2,413 lines (better organization, same functionality)
+**Progress**: 1,613/2,413 lines extracted (67% complete)
+**Remaining**: ~683 lines to extract from extension.ts
 
 ## Testing Strategy
 
