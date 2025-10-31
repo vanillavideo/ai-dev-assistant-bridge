@@ -47,19 +47,22 @@ function log(level: LogLevel, message: string, data?: any) {
  * This ensures each VS Code window can have independent settings
  */
 function getConfig(): vscode.WorkspaceConfiguration {
-	// Use null as the resource URI to get window-level settings
-	// This ensures settings are window-specific, not workspace-specific
-	return vscode.workspace.getConfiguration('aiFeedbackBridge', null);
+	// Get workspace-specific configuration
+	return vscode.workspace.getConfiguration('aiFeedbackBridge');
 }
 
 /**
- * Update configuration with proper scope for window isolation
+ * Update configuration for workspace scope
  */
 async function updateConfig(key: string, value: any): Promise<void> {
 	const config = getConfig();
-	// Use Global target for window-level settings that persist across workspaces
-	// This allows different windows to have different settings
-	await config.update(key, value, vscode.ConfigurationTarget.Global);
+	// Use Workspace target so settings are workspace-specific
+	await config.update(key, value, vscode.ConfigurationTarget.Workspace);
+	
+	log(LogLevel.DEBUG, `Config updated: ${key} = ${value}`, {
+		scope: 'Workspace',
+		newValue: config.get(key)
+	});
 }
 
 /**
@@ -338,7 +341,7 @@ function getSettingsHtml(config: vscode.WorkspaceConfiguration, actualPort: numb
 			color: var(--vscode-input-foreground);
 			border: 1px solid var(--vscode-input-border);
 			border-radius: 3px;
-			font-size: 13px;
+			font-size: 14px;
 		}
 		
 		/* Better toggle switch */
@@ -660,8 +663,21 @@ export async function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(showStatusCmd);
 
 	// Start auto-continue only if enabled in config
-	if (config.get<boolean>('autoContinue.enabled', false)) {
+	const autoEnabled = config.get<boolean>('autoContinue.enabled', false);
+	const inspectValue = config.inspect<boolean>('autoContinue.enabled');
+	
+	log(LogLevel.INFO, `[STARTUP] Auto-Continue check:`, {
+		enabled: autoEnabled,
+		defaultValue: inspectValue?.defaultValue,
+		globalValue: inspectValue?.globalValue,
+		workspaceValue: inspectValue?.workspaceValue,
+		workspaceFolderValue: inspectValue?.workspaceFolderValue
+	});
+	
+	if (autoEnabled) {
 		startAutoContinue(context);
+	} else {
+		log(LogLevel.INFO, '[STARTUP] Auto-Continue is disabled, not starting');
 	}
 
 	// Initialize auto-approval if enabled
@@ -813,6 +829,19 @@ function startAutoContinue(context: vscode.ExtensionContext) {
 		
 		autoContinueTimer = setInterval(async () => {
 			try {
+				// Re-check if still enabled before sending
+				const currentConfig = getConfig();
+				const stillEnabled = currentConfig.get<boolean>('autoContinue.enabled', false);
+				
+				if (!stillEnabled) {
+					log(LogLevel.INFO, '[Auto-Continue] Detected disabled state, stopping timer');
+					if (autoContinueTimer) {
+						clearInterval(autoContinueTimer);
+						autoContinueTimer = undefined;
+					}
+					return;
+				}
+				
 				const message = await getSmartAutoContinueMessage(context);
 				if (message) {
 					log(LogLevel.INFO, '[Auto-Continue] Sending periodic reminder');
@@ -834,11 +863,14 @@ function startAutoContinue(context: vscode.ExtensionContext) {
  * Restart auto-continue with new configuration
  */
 function restartAutoContinue(context: vscode.ExtensionContext) {
+	// Stop existing timer if running
 	if (autoContinueTimer) {
 		clearInterval(autoContinueTimer);
 		autoContinueTimer = undefined;
-		outputChannel.appendLine('Auto-Continue stopped');
+		log(LogLevel.INFO, 'Auto-Continue timer stopped');
 	}
+	
+	// Start auto-continue (will check if enabled internally)
 	startAutoContinue(context);
 }
 

@@ -2,6 +2,19 @@
 
 All notable changes to the AI Feedback Bridge extension will be documented in this file.
 
+## [0.6.7] - 2025-10-31
+
+### Fixed
+- **CRITICAL: Settings scope** - Changed all settings from `window` to `resource` (workspace-specific)
+- **CRITICAL: Auto-continue ignoring disabled state** - Now properly respects the "Enable reminders" toggle
+- **Safety check** - Timer now re-checks if auto-continue is enabled before sending each message
+- **Configuration updates** - Now save to Workspace scope instead of Global scope
+
+### Changed
+- Settings are now properly workspace-specific (each workspace has independent settings)
+- Auto-continue timer includes continuous enable-state checking
+- Enhanced logging for configuration reads and updates
+
 ## [0.6.6] - 2025-10-31
 
 ### Removed
