@@ -15,6 +15,10 @@ All notable changes to the AI Feedback Bridge extension will be documented in th
   - Added `data-auto-approved="skip"` to all checkboxes and inputs in settings panel
   - Updated auto-approval script to check for and skip elements marked with `data-auto-approved="skip"`
   - Prevents auto-approval script from accidentally toggling extension settings
+- **Settings panel sync** - Status bar toggle now refreshes open settings panel
+  - Clicking Start/Stop in status bar immediately updates the checkbox in settings panel
+  - Settings panel maintains single instance (reveals existing panel instead of creating duplicates)
+  - Panel automatically refreshes when disposed and recreated
 - **Safety check** - Timer now re-checks if auto-continue is enabled before sending each message
 - **Configuration updates** - Now save to Workspace scope instead of Global scope
 

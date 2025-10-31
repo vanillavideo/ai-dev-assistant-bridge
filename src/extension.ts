@@ -15,6 +15,7 @@ let autoContinueTimer: NodeJS.Timeout | undefined;
 let currentPort: number = 3737;
 let autoApprovalInterval: NodeJS.Timeout | undefined;
 let extensionContext: vscode.ExtensionContext | undefined;
+let settingsPanel: vscode.WebviewPanel | undefined;
 
 /**
  * Logging levels for structured output
@@ -63,6 +64,16 @@ async function updateConfig(key: string, value: any): Promise<void> {
 		scope: 'Workspace',
 		newValue: config.get(key)
 	});
+}
+
+/**
+ * Refresh settings panel if it's open
+ */
+function refreshSettingsPanel() {
+	if (settingsPanel) {
+		settingsPanel.webview.html = getSettingsHtml(getConfig(), currentPort);
+		log(LogLevel.DEBUG, 'Settings panel refreshed');
+	}
 }
 
 /**
@@ -172,6 +183,14 @@ async function releasePort(context: vscode.ExtensionContext, port: number): Prom
  * Show custom settings panel with organized UI
  */
 function showSettingsPanel(context: vscode.ExtensionContext) {
+	// If panel already exists, just reveal it
+	if (settingsPanel) {
+		settingsPanel.reveal(vscode.ViewColumn.One);
+		// Refresh with current config
+		settingsPanel.webview.html = getSettingsHtml(getConfig(), currentPort);
+		return;
+	}
+	
 	const panel = vscode.window.createWebviewPanel(
 		'aiFeedbackBridgeSettings',
 		'AI Feedback Bridge Settings',
@@ -181,6 +200,14 @@ function showSettingsPanel(context: vscode.ExtensionContext) {
 			retainContextWhenHidden: true
 		}
 	);
+	
+	// Store reference globally
+	settingsPanel = panel;
+	
+	// Clear reference when panel is disposed
+	panel.onDidDispose(() => {
+		settingsPanel = undefined;
+	}, null, context.subscriptions);
 
 	const config = getConfig();
 	
@@ -633,6 +660,9 @@ export async function activate(context: vscode.ExtensionContext) {
 		const currentState = cfg.get<boolean>('autoContinue.enabled', false);
 		await updateConfig('autoContinue.enabled', !currentState);
 		log(LogLevel.INFO, `Auto-Continue ${!currentState ? 'enabled' : 'disabled'}`);
+		
+		// Refresh settings panel if it's open
+		refreshSettingsPanel();
 	});
 	context.subscriptions.push(toggleAutoContinueCmd);
 
