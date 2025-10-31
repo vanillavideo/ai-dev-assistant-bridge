@@ -4,6 +4,7 @@
 // 
 // PURPOSE:
 // Automatically click "Allow" and "Keep" buttons in VS Code Chat/Agent interface
+// ONLY within the Chat panel (auxiliarybar) - will NOT affect other VS Code areas
 // 
 // USAGE:
 // 1. Open VS Code Developer Tools: Help → Toggle Developer Tools
@@ -14,9 +15,12 @@
 // Run: clearInterval(window.__autoApproveInterval)
 // 
 // IMPORTANT:
-// This script is designed to SKIP:
+// This script is SCOPED to the Chat panel only (.part.auxiliarybar.basepanel.right)
+// It will NOT click buttons in:
 // - Extension settings (marked with data-auto-approved="skip")
-// - VS Code status bar buttons (to prevent toggling extension controls)
+// - VS Code status bar
+// - Other panels or editors
+// - The main workspace area
 // It will NOT accidentally toggle settings in the AI Feedback Bridge extension
 
 (function() {
@@ -90,6 +94,13 @@
     }
 
     function findAndClickButtons() {
+        // Only target the Chat panel in the auxiliarybar
+        const chatPanel = document.querySelector('.part.auxiliarybar.basepanel.right');
+        if (!chatPanel) {
+            // No chat panel found, skip this iteration
+            return 0;
+        }
+        
         const targetTexts = ['allow', 'keep', 'accept', 'continue', 'yes', 'ok'];
         const selectors = [
             'button:not([type="checkbox"])',
@@ -102,7 +113,8 @@
         let clickCount = 0;
         
         selectors.forEach(selector => {
-            document.querySelectorAll(selector).forEach(element => {
+            // IMPORTANT: Only search within the chat panel, not the entire document
+            chatPanel.querySelectorAll(selector).forEach(element => {
                 // Skip if it's a checkbox or inside a checkbox container
                 if (element.type === 'checkbox' || 
                     element.getAttribute('role') === 'checkbox' ||
@@ -142,14 +154,23 @@
     // Start the auto-approval system
     let totalClicks = 0;
     const startTime = Date.now();
+    let chatPanelFound = false;
     
     window.__autoApproveInterval = setInterval(() => {
         const clicks = findAndClickButtons();
         totalClicks += clicks;
+        
+        // Log once when chat panel is found
+        const panel = document.querySelector('.part.auxiliarybar.basepanel.right');
+        if (panel && !chatPanelFound) {
+            chatPanelFound = true;
+            console.log('✅ Chat panel detected - monitoring for approval buttons');
+        }
     }, CONFIG.interval);
     
     // Status logging
     console.log(`🎯 Auto-approval active (checking every ${CONFIG.interval}ms)`);
+    console.log('🔍 Scoped to Chat panel only (.part.auxiliarybar.basepanel.right)');
     console.log('📛 To stop: clearInterval(window.__autoApproveInterval)');
     console.log('📊 To see stats: window.__autoApproveStats()');
     
