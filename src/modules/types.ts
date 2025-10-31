@@ -1,0 +1,50 @@
+/**
+ * Shared type definitions for the AI Feedback Bridge extension
+ */
+
+/**
+ * Task interface for workspace-specific tasks
+ */
+export interface Task {
+	id: string;
+	title: string;
+	description: string;
+	status: 'pending' | 'in-progress' | 'completed';
+	category: 'bug' | 'feature' | 'improvement' | 'documentation' | 'testing' | 'other';
+	createdAt: string;
+	updatedAt: string;
+}
+
+/**
+ * Logging levels for structured output
+ */
+export enum LogLevel {
+	INFO = 'INFO',
+	WARN = 'WARN',
+	ERROR = 'ERROR',
+	DEBUG = 'DEBUG'
+}
+
+/**
+ * Extension configuration interface
+ */
+export interface ExtensionConfig {
+	autoContinue: {
+		enabled: boolean;
+		categories: {
+			[key: string]: {
+				enabled: boolean;
+				message: string;
+				intervalSeconds: number;
+			};
+		};
+	};
+	autoApproval: {
+		enabled: boolean;
+		intervalMs: number;
+		autoInject: boolean;
+	};
+	server: {
+		port: number;
+	};
+}
