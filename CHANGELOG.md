@@ -2,6 +2,14 @@
 
 All notable changes to the AI Feedback Bridge extension will be documented in this file.
 
+## [0.6.3] - 2025-01-31
+
+### Added
+- **Get Port command** - `ai-feedback-bridge.getPort` exposes current window's port programmatically
+- Returns the actual port number (e.g., 3737, 3738) for this VS Code window
+- Enables external scripts/extensions to query which port this window is using
+- Useful for automated integration in multi-window scenarios
+
 ## [0.6.2] - 2025-10-31
 
 ### Added
