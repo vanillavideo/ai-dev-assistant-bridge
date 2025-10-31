@@ -555,20 +555,20 @@ export async function activate(context: vscode.ExtensionContext) {
 	// Register run now command - manually trigger reminder check
 	const runNowCmd = vscode.commands.registerCommand('ai-feedback-bridge.runNow', async () => {
 		try {
-			const message = await getSmartAutoContinueMessage(context);
+			const message = await getSmartAutoContinueMessage(context, true); // force=true to ignore intervals
 			if (message) {
-				log(LogLevel.INFO, '[Run Now] Manually triggered reminder');
+				log(LogLevel.INFO, '[Run Now] Manually triggered all enabled reminders');
 				await sendToAgent(message, { 
 					source: 'manual_trigger', 
 					timestamp: new Date().toISOString()
 				});
-				vscode.window.showInformationMessage('✅ Reminder sent!');
+				vscode.window.showInformationMessage('✅ Reminders sent!');
 			} else {
-				vscode.window.showInformationMessage('⏱️ No reminders due yet (check intervals in settings)');
+				vscode.window.showInformationMessage('⚠️ No enabled categories (check settings)');
 			}
 		} catch (error) {
 			log(LogLevel.ERROR, '[Run Now] Failed to send message', { error });
-			vscode.window.showErrorMessage('❌ Failed to send reminder');
+			vscode.window.showErrorMessage('❌ Failed to send reminders');
 		}
 	});
 	context.subscriptions.push(runNowCmd);
@@ -719,7 +719,7 @@ function updateStatusBar(config: vscode.WorkspaceConfiguration) {
 	const autoEnabled = config.get<boolean>('autoContinue.enabled', false);
 	
 	// Settings button shows port and bridge name
-	statusBarSettings.text = `AI Bridge: ${currentPort}`;
+	statusBarSettings.text = `AI Dev: ${currentPort}`;
 	statusBarSettings.tooltip = 'Click to configure AI Feedback Bridge';
 	
 	// Toggle button shows Start/Stop with spinning icon when active
@@ -736,7 +736,7 @@ function updateStatusBar(config: vscode.WorkspaceConfiguration) {
  * Get smart auto-continue message by rotating through enabled categories
  * based on elapsed time since last sent
  */
-async function getSmartAutoContinueMessage(context: vscode.ExtensionContext): Promise<string> {
+async function getSmartAutoContinueMessage(context: vscode.ExtensionContext, force: boolean = false): Promise<string> {
 	const config = getConfig();
 	const categories = ['tasks', 'improvements', 'coverage', 'robustness', 'cleanup', 'commits'];
 	const now = Date.now();
@@ -759,8 +759,8 @@ async function getSmartAutoContinueMessage(context: vscode.ExtensionContext): Pr
 		const lastSentTime = lastSent[category] || 0;
 		const elapsed = (now - lastSentTime) / 1000; // seconds
 		
-		// Include message if enough time has elapsed
-		if (elapsed >= interval) {
+		// Include message if enough time has elapsed OR if force=true (manual trigger)
+		if (force || elapsed >= interval) {
 			messages.push(message);
 			newLastSent[category] = now;
 		}
