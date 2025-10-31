@@ -1,0 +1,31 @@
+# Source files (we use bundled dist/)
+src/**
+out/**
+node_modules/**
+.vscode-test/**
+*.vsix
+
+# Keep only essential files:
+# - dist/ (bundled extension)
+# - auto-approval-script.js (user needs this)
+# - auto_continue.sh (utility script)
+# - README.md, LICENSE (documentation)
+# - package.json (manifest)
+
+# Development files
+.git*
+.gitignore
+tsconfig.json
+esbuild.js
+eslint.config.mjs
+
+# Testing
+test/**
+*.test.ts
+*.test.js
+
+# Documentation
+CHANGELOG.md
+vsc-extension-quickstart.md
+copilot-instructions.md
+.DS_Store
