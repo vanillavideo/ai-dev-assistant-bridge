@@ -578,6 +578,12 @@ export async function activate(context: vscode.ExtensionContext) {
 		autoInjectScript();
 	});
 	context.subscriptions.push(injectScriptCmd);
+	
+	// Register get port command - returns the current port for this window
+	const getPortCmd = vscode.commands.registerCommand('ai-feedback-bridge.getPort', () => {
+		return currentPort;
+	});
+	context.subscriptions.push(getPortCmd);
 
 	// Start HTTP server to receive feedback
 	startFeedbackServer(context);
