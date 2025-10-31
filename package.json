@@ -2,7 +2,7 @@
 	"name": "ai-feedback-bridge",
 	"displayName": "AI Feedback Bridge",
 	"description": "Bridge for AI coding assistants to receive feedback from terminals, tests, and other tools",
-	"version": "0.7.0",
+	  "version": "0.7.2",
   "publisher": "local",
   "repository": {
     "type": "git",
@@ -39,6 +39,14 @@
       {
         "command": "ai-feedback-bridge.changePort",
         "title": "AI Feedback Bridge: Change Port"
+      },
+      {
+        "command": "ai-feedback-bridge.addTask",
+        "title": "AI Feedback Bridge: Add Task"
+      },
+      {
+        "command": "ai-feedback-bridge.listTasks",
+        "title": "AI Feedback Bridge: Manage Tasks"
       }
     ],
     "chatParticipants": [

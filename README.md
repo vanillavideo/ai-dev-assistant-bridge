@@ -1,165 +1,205 @@
 # 🌉 AI Feedback Bridge
 
-Supercharge your GitHub Copilot workflow with intelligent automation and zero interruptions.
+[![Version](https://img.shields.io/badge/version-0.7.2-blue.svg)](CHANGELOG.md)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+
+A powerful VS Code extension that creates a seamless bridge between your development environment and AI agents, featuring comprehensive task management and external API integration.
 
 ## ✨ Features
 
-### 🔄 Smart Auto-Continue
-Intelligent, category-based reminders that keep AI development momentum going:
-- **6 Smart Categories**: Tasks (5m), Improvements (10m), Coverage (15m), Robustness (10m), Cleanup (20m), Commits (15m)
-- **Intelligent Rotation**: Only sends messages when category intervals have elapsed
-- **Zero Popups**: Completely silent operation, all logs to output channel
-- **Per-Window**: Independent settings for each VS Code window
+### 🤖 AI Agent Integration
+- **Auto-Continue System**: Intelligent periodic reminders to AI agents
+- **Smart Categorization**: Tasks, improvements, coverage, robustness, cleanup, commits
+- **Feedback Bridge**: HTTP server for external app feedback integration
+- **Chat Participant**: Dedicated `@agent` participant for AI interactions
 
-### ✅ Auto-Approval
-Eliminate manual clicking on Allow/Keep/Proceed buttons:
-- **Browser Console Script**: Auto-clicks approval buttons in Copilot Chat
-- **Safety Checks**: Automatically skips dangerous operations (delete, remove, rm)
-- **Statistics**: Track how many approvals were automated
-- **One-Time Setup**: Copy script to Developer Tools console once
+### 📋 Task Management System
+- **Internal Task Registry**: Create, manage, and track tasks within VS Code
+- **External API**: Complete REST API for task management from other projects
+- **Status Tracking**: Pending, in-progress, completed status workflow
+- **Category Organization**: Bug, feature, improvement, documentation, testing, other
+- **Real-time Sync**: Changes sync between internal UI and external API
 
-### 🌐 HTTP Bridge
-Integration endpoint for external AI systems (optional):
-- **Auto Port Selection**: Each window gets unique port (3737, 3738, etc.)
-- **Multi-Window**: Run multiple VS Code instances simultaneously
-- **RESTful API**: Simple POST endpoint for external agents
+### 🔧 Auto-Approval System
+- **Browser Script Injection**: Auto-click "Allow" and "Keep" buttons
+- **Safety Checks**: Prevents dangerous operations (delete, remove, rm)
+- **Configurable**: Enable/disable per workspace
+- **Developer Tools Integration**: Easy script injection via clipboard
 
----
+### 🌐 HTTP Server
+- **Auto-assigned Ports**: Each VS Code window gets unique port (3737+)
+- **CORS Enabled**: Ready for web app integration
+- **Multi-endpoint**: Feedback, task management, app restart
+- **Request Validation**: Size limits, error handling, JSON validation
 
 ## 🚀 Quick Start
 
-### 1. Install
-\`\`\`bash
-code --install-extension ai-feedback-bridge-0.6.2.vsix
-\`\`\`
+1. **Install the Extension**: Search for "AI Feedback Bridge" in VS Code extensions
+2. **Configure Settings**: Open Command Palette → "AI Feedback Bridge: Show Status"
+3. **Start Using**: The extension activates automatically and shows port in status bar
 
-### 2. Configure Auto-Continue
-1. Look for **\`AI Dev: 3737\`** in bottom-right status bar
-2. Click it to open the compact settings panel
-3. Toggle categories on/off, adjust intervals, customize messages
-4. Click **\`$(play) Start\`** button to enable
+## 📊 External Task API
 
-### 3. Manual Trigger
-- Click **\`$(run) Run Now\`** to immediately send all enabled reminders
-- Bypasses interval timers - perfect for testing or forcing updates
+The extension provides a complete REST API for external task management:
 
-### 4. Setup Auto-Approval (Optional)
-1. Click **\`$(clippy) Inject\`** button in status bar
-2. Paste script in browser Developer Tools Console
-3. Done! It will auto-click approval buttons safely
+### Endpoints
 
----
+```bash
+# List all tasks
+GET http://localhost:3737/tasks
 
-## 📋 Status Bar Controls
-
-Four buttons in bottom-right corner:
-
-| Button | Function |
-|--------|----------|
-| **\`AI Dev: 3737\`** | Shows port, click to open settings panel |
-| **\`$(play) Start\`** | Toggle auto-continue (spinning icon when active) |
-| **\`$(run) Run Now\`** | Manually trigger all enabled reminders (ignores intervals) |
-| **\`$(clippy) Inject\`** | Copy auto-approval script to clipboard |
-
----
-
-## ⚙️ Category Configuration
-
-Each category has independent settings:
-
-| Category | Purpose | Default Interval |
-|----------|---------|------------------|
-| 📋 **Tasks** | Continue with current work | 5 minutes |
-| ✨ **Improvements** | Code quality & optimizations | 10 minutes |
-| 🧪 **Coverage** | Testing & validation | 15 minutes |
-| 🛡️ **Robustness** | Error handling & stability | 10 minutes |
-| 🧹 **Cleanup** | Remove unused code | 20 minutes |
-| 💾 **Commits** | Save progress regularly | 15 minutes |
-
-Click **\`AI Dev: 3737\`** to customize in the settings panel.
-
----
-
-## 🎯 Key Benefits
-
-✅ **Silent Operation** - Zero popup notifications  
-✅ **Smart Timing** - Only sends when intervals elapse  
-✅ **Manual Trigger** - "Run Now" button bypasses timers  
-✅ **Compact UI** - Custom settings panel (14px fonts, organized tables)  
-✅ **Multi-Window** - Independent configs & unique ports per window  
-✅ **Lightweight** - ~100KB package with full test suite  
-✅ **Safe Automation** - Prevents dangerous operations  
-✅ **One-Click Inject** - Auto-approval script copied to clipboard  
-
----
-
-## 🔧 Advanced: HTTP Bridge API
-
-Send messages from external systems to Copilot Chat.
-
-### Endpoint
-```
-POST http://localhost:3738
+# Create new task
+POST http://localhost:3737/tasks
 Content-Type: application/json
-\`\`\`
-
-### Payload
-\`\`\`json
 {
-  "message": "User reported login button not working",
-  "context": {
-    "userId": "123",
-    "page": "login"
-  }
+  "title": "Fix database issue",
+  "description": "Connection timeout on login",
+  "category": "bug"
 }
-\`\`\`
 
-### Example (Node.js)
-\`\`\`javascript
-fetch('http://localhost:3738', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    message: "Performance issue detected",
-    context: { loadTime: "5.2s" }
-  })
+# Update task status
+PUT http://localhost:3737/tasks/{id}
+Content-Type: application/json
+{
+  "status": "in-progress"
+}
+
+# Delete task
+DELETE http://localhost:3737/tasks/{id}
+```
+
+### Integration Examples
+
+**Python:**
+```python
+import requests
+
+# Create a task from your Python project
+requests.post('http://localhost:3737/tasks', json={
+    'title': 'Memory leak in user service',
+    'category': 'bug'
+})
+```
+
+**Node.js:**
+```javascript
+// Assign task from your Node.js app
+await fetch('http://localhost:3737/tasks', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+        title: 'Add user authentication',
+        category: 'feature'
+    })
 });
-\`\`\`
+```
+
+**Shell Script:**
+```bash
+# Create task from CI/CD pipeline
+curl -X POST http://localhost:3737/tasks \
+  -H "Content-Type: application/json" \
+  -d '{"title":"Deploy failed","category":"bug"}'
+```
+
+**📖 Complete API Documentation**: Visit `http://localhost:3737/help` when the extension is running for full API documentation.
+
+## 🎯 Use Cases
+
+### Development Workflow
+1. **External System** creates task via API
+2. **VS Code** shows task in internal UI
+3. **AI Agent** works on task with auto-continue reminders
+4. **Developer** monitors progress and updates status
+5. **External System** receives status updates
+
+### CI/CD Integration
+- Failed builds create tasks automatically
+- Deployment issues assign debugging tasks
+- Test failures generate improvement tasks
+- Security scans create vulnerability tasks
+
+### Project Management
+- Issue tracking systems sync tasks
+- Project managers assign work
+- Team leads track progress
+- Automated workflows trigger tasks
+
+## ⚙️ Configuration
+
+### Auto-Continue Categories
+Configure in VS Code Settings (`aiFeedbackBridge.*`):
+
+- **Tasks** (300s): Pull in external tasks and pending work
+- **Improvements** (600s): Code quality and performance suggestions
+- **Coverage** (900s): Test coverage and robustness checks
+- **Robustness** (600s): Error handling and edge cases
+- **Cleanup** (1200s): Code cleanup and refactoring
+- **Commits** (900s): Commit suggestions and documentation
+
+### Auto-Approval
+- **Monitor Chat**: Auto-approve AI agent suggestions
+- **Safety First**: Prevents dangerous operations
+- **Workspace Scoped**: Enable per project
+
+## 📁 Project Structure
+
+```
+├── src/                    # TypeScript source code
+│   ├── extension.ts        # Main extension logic  
+│   └── test/              # Test suites
+├── scripts/               # Utility scripts
+│   └── auto-approval-script.js  # Browser dev tools script
+├── docs/                  # Documentation (if needed)
+├── README.md              # This file
+└── LICENSE                # MIT License
+```
+
+## 🔧 Development
+
+```bash
+# Clone and install
+git clone <repository>
+cd ai-feedback-bridge
+npm install
+
+# Compile and test
+npm run compile
+npm run test
+
+# Package extension
+npx vsce package
+```
+
+## 📈 Roadmap
+
+- [ ] Task templates and automation
+- [ ] GitHub/GitLab issue sync
+- [ ] Slack/Teams notifications
+- [ ] Task analytics and reporting
+- [ ] Multi-workspace task sharing
+- [ ] Advanced AI model integration
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create feature branch: `git checkout -b feature/amazing-feature`
+3. Commit changes: `git commit -m 'Add amazing feature'`
+4. Push to branch: `git push origin feature/amazing-feature`
+5. Open Pull Request
+
+## 📝 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🆘 Support
+
+- **API Documentation**: Visit `http://localhost:3737/help` when extension is running
+- **Demo**: Run `./task-api-demo.sh` for live API demonstration  
+- **Discoverability**: Run `./test-discoverability.sh` to test AI agent discovery features
+- **Issues**: Use VS Code Command Palette → "AI Feedback Bridge: Show Status"
+- **Debug**: Check Output Panel → "AI Agent Feedback" for logs
 
 ---
 
-## 📦 Requirements
-
-- VS Code **1.96.0+**
-- **GitHub Copilot** extension
-
----
-
-## 📝 Version History
-
-### 0.5.1 - Beautiful Settings UI
-- Custom webview settings panel with organized sections
-- Status bar shows port number: \`AI Bridge: 3738\`
-- Buttons grouped together for clarity
-- 99.7% package size reduction (7.3MB → 24KB)
-
-### 0.5.0 - Smart Message Rotation
-- 6 intelligent message categories with emoji
-- Independent intervals per category
-- Zero notification popups (all silent)
-- Timestamp tracking for smart rotation
-
-### 0.4.0 - Polish & Clarity
-- Enhanced status bar with menu
-- Improved documentation
-- Better tooltips and descriptions
-
----
-
-## 📄 License
-
-MIT
-
----
-
-**Made for AI-assisted development workflows** 🤖✨
+**Made with ❤️ for AI-enhanced development workflows**

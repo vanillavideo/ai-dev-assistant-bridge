@@ -5,6 +5,17 @@ import * as http from 'http';
 import * as fs from 'fs';
 import * as path from 'path';
 
+// Task interface for workspace-specific tasks
+interface Task {
+	id: string;
+	title: string;
+	description: string;
+	status: 'pending' | 'in-progress' | 'completed';
+	category: 'bug' | 'feature' | 'improvement' | 'documentation' | 'testing' | 'other';
+	createdAt: string;
+	updatedAt: string;
+}
+
 let server: http.Server | undefined;
 let outputChannel: vscode.OutputChannel;
 let chatParticipant: vscode.ChatParticipant | undefined;
@@ -62,6 +73,49 @@ function getErrorMessage(error: unknown): string {
 		return error;
 	}
 	return JSON.stringify(error);
+}
+
+/**
+ * Task Management Functions
+ */
+async function getTasks(context: vscode.ExtensionContext): Promise<Task[]> {
+	return context.workspaceState.get<Task[]>('tasks', []);
+}
+
+async function saveTasks(context: vscode.ExtensionContext, tasks: Task[]): Promise<void> {
+	await context.workspaceState.update('tasks', tasks);
+}
+
+async function addTask(context: vscode.ExtensionContext, title: string, description: string = '', category: Task['category'] = 'other'): Promise<Task> {
+	const tasks = await getTasks(context);
+	const newTask: Task = {
+		id: Date.now().toString(),
+		title,
+		description,
+		status: 'pending',
+		category,
+		createdAt: new Date().toISOString(),
+		updatedAt: new Date().toISOString()
+	};
+	tasks.push(newTask);
+	await saveTasks(context, tasks);
+	return newTask;
+}
+
+async function updateTaskStatus(context: vscode.ExtensionContext, taskId: string, status: Task['status']): Promise<void> {
+	const tasks = await getTasks(context);
+	const task = tasks.find(t => t.id === taskId);
+	if (task) {
+		task.status = status;
+		task.updatedAt = new Date().toISOString();
+		await saveTasks(context, tasks);
+	}
+}
+
+async function removeTask(context: vscode.ExtensionContext, taskId: string): Promise<void> {
+	const tasks = await getTasks(context);
+	const filtered = tasks.filter(t => t.id !== taskId);
+	await saveTasks(context, filtered);
 }
 
 /**
@@ -670,6 +724,62 @@ export async function activate(context: vscode.ExtensionContext) {
 		return currentPort;
 	});
 	context.subscriptions.push(getPortCmd);
+
+	// Register task management commands
+	const addTaskCmd = vscode.commands.registerCommand('ai-feedback-bridge.addTask', async () => {
+		const title = await vscode.window.showInputBox({ prompt: 'Task title' });
+		if (!title) {
+			return;
+		}
+		
+		const description = await vscode.window.showInputBox({ prompt: 'Task description (optional)' });
+		const category = await vscode.window.showQuickPick(
+			['bug', 'feature', 'improvement', 'documentation', 'testing', 'other'],
+			{ placeHolder: 'Select category' }
+		) as Task['category'] | undefined;
+		
+		await addTask(context, title, description || '', category || 'other');
+		await refreshSettingsPanel();
+	});
+	context.subscriptions.push(addTaskCmd);
+
+	const listTasksCmd = vscode.commands.registerCommand('ai-feedback-bridge.listTasks', async () => {
+		const tasks = await getTasks(context);
+		if (tasks.length === 0) {
+			vscode.window.showInformationMessage('No tasks found');
+			return;
+		}
+		
+		const items = tasks.map(t => ({
+			label: `${t.status === 'completed' ? '✅' : t.status === 'in-progress' ? '🔄' : '⏳'} ${t.title}`,
+			description: t.description,
+			task: t
+		}));
+		
+		const selected = await vscode.window.showQuickPick(items, {
+			placeHolder: 'Select a task to update'
+		});
+		
+		if (selected) {
+			const action = await vscode.window.showQuickPick(
+				['Mark as In Progress', 'Mark as Completed', 'Mark as Pending', 'Delete'],
+				{ placeHolder: 'What do you want to do?' }
+			);
+			
+			if (action === 'Delete') {
+				await removeTask(context, selected.task.id);
+			} else if (action === 'Mark as In Progress') {
+				await updateTaskStatus(context, selected.task.id, 'in-progress');
+			} else if (action === 'Mark as Completed') {
+				await updateTaskStatus(context, selected.task.id, 'completed');
+			} else if (action === 'Mark as Pending') {
+				await updateTaskStatus(context, selected.task.id, 'pending');
+			}
+			
+			await refreshSettingsPanel();
+		}
+	});
+	context.subscriptions.push(listTasksCmd);
 
 	// Start HTTP server to receive feedback
 	startFeedbackServer(context);

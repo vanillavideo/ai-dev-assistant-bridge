@@ -7,7 +7,7 @@ node_modules/**
 
 # Keep only essential files:
 # - dist/ (bundled extension)
-# - auto-approval-script.js (user needs this)
+# - scripts/ (user utility scripts)  
 # - README.md, LICENSE (documentation)
 # - package.json (manifest)
 
