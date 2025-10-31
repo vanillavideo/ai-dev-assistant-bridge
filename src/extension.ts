@@ -144,9 +144,10 @@ async function updateConfig(key: string, value: unknown): Promise<void> {
 /**
  * Refresh settings panel if it's open
  */
-function refreshSettingsPanel() {
-	if (settingsPanel) {
-		settingsPanel.webview.html = getSettingsHtml(getConfig(), currentPort);
+async function refreshSettingsPanel() {
+	if (settingsPanel && extensionContext) {
+		const tasks = await getTasks(extensionContext);
+		settingsPanel.webview.html = await getSettingsHtml(getConfig(), currentPort, tasks);
 		log(LogLevel.DEBUG, 'Settings panel refreshed');
 	}
 }
@@ -257,12 +258,13 @@ async function releasePort(context: vscode.ExtensionContext, port: number): Prom
 /**
  * Show custom settings panel with organized UI
  */
-function showSettingsPanel(context: vscode.ExtensionContext) {
+async function showSettingsPanel(context: vscode.ExtensionContext) {
 	// If panel already exists, just reveal it
 	if (settingsPanel) {
 		settingsPanel.reveal(vscode.ViewColumn.One);
-		// Refresh with current config
-		settingsPanel.webview.html = getSettingsHtml(getConfig(), currentPort);
+		// Refresh with current config and tasks
+		const tasks = await getTasks(context);
+		settingsPanel.webview.html = await getSettingsHtml(getConfig(), currentPort, tasks);
 		return;
 	}
 	
@@ -285,8 +287,9 @@ function showSettingsPanel(context: vscode.ExtensionContext) {
 	}, null, context.subscriptions);
 
 	const config = getConfig();
+	const tasks = await getTasks(context);
 	
-	panel.webview.html = getSettingsHtml(config, currentPort);
+	panel.webview.html = await getSettingsHtml(config, currentPort, tasks);
 	
 	// Handle messages from webview
 	panel.webview.onDidReceiveMessage(
@@ -297,7 +300,7 @@ function showSettingsPanel(context: vscode.ExtensionContext) {
 					log(LogLevel.INFO, `Setting updated: ${message.key} = ${message.value}`);
 					break;
 				case 'reload':
-					panel.webview.html = getSettingsHtml(getConfig(), currentPort);
+					const reloadTasks = await getTasks(context); panel.webview.html = await getSettingsHtml(getConfig(), currentPort, reloadTasks);
 					break;
 				case 'runNow':
 					// Manually trigger reminder check, bypassing interval limits
@@ -333,7 +336,7 @@ function showSettingsPanel(context: vscode.ExtensionContext) {
 /**
  * Generate HTML for settings panel
  */
-function getSettingsHtml(config: vscode.WorkspaceConfiguration, actualPort: number): string {
+async function getSettingsHtml(config: vscode.WorkspaceConfiguration, actualPort: number, tasks: Task[]): Promise<string> {
 	const categories = [
 		{ key: 'tasks', icon: '📋', name: 'Tasks', interval: 300 },
 		{ key: 'improvements', icon: '✨', name: 'Improvements', interval: 600 },
