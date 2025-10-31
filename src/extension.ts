@@ -255,7 +255,7 @@ function getSettingsHtml(config: vscode.WorkspaceConfiguration): string {
 		* { box-sizing: border-box; margin: 0; padding: 0; }
 		body {
 			font-family: var(--vscode-font-family);
-			font-size: 13px;
+			font-size: 14px;
 			color: var(--vscode-foreground);
 			background: var(--vscode-editor-background);
 			padding: 16px;
@@ -270,7 +270,7 @@ function getSettingsHtml(config: vscode.WorkspaceConfiguration): string {
 			padding-bottom: 10px;
 			border-bottom: 1px solid var(--vscode-panel-border);
 		}
-		.header h1 { font-size: 16px; flex: 1; font-weight: 600; }
+		.header h1 { font-size: 18px; flex: 1; font-weight: 600; }
 		
 		.section {
 			background: var(--vscode-sideBar-background);
@@ -282,7 +282,7 @@ function getSettingsHtml(config: vscode.WorkspaceConfiguration): string {
 		.section-title {
 			font-weight: 600;
 			margin-bottom: 8px;
-			font-size: 13px;
+			font-size: 14px;
 		}
 		
 		.row {
@@ -291,7 +291,7 @@ function getSettingsHtml(config: vscode.WorkspaceConfiguration): string {
 			gap: 12px;
 			padding: 4px 0;
 		}
-		.row label { flex: 1; font-size: 12px; }
+		.row label { flex: 1; font-size: 14px; }
 		
 		table {
 			width: 100%;
@@ -301,7 +301,7 @@ function getSettingsHtml(config: vscode.WorkspaceConfiguration): string {
 			text-align: left;
 			padding: 6px 4px;
 			font-weight: 600;
-			font-size: 11px;
+			font-size: 12px;
 			opacity: 0.7;
 			border-bottom: 1px solid var(--vscode-panel-border);
 		}
@@ -310,9 +310,9 @@ function getSettingsHtml(config: vscode.WorkspaceConfiguration): string {
 			border-bottom: 1px solid rgba(128,128,128,0.1);
 		}
 		tr.disabled { opacity: 0.5; }
-		.cat-icon { width: 28px; font-size: 15px; }
-		.cat-name { font-weight: 500; font-size: 12px; }
-		.cat-interval { width: 100px; font-size: 12px; }
+		.cat-icon { width: 28px; font-size: 16px; }
+		.cat-name { font-weight: 500; font-size: 14px; }
+		.cat-interval { width: 100px; font-size: 14px; }
 		.cat-toggle { width: 45px; text-align: right; }
 		
 		input[type="number"] {
@@ -321,7 +321,7 @@ function getSettingsHtml(config: vscode.WorkspaceConfiguration): string {
 			color: var(--vscode-input-foreground);
 			border: 1px solid var(--vscode-input-border);
 			border-radius: 3px;
-			font-size: 11px;
+			font-size: 13px;
 		}
 		
 		/* Better toggle switch */
@@ -361,10 +361,10 @@ function getSettingsHtml(config: vscode.WorkspaceConfiguration): string {
 			background: var(--vscode-button-background);
 			color: var(--vscode-button-foreground);
 			border: none;
-			padding: 5px 10px;
+			padding: 6px 12px;
 			border-radius: 3px;
 			cursor: pointer;
-			font-size: 12px;
+			font-size: 13px;
 			font-family: var(--vscode-font-family);
 		}
 		button:hover {
@@ -375,7 +375,7 @@ function getSettingsHtml(config: vscode.WorkspaceConfiguration): string {
 			font-family: 'Monaco', 'Courier New', monospace;
 			font-weight: 600;
 			color: var(--vscode-textLink-foreground);
-			font-size: 13px;
+			font-size: 14px;
 		}
 	</style>
 </head>
