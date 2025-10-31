@@ -2,7 +2,7 @@
 	"name": "ai-feedback-bridge",
 	"displayName": "AI Feedback Bridge",
 	"description": "Bridge for AI coding assistants to receive feedback from terminals, tests, and other tools",
-	"version": "0.6.8",
+	"version": "0.6.9",
   "publisher": "local",
   "repository": {
     "type": "git",
@@ -74,7 +74,7 @@
         },
         "aiFeedbackBridge.autoContinue.tasks.enabled": {
           "type": "boolean",
-          "default": true,
+          "default": false,
           "scope": "resource",
           "description": "📋 Tasks: Continue with current tasks",
           "order": 10
@@ -95,7 +95,7 @@
         },
         "aiFeedbackBridge.autoContinue.improvements.enabled": {
           "type": "boolean",
-          "default": true,
+          "default": false,
           "scope": "resource",
           "description": "✨ Improvements: Code quality and optimizations",
           "order": 20
@@ -116,7 +116,7 @@
         },
         "aiFeedbackBridge.autoContinue.coverage.enabled": {
           "type": "boolean",
-          "default": true,
+          "default": false,
           "scope": "resource",
           "description": "🧪 Coverage: Testing and validation",
           "order": 30
@@ -137,7 +137,7 @@
         },
         "aiFeedbackBridge.autoContinue.robustness.enabled": {
           "type": "boolean",
-          "default": true,
+          "default": false,
           "scope": "resource",
           "description": "🛡️ Robustness: Error handling and stability",
           "order": 40
@@ -158,7 +158,7 @@
         },
         "aiFeedbackBridge.autoContinue.cleanup.enabled": {
           "type": "boolean",
-          "default": true,
+          "default": false,
           "scope": "resource",
           "description": "🧹 Cleanup: Remove unused code and files",
           "order": 50
@@ -179,7 +179,7 @@
         },
         "aiFeedbackBridge.autoContinue.commits.enabled": {
           "type": "boolean",
-          "default": true,
+          "default": false,
           "scope": "resource",
           "description": "💾 Commits: Save progress regularly",
           "order": 60

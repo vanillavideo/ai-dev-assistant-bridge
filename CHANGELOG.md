@@ -2,6 +2,23 @@
 
 All notable changes to the AI Feedback Bridge extension will be documented in this file.
 
+## [0.6.9] - 2025-10-31
+
+### Changed
+- **Default settings for new workspaces** - All auto-continue categories now default to OFF
+  - Changed all 6 category toggles from `true` to `false` (Tasks, Improvements, Coverage, Robustness, Cleanup, Commits)
+  - New workspaces now start with clean slate - all toggles OFF
+  - Users must explicitly enable desired categories
+- **Editable category messages** - Added text input fields for each category
+  - Each category now has an editable message field below the interval
+  - Message fields are enabled/disabled along with their category toggle
+  - Customize prompts sent for each category (e.g., "Fix critical bugs" instead of default "Continue with current tasks")
+
+### Improved
+- **Better UX for new users** - Extension starts inactive by default
+- **Settings panel** - More control over automation messages
+- **Message row styling** - Clear visual separation between categories
+
 ## [0.6.8] - 2025-10-31
 
 ### Improved

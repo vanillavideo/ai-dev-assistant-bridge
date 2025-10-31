@@ -229,8 +229,9 @@ function getSettingsHtml(config, actualPort) {
   const autoInjectEnabled = config.get("autoApproval.autoInject", false);
   let categoriesRows = "";
   for (const cat of categories) {
-    const enabled = config.get(`autoContinue.${cat.key}.enabled`, true);
+    const enabled = config.get(`autoContinue.${cat.key}.enabled`, false);
     const interval = config.get(`autoContinue.${cat.key}.interval`, cat.interval);
+    const message = config.get(`autoContinue.${cat.key}.message`, "");
     categoriesRows += `
 			<tr class="${enabled ? "" : "disabled"}">
 				<td class="cat-icon">${cat.icon}</td>
@@ -243,6 +244,14 @@ function getSettingsHtml(config, actualPort) {
 					<input type="checkbox" data-key="autoContinue.${cat.key}.enabled" ${enabled ? "checked" : ""} 
 					       class="toggle-cb" id="cb-${cat.key}" data-auto-approved="skip">
 					<label for="cb-${cat.key}" class="toggle-label" data-auto-approved="skip"></label>
+				</td>
+			</tr>
+			<tr class="${enabled ? "" : "disabled"} message-row">
+				<td colspan="4" style="padding-left: 38px;">
+					<input type="text" value="${message}" data-key="autoContinue.${cat.key}.message" 
+					       placeholder="Enter custom message..." 
+					       style="width: 100%; padding: 4px 6px; font-size: 13px; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border); border-radius: 2px;" 
+					       ${enabled ? "" : "disabled"} data-auto-approved="skip">
 				</td>
 			</tr>
 		`;
@@ -316,6 +325,7 @@ function getSettingsHtml(config, actualPort) {
 		.cat-name { font-weight: 500; font-size: 14px; }
 		.cat-interval { width: 100px; font-size: 14px; }
 		.cat-toggle { width: 45px; text-align: right; }
+		.message-row td { padding-top: 2px; padding-bottom: 8px; }
 		
 		input[type="number"] {
 			padding: 3px 5px;
@@ -465,8 +475,16 @@ function getSettingsHtml(config, actualPort) {
 					const row = e.target.closest('tr');
 					if (row) {
 						row.classList.toggle('disabled', !value);
-						const input = row.querySelector('input[type="number"]');
-						if (input) input.disabled = !value;
+						// Also toggle the next row (message row)
+						const messageRow = row.nextElementSibling;
+						if (messageRow && messageRow.classList.contains('message-row')) {
+							messageRow.classList.toggle('disabled', !value);
+							const messageInput = messageRow.querySelector('input[type="text"]');
+							if (messageInput) messageInput.disabled = !value;
+						}
+						// Toggle interval input in current row
+						const intervalInput = row.querySelector('input[type="number"]');
+						if (intervalInput) intervalInput.disabled = !value;
 					}
 				}
 				
