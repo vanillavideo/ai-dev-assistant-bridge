@@ -10,6 +10,7 @@ let outputChannel: vscode.OutputChannel;
 let chatParticipant: vscode.ChatParticipant | undefined;
 let statusBarToggle: vscode.StatusBarItem | undefined;
 let statusBarSettings: vscode.StatusBarItem | undefined;
+let statusBarInject: vscode.StatusBarItem | undefined;
 let autoContinueTimer: NodeJS.Timeout | undefined;
 let currentPort: number = 3737;
 let autoApprovalInterval: NodeJS.Timeout | undefined;
@@ -194,10 +195,8 @@ function showSettingsPanel(context: vscode.ExtensionContext) {
 					panel.webview.html = getSettingsHtml(getConfig());
 					break;
 				case 'injectScript':
-					// Copy auto-approval script and open dev tools
-					await vscode.commands.executeCommand('ai-agent-feedback-bridge.showAutoApprovalScript');
-					vscode.commands.executeCommand('workbench.action.toggleDevTools');
-					log(LogLevel.INFO, 'Auto-approval script copied to clipboard, dev tools opened');
+					// Call the auto-inject function
+					autoInjectScript();
 					break;
 			}
 		},
@@ -521,7 +520,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	const workspaceFolders = vscode.workspace.workspaceFolders?.length || 0;
 	log(LogLevel.INFO, `Window context: ${workspaceName} (${workspaceFolders} folders)`);
 
-	// Create 2 separate status bar buttons (adjacent with same priority base)
+	// Create 3 separate status bar buttons (adjacent with same priority base)
 	// Button 1: Settings/Info - shows port and opens settings
 	statusBarSettings = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
 	statusBarSettings.command = 'ai-feedback-bridge.openSettings';
@@ -534,7 +533,15 @@ export async function activate(context: vscode.ExtensionContext) {
 	statusBarToggle.show();
 	context.subscriptions.push(statusBarToggle);
 	
-	// Update both buttons with current state
+	// Button 3: Inject Script - quick access to copy script
+	statusBarInject = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 98);
+	statusBarInject.command = 'ai-feedback-bridge.injectScript';
+	statusBarInject.text = '$(clippy) Inject';
+	statusBarInject.tooltip = 'Copy auto-approval script to clipboard';
+	statusBarInject.show();
+	context.subscriptions.push(statusBarInject);
+	
+	// Update buttons with current state
 	updateStatusBar(config);
 
 	// Register open settings command with custom webview
@@ -542,6 +549,12 @@ export async function activate(context: vscode.ExtensionContext) {
 		showSettingsPanel(context);
 	});
 	context.subscriptions.push(openSettingsCmd);
+	
+	// Register inject script command
+	const injectScriptCmd = vscode.commands.registerCommand('ai-feedback-bridge.injectScript', async () => {
+		autoInjectScript();
+	});
+	context.subscriptions.push(injectScriptCmd);
 
 	// Start HTTP server to receive feedback
 	startFeedbackServer(context);
