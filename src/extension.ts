@@ -8,7 +8,8 @@ import * as path from 'path';
 let server: http.Server | undefined;
 let outputChannel: vscode.OutputChannel;
 let chatParticipant: vscode.ChatParticipant | undefined;
-let statusBarItem: vscode.StatusBarItem | undefined;
+let statusBarToggle: vscode.StatusBarItem | undefined;
+let statusBarSettings: vscode.StatusBarItem | undefined;
 let autoContinueTimer: NodeJS.Timeout | undefined;
 let currentPort: number = 3737;
 let autoApprovalInterval: NodeJS.Timeout | undefined;
@@ -197,51 +198,29 @@ export async function activate(context: vscode.ExtensionContext) {
 	const workspaceFolders = vscode.workspace.workspaceFolders?.length || 0;
 	log(LogLevel.INFO, `Window context: ${workspaceName} (${workspaceFolders} folders)`);
 
-	// Create status bar item with auto-continue indicator (always visible)
-	statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
+	// Create 2 separate status bar buttons
+	// Button 1: Toggle Auto-Continue (Start/Stop)
+	statusBarToggle = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 101);
+	statusBarToggle.command = 'ai-feedback-bridge.toggleAutoContinue';
+	statusBarToggle.show();
+	context.subscriptions.push(statusBarToggle);
+	
+	// Button 2: Settings
+	statusBarSettings = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
+	statusBarSettings.text = '$(gear)';
+	statusBarSettings.tooltip = 'AI Feedback Bridge Settings';
+	statusBarSettings.command = 'ai-feedback-bridge.openSettings';
+	statusBarSettings.show();
+	context.subscriptions.push(statusBarSettings);
+	
+	// Update toggle button appearance
 	updateStatusBar(config);
-	// Left-click to toggle auto-continue (like Quokka's play/pause)
-	statusBarItem.command = {
-		command: 'ai-feedback-bridge.statusBarMenu',
-		title: 'AI Feedback Bridge Menu'
-	};
-	statusBarItem.show();
-	context.subscriptions.push(statusBarItem);
 
-	// Register status bar menu command (shows quick pick menu)
-	const statusBarMenuCmd = vscode.commands.registerCommand('ai-feedback-bridge.statusBarMenu', async () => {
-		const cfg = getConfig();
-		const autoContinueEnabled = cfg.get<boolean>('autoContinue.enabled', false);
-		
-		const items = [
-			{
-				label: autoContinueEnabled ? '$(debug-pause) Stop Auto-Continue' : '$(play) Start Auto-Continue',
-				description: autoContinueEnabled ? 'Stop sending periodic reminders' : 'Start sending periodic reminders',
-				action: 'toggle'
-			},
-			{
-				label: '$(gear) Settings',
-				description: 'Configure ports and intervals',
-				action: 'settings'
-			}
-		];
-
-		const selected = await vscode.window.showQuickPick(items, {
-			placeHolder: `AI Feedback Bridge - Port ${currentPort}`
-		});
-
-		if (selected) {
-			switch (selected.action) {
-				case 'toggle':
-					await vscode.commands.executeCommand('ai-feedback-bridge.toggleAutoContinue');
-					break;
-				case 'settings':
-					await vscode.commands.executeCommand('workbench.action.openSettings', 'aiFeedbackBridge');
-					break;
-			}
-		}
+	// Register open settings command
+	const openSettingsCmd = vscode.commands.registerCommand('ai-feedback-bridge.openSettings', async () => {
+		await vscode.commands.executeCommand('workbench.action.openSettings', 'aiFeedbackBridge');
 	});
-	context.subscriptions.push(statusBarMenuCmd);
+	context.subscriptions.push(openSettingsCmd);
 
 	// Start HTTP server to receive feedback
 	startFeedbackServer(context);
@@ -334,10 +313,9 @@ export async function activate(context: vscode.ExtensionContext) {
 					}
 				}
 				
-				// Always update status bar (it's always visible now)
-				if (statusBarItem) {
-					updateStatusBar(cfg);
-				}
+				// Update status bar buttons
+				updateStatusBar(cfg);
+				
 				if (e.affectsConfiguration('aiFeedbackBridge.autoContinue')) {
 					restartAutoContinue(context);
 				}
@@ -377,28 +355,20 @@ export async function activate(context: vscode.ExtensionContext) {
  * Update status bar with current configuration
  */
 function updateStatusBar(config: vscode.WorkspaceConfiguration) {
-	if (!statusBarItem) {
+	if (!statusBarToggle || !statusBarSettings) {
 		return;
 	}
 	
 	const autoEnabled = config.get<boolean>('autoContinue.enabled', false);
-	const autoInterval = config.get<number>('autoContinue.interval', 300);
 	
-	// Build status bar text with icons
-	const portIcon = '$(radio-tower)';
-	const autoIcon = autoEnabled ? '$(sync~spin)' : '$(debug-pause)';
-	
-	statusBarItem.text = `${portIcon} ${currentPort} ${autoIcon}`;
-	statusBarItem.tooltip = new vscode.MarkdownString(
-		`**AI Feedback Bridge**\n\n` +
-		`**Port:** ${currentPort}\n` +
-		`**Auto-Continue:** ${autoEnabled ? `ON (every ${autoInterval}s)` : 'OFF'}\n\n` +
-		`---\n\n` +
-		`🖱️ **Click for:**\n` +
-		`• Start/Stop Auto-Continue\n` +
-		`• Settings`
-	);
-	statusBarItem.tooltip.supportHtml = true;
+	// Toggle button shows Start/Stop with spinning icon when active
+	if (autoEnabled) {
+		statusBarToggle.text = '$(sync~spin) Stop';
+		statusBarToggle.tooltip = 'Auto-Continue active\nClick to stop';
+	} else {
+		statusBarToggle.text = '$(play) Start';
+		statusBarToggle.tooltip = 'Auto-Continue inactive\nClick to start';
+	}
 }
 
 /**
@@ -455,10 +425,11 @@ function startAutoContinue(context: vscode.ExtensionContext) {
 	const enabled = config.get<boolean>('autoContinue.enabled', false);
 	
 	if (enabled) {
-		const interval = config.get<number>('autoContinue.interval', 300) * 1000;
+		// Fixed 500ms check interval for responsiveness
+		const checkInterval = 500;
 		
 		const workspaceName = vscode.workspace.name || 'No Workspace';
-		log(LogLevel.INFO, `✅ Auto-Continue enabled for window: ${workspaceName} (checking every ${interval/1000}s)`);
+		log(LogLevel.INFO, `✅ Auto-Continue enabled for window: ${workspaceName}`);
 		
 		autoContinueTimer = setInterval(async () => {
 			try {
@@ -467,16 +438,13 @@ function startAutoContinue(context: vscode.ExtensionContext) {
 					log(LogLevel.INFO, '[Auto-Continue] Sending periodic reminder');
 					await sendToAgent(message, { 
 						source: 'auto_continue', 
-						timestamp: new Date().toISOString(),
-						interval: interval/1000
+						timestamp: new Date().toISOString()
 					});
-				} else {
-					log(LogLevel.DEBUG, '[Auto-Continue] No messages due yet');
 				}
 			} catch (error) {
 				log(LogLevel.ERROR, '[Auto-Continue] Failed to send message', { error });
 			}
-		}, interval);
+		}, checkInterval);
 	} else {
 		log(LogLevel.DEBUG, 'Auto-Continue is disabled');
 	}
@@ -598,14 +566,7 @@ async function sendToAgent(feedbackMessage: string, appContext: any): Promise<bo
 
 		// Fallback: copy to clipboard
 		await vscode.env.clipboard.writeText(fullMessage);
-		vscode.window.showInformationMessage(
-			'Feedback copied to clipboard! Open Copilot Chat (@workspace) and paste it.',
-			'Open Chat'
-		).then(selection => {
-			if (selection === 'Open Chat') {
-				vscode.commands.executeCommand('workbench.action.chat.open');
-			}
-		});
+		log(LogLevel.INFO, 'Feedback copied to clipboard');
 		
 		return true;
 
