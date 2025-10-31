@@ -1,0 +1,6 @@
+{
+  "version": 3,
+  "sources": ["../../src/test/runTest.ts"],
+  "mappings": ";;;;;;;;;;;;;;;;;;;;;;;;;AAAA,WAAsB;AACtB,2BAAyB;AAEzB,eAAe,OAAO;AACrB,MAAI;AAEH,UAAM,2BAAgC,aAAQ,WAAW,QAAQ;AAGjE,UAAM,qBAA0B,aAAQ,WAAW,eAAe;AAGlE,cAAM,+BAAS,EAAE,0BAA0B,mBAAmB,CAAC;AAAA,EAChE,SAAS,KAAK;AACb,YAAQ,MAAM,uBAAuB,GAAG;AACxC,YAAQ,KAAK,CAAC;AAAA,EACf;AACD;AAEA,KAAK;",
+  "names": []
+}
