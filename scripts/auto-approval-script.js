@@ -55,6 +55,13 @@
         /disable|turn\s+off/i,
         /clear\s+all|reset/i
     ];
+    
+    // Patterns that indicate extension control buttons (check if in status bar)
+    const EXTENSION_CONTROL_PATTERNS = [
+        /ai\s+dev/i,
+        /start.*auto/i,
+        /stop.*auto/i
+    ];
 
     function isElementSafe(element) {
         // Check if element should be skipped
@@ -69,6 +76,14 @@
         if (CONFIG.safeMode && DANGER_PATTERNS.some(pattern => pattern.test(text))) {
             console.log('⚠️ Skipping potentially dangerous button:', text);
             return false;
+        }
+        
+        // Check for extension control buttons (especially in status bar)
+        if (element.closest('.status-bar-item') || element.closest('.statusbar-item')) {
+            if (EXTENSION_CONTROL_PATTERNS.some(pattern => pattern.test(text))) {
+                console.log('⚠️ Skipping extension control button:', text);
+                return false;
+            }
         }
         
         return true;
