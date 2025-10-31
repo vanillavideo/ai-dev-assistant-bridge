@@ -8,7 +8,6 @@ node_modules/**
 # Keep only essential files:
 # - dist/ (bundled extension)
 # - auto-approval-script.js (user needs this)
-# - auto_continue.sh (utility script)
 # - README.md, LICENSE (documentation)
 # - package.json (manifest)
 
@@ -26,6 +25,7 @@ test/**
 
 # Documentation
 CHANGELOG.md
+PROJECT-STATUS.md
 vsc-extension-quickstart.md
 copilot-instructions.md
 .DS_Store

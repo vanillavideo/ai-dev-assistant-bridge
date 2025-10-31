@@ -2,6 +2,20 @@
 
 All notable changes to the AI Feedback Bridge extension will be documented in this file.
 
+## [0.6.6] - 2025-10-31
+
+### Removed
+- **Obsolete files** - Removed `auto_continue.sh` (functionality now built-in)
+- **Console.log** - Removed debug console.log from production code
+- **Development docs** - Excluded PROJECT-STATUS.md from package (kept in repo)
+
+### Added
+- **.gitignore** - Added proper gitignore to exclude build artifacts and test files
+
+### Changed
+- **Package size** - Reduced from 102KB to 98.84KB (-3.2%)
+- **Cleaner logs** - Use logging system instead of console.log
+
 ## [0.6.5] - 2025-10-31
 
 ### Fixed
