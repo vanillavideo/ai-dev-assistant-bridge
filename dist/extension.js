@@ -225,11 +225,11 @@ function getSettingsHtml(config, actualPort) {
     { key: "commits", icon: "\u{1F4BE}", name: "Commits", interval: 900 }
   ];
   const autoContinueEnabled = config.get("autoContinue.enabled", false);
-  const autoApprovalEnabled = config.get("autoApproval.enabled", false);
+  const autoApprovalEnabled = config.get("autoApproval.enabled", true);
   const autoInjectEnabled = config.get("autoApproval.autoInject", false);
   let categoriesRows = "";
   for (const cat of categories) {
-    const enabled = config.get(`autoContinue.${cat.key}.enabled`, false);
+    const enabled = config.get(`autoContinue.${cat.key}.enabled`, true);
     const interval = config.get(`autoContinue.${cat.key}.interval`, cat.interval);
     const message = config.get(`autoContinue.${cat.key}.message`, "");
     categoriesRows += `
@@ -1006,7 +1006,7 @@ function startFeedbackServer(context) {
 }
 function initializeAutoApproval() {
   const config = getConfig();
-  const autoApprovalEnabled = config.get("autoApproval.enabled", false);
+  const autoApprovalEnabled = config.get("autoApproval.enabled", true);
   const autoInjectEnabled = config.get("autoApproval.autoInject", false);
   if (autoApprovalEnabled) {
     log("INFO" /* INFO */, 'Auto-approval enabled. Use "AI Feedback Bridge: Copy Auto-Approval Script" command to get the script.');

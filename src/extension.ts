@@ -290,12 +290,12 @@ function getSettingsHtml(config: vscode.WorkspaceConfiguration, actualPort: numb
 	];
 
 	const autoContinueEnabled = config.get<boolean>('autoContinue.enabled', false);
-	const autoApprovalEnabled = config.get<boolean>('autoApproval.enabled', false);
+	const autoApprovalEnabled = config.get<boolean>('autoApproval.enabled', true);
 	const autoInjectEnabled = config.get<boolean>('autoApproval.autoInject', false);
 
 	let categoriesRows = '';
 	for (const cat of categories) {
-		const enabled = config.get<boolean>(`autoContinue.${cat.key}.enabled`, false);
+		const enabled = config.get<boolean>(`autoContinue.${cat.key}.enabled`, true);
 		const interval = config.get<number>(`autoContinue.${cat.key}.interval`, cat.interval);
 		const message = config.get<string>(`autoContinue.${cat.key}.message`, '');
 		
@@ -1270,7 +1270,7 @@ function startFeedbackServer(context: vscode.ExtensionContext) {
  */
 function initializeAutoApproval() {
 	const config = getConfig();
-	const autoApprovalEnabled = config.get<boolean>('autoApproval.enabled', false);
+	const autoApprovalEnabled = config.get<boolean>('autoApproval.enabled', true);
 	const autoInjectEnabled = config.get<boolean>('autoApproval.autoInject', false);
 	
 	if (autoApprovalEnabled) {

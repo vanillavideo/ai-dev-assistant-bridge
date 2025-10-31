@@ -74,7 +74,7 @@
         },
         "aiFeedbackBridge.autoContinue.tasks.enabled": {
           "type": "boolean",
-          "default": false,
+          "default": true,
           "scope": "resource",
           "description": "📋 Tasks: Continue with current tasks",
           "order": 10
@@ -95,7 +95,7 @@
         },
         "aiFeedbackBridge.autoContinue.improvements.enabled": {
           "type": "boolean",
-          "default": false,
+          "default": true,
           "scope": "resource",
           "description": "✨ Improvements: Code quality and optimizations",
           "order": 20
@@ -116,7 +116,7 @@
         },
         "aiFeedbackBridge.autoContinue.coverage.enabled": {
           "type": "boolean",
-          "default": false,
+          "default": true,
           "scope": "resource",
           "description": "🧪 Coverage: Testing and validation",
           "order": 30
@@ -137,7 +137,7 @@
         },
         "aiFeedbackBridge.autoContinue.robustness.enabled": {
           "type": "boolean",
-          "default": false,
+          "default": true,
           "scope": "resource",
           "description": "🛡️ Robustness: Error handling and stability",
           "order": 40
@@ -158,7 +158,7 @@
         },
         "aiFeedbackBridge.autoContinue.cleanup.enabled": {
           "type": "boolean",
-          "default": false,
+          "default": true,
           "scope": "resource",
           "description": "🧹 Cleanup: Remove unused code and files",
           "order": 50
@@ -179,7 +179,7 @@
         },
         "aiFeedbackBridge.autoContinue.commits.enabled": {
           "type": "boolean",
-          "default": false,
+          "default": true,
           "scope": "resource",
           "description": "💾 Commits: Save progress regularly",
           "order": 60
@@ -200,7 +200,7 @@
         },
         "aiFeedbackBridge.autoApproval.enabled": {
           "type": "boolean",
-          "default": false,
+          "default": true,
           "scope": "resource",
           "description": "Enable auto-approval monitoring (requires manual console script setup)"
         },

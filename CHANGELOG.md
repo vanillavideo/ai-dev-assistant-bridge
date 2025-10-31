@@ -5,19 +5,26 @@ All notable changes to the AI Feedback Bridge extension will be documented in th
 ## [0.6.9] - 2025-10-31
 
 ### Changed
-- **Default settings for new workspaces** - All auto-continue categories now default to OFF
-  - Changed all 6 category toggles from `true` to `false` (Tasks, Improvements, Coverage, Robustness, Cleanup, Commits)
-  - New workspaces now start with clean slate - all toggles OFF
-  - Users must explicitly enable desired categories
+- **Safer defaults for new workspaces** 
+  - "Enable reminders" master toggle defaults to OFF (user must turn on to activate)
+  - "Enable monitoring" (auto-approval) defaults to ON (but auto-inject remains OFF)
+  - All 6 category toggles default to ON (ready when user enables reminders)
+  - Result: New workspaces are pre-configured but inactive until user opts in
 - **Editable category messages** - Added text input fields for each category
   - Each category now has an editable message field below the interval
   - Message fields are enabled/disabled along with their category toggle
   - Customize prompts sent for each category (e.g., "Fix critical bugs" instead of default "Continue with current tasks")
 
 ### Improved
-- **Better UX for new users** - Extension starts inactive by default
+- **Better UX for new users** - Extension is pre-configured but inactive by default
 - **Settings panel** - More control over automation messages
 - **Message row styling** - Clear visual separation between categories
+
+Default configuration for new workspaces:
+- ❌ Enable reminders: OFF (master switch - user must enable)
+- ✅ Enable monitoring: ON (ready for auto-approval script)
+- ❌ Auto-inject script: OFF (requires explicit opt-in)
+- ✅ All categories (Tasks, Improvements, Coverage, Robustness, Cleanup, Commits): ON
 
 ## [0.6.8] - 2025-10-31
 
