@@ -1,0 +1,126 @@
+# Changelog
+
+All notable changes to the AI Feedback Bridge extension will be documented in this file.
+
+## [0.6.2] - 2025-10-31
+
+### Added
+- **Run Now button** - Manually trigger all enabled reminders, bypassing interval timers
+- Force parameter to `getSmartAutoContinueMessage()` for manual triggers
+
+### Changed
+- Status bar branding: "AI Bridge" → "AI Dev" for cleaner, more concise display
+- Run Now command always sends all enabled categories regardless of last-sent times
+
+### Fixed
+- Improved user feedback messages for manual triggers
+
+## [0.6.1] - 2025-10-31
+
+### Fixed
+- **Port display mismatch** - Settings panel now shows actual running port instead of config value
+- Each window's settings panel displays the correct unique port (e.g., 3737, 3738)
+
+### Changed
+- `getSettingsHtml()` now accepts `actualPort` parameter for accurate display
+
+## [0.6.0] - 2025-10-31
+
+### Added
+- **Run Now command** - `ai-feedback-bridge.runNow` for manual reminder triggers
+- 4th status bar button with "Run" icon for quick access to manual triggers
+- Notification messages when manually triggering reminders
+
+### Improved
+- Status bar now has 4 buttons: Settings, Toggle, Run Now, Inject
+
+## [0.5.9] - 2025-10-31
+
+### Fixed
+- **Port isolation per window** - Each VS Code window now gets truly unique port
+- Removed `updateConfig('port', currentPort)` that was causing port reuse
+- Always call `findAvailablePort()` dynamically instead of reading from config
+
+### Changed
+- **Simplified inject script** - Removed large "Quick Setup" webview panel (240 lines)
+- Auto-inject now just copies to clipboard and toggles DevTools (20 lines)
+- No more intrusive setup panel, streamlined UX
+
+## [0.5.8] - 2025-10-31
+
+### Changed
+- **Font size increase** - Settings panel fonts increased from 13px to 14px throughout
+- Improved readability across all UI elements (labels, inputs, toggles, table headers)
+
+## [0.5.7] - 2025-10-30
+
+### Added
+- **Comprehensive test suite** - 20 total tests covering all core functionality
+- Extension activation, command registration, configuration, status bar
+- Port registry, smart message rotation, chat participant tests
+
+### Improved
+- Test resilience for config scope variations and CI environments
+- Range validation instead of exact values for better test stability
+
+## [0.5.6] - 2025-10-30
+
+### Added
+- Auto port selection with registry tracking per workspace
+- Port cleanup on extension deactivation
+- Stale port detection (24-hour cleanup)
+
+### Changed
+- Multi-window support with unique ports (3737, 3738, 3739, etc.)
+
+## [0.5.5] - 2025-10-30
+
+### Added
+- Custom webview settings panel with organized sections
+- Compact table layout for auto-continue categories
+- Visual toggle switches (32x16px, proper positioning)
+- Inject script button in settings header
+
+### Improved
+- Information density - more data visible without scrolling
+- UI polish with proper spacing and borders
+
+## [0.5.4] - 2025-10-30
+
+### Changed
+- **Silent operation** - Removed all 18 toast notifications
+- Logging to Output Channel only for debugging
+
+## [0.5.3] - 2025-10-30
+
+### Added
+- Smart message rotation with 6 independent categories
+- Per-category intervals: tasks (300s), improvements (600s), coverage (900s)
+- Timestamp tracking in globalState for interval management
+
+## [0.5.2] - 2025-10-30
+
+### Changed
+- Package optimization - reduced from 7.3MB to ~100KB
+- Excluded unnecessary files from VSIX package
+
+## [0.5.1] - 2025-10-29
+
+### Added
+- Initial release with auto-continue feature
+- HTTP bridge for external AI systems
+- Auto-approval script for browser console
+- Basic status bar integration
+
+## Format
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+### Types of changes
+- **Added** for new features
+- **Changed** for changes in existing functionality
+- **Deprecated** for soon-to-be removed features
+- **Removed** for now removed features
+- **Fixed** for any bug fixes
+- **Security** in case of vulnerabilities

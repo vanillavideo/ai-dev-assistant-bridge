@@ -30,31 +30,36 @@ Integration endpoint for external AI systems (optional):
 
 ### 1. Install
 \`\`\`bash
-code --install-extension ai-feedback-bridge-0.5.1.vsix
+code --install-extension ai-feedback-bridge-0.6.2.vsix
 \`\`\`
 
 ### 2. Configure Auto-Continue
-1. Look for **\`AI Bridge: 3738\`** in bottom-right status bar
-2. Click it to open the beautiful settings panel
+1. Look for **\`AI Dev: 3737\`** in bottom-right status bar
+2. Click it to open the compact settings panel
 3. Toggle categories on/off, adjust intervals, customize messages
 4. Click **\`$(play) Start\`** button to enable
 
-### 3. Setup Auto-Approval (Optional)
-1. Run command: **\`AI Feedback Bridge: Show Auto-Approval Script\`**
-2. Open Developer Tools (\`Help\` → \`Toggle Developer Tools\`)
-3. Paste script in Console tab and press Enter
-4. Done! It will auto-click approval buttons safely
+### 3. Manual Trigger
+- Click **\`$(run) Run Now\`** to immediately send all enabled reminders
+- Bypasses interval timers - perfect for testing or forcing updates
+
+### 4. Setup Auto-Approval (Optional)
+1. Click **\`$(clippy) Inject\`** button in status bar
+2. Paste script in browser Developer Tools Console
+3. Done! It will auto-click approval buttons safely
 
 ---
 
 ## 📋 Status Bar Controls
 
-Two buttons in bottom-right corner:
+Four buttons in bottom-right corner:
 
 | Button | Function |
 |--------|----------|
-| **\`AI Bridge: 3738\`** | Shows port, click to open settings panel |
+| **\`AI Dev: 3737\`** | Shows port, click to open settings panel |
 | **\`$(play) Start\`** | Toggle auto-continue (spinning icon when active) |
+| **\`$(run) Run Now\`** | Manually trigger all enabled reminders (ignores intervals) |
+| **\`$(clippy) Inject\`** | Copy auto-approval script to clipboard |
 
 ---
 
@@ -71,7 +76,7 @@ Each category has independent settings:
 | 🧹 **Cleanup** | Remove unused code | 20 minutes |
 | 💾 **Commits** | Save progress regularly | 15 minutes |
 
-Click **\`AI Bridge: 3738\`** to customize in the settings panel.
+Click **\`AI Dev: 3737\`** to customize in the settings panel.
 
 ---
 
@@ -79,10 +84,12 @@ Click **\`AI Bridge: 3738\`** to customize in the settings panel.
 
 ✅ **Silent Operation** - Zero popup notifications  
 ✅ **Smart Timing** - Only sends when intervals elapse  
-✅ **Beautiful UI** - Custom settings panel with organized sections  
-✅ **Multi-Window** - Independent configs per window  
-✅ **Lightweight** - Only 24KB package size  
+✅ **Manual Trigger** - "Run Now" button bypasses timers  
+✅ **Compact UI** - Custom settings panel (14px fonts, organized tables)  
+✅ **Multi-Window** - Independent configs & unique ports per window  
+✅ **Lightweight** - ~100KB package with full test suite  
 ✅ **Safe Automation** - Prevents dangerous operations  
+✅ **One-Click Inject** - Auto-approval script copied to clipboard  
 
 ---
 
@@ -91,7 +98,7 @@ Click **\`AI Bridge: 3738\`** to customize in the settings panel.
 Send messages from external systems to Copilot Chat.
 
 ### Endpoint
-\`\`\`
+```
 POST http://localhost:3738
 Content-Type: application/json
 \`\`\`
