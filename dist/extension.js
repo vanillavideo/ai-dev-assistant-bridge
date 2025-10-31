@@ -1,4 +1,4 @@
-"use strict";var Ne=Object.create;var J=Object.defineProperty;var $e=Object.getOwnPropertyDescriptor;var Me=Object.getOwnPropertyNames;var Be=Object.getPrototypeOf,je=Object.prototype.hasOwnProperty;var Q=(e,t)=>()=>(e&&(t=e(e=0)),t);var Y=(e,t)=>{for(var a in t)J(e,a,{get:t[a],enumerable:!0})},de=(e,t,a,r)=>{if(t&&typeof t=="object"||typeof t=="function")for(let o of Me(t))!je.call(e,o)&&o!==a&&J(e,o,{get:()=>t[o],enumerable:!(r=$e(t,o))||r.enumerable});return e};var E=(e,t,a)=>(a=e!=null?Ne(Be(e)):{},de(t||!e||!e.__esModule?J(a,"default",{value:e,enumerable:!0}):a,e)),le=e=>de(J({},"__esModule",{value:!0}),e);var $=Q(()=>{"use strict"});function pe(e){X=e}function i(e,t,a){let o=`[${new Date().toISOString()}] [${e}]`,n=a?`${o} ${t} ${JSON.stringify(a)}`:`${o} ${t}`;X&&X.appendLine(n),e==="ERROR"?console.error(n):e==="WARN"?console.warn(n):console.log(n)}function v(e){return e instanceof Error?e.message:String(e)}var X,D=Q(()=>{"use strict";$()});var Se={};Y(Se,{autoInjectScript:()=>W,getAutoApprovalScript:()=>xe});async function W(e){try{let t=xe(e);await _.env.clipboard.writeText(t),i("INFO","\u{1F4CB} Auto-approval script copied to clipboard");try{await _.commands.executeCommand("workbench.action.toggleDevTools"),i("INFO","\u{1F6E0}\uFE0F Developer Tools toggled")}catch(a){i("WARN","Could not toggle Developer Tools",v(a))}}catch(t){i("ERROR","Failed to copy script",v(t))}}function xe(e){try{let t=Ce.join(e.extensionPath,"scripts","auto-approval-script.js");return ye.readFileSync(t,"utf8")}catch(t){return i("ERROR","Failed to read auto-approval-script.js",v(t)),"// Error: Could not load auto-approval script"}}var _,ye,Ce,ae=Q(()=>{"use strict";_=E(require("vscode")),ye=E(require("fs")),Ce=E(require("path"));D();$()});var rt={};Y(rt,{activate:()=>Qe,deactivate:()=>it});module.exports=le(rt);var s=E(require("vscode"));$();D();async function f(e){return e.workspaceState.get("tasks",[])}async function H(e,t){await e.workspaceState.update("tasks",t)}async function L(e,t,a="",r="other"){let o=await f(e),n={id:Date.now().toString(),title:t,description:a,status:"pending",category:r,createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()};return o.push(n),await H(e,o),n}async function O(e,t,a){let r=await f(e),o=r.find(n=>n.id===t);o&&(o.status=a,o.updatedAt=new Date().toISOString(),await H(e,r))}async function V(e,t){let r=(await f(e)).filter(o=>o.id!==t);await H(e,r)}var G=E(require("vscode")),me=E(require("http"));D();$();var ve="aiFeedbackBridge.portRegistry",ge=3737,De=50;async function be(e){return e.globalState.get(ve,[])}async function Z(e,t){await e.globalState.update(ve,t)}async function ke(e){let t=await be(e),a=G.workspace.name||"No Workspace",r=G.workspace.workspaceFolders?.[0]?.uri.fsPath||"no-workspace",o=Date.now()-60*60*1e3,n=t.filter(p=>p.timestamp>o),c=n.find(p=>p.workspace===r);if(c)return i("INFO",`Reusing existing port ${c.port} for workspace`),c.timestamp=Date.now(),await Z(e,n),c.port;let l=new Set(n.map(p=>p.port)),d=ge;for(let p=0;p<De;p++){let u=ge+p;if(!l.has(u)&&await He(u)){d=u;break}}return n.push({port:d,workspace:r,timestamp:Date.now()}),await Z(e,n),i("INFO",`Auto-assigned port ${d} for workspace: ${a}`),d}async function He(e){return new Promise(t=>{let a=me.createServer();a.once("error",r=>{r.code==="EADDRINUSE"?t(!1):t(!0)}),a.once("listening",()=>{a.close(),t(!0)}),a.listen(e)})}async function fe(e,t){let a=await be(e),r=G.workspace.workspaceFolders?.[0]?.uri.fsPath||"no-workspace",o=a.filter(n=>!(n.port===t&&n.workspace===r));await Z(e,o),i("INFO",`Released port ${t}`)}var oe={};Y(oe,{startServer:()=>ee,stopServer:()=>K});var we=E(require("vscode")),he=E(require("http"));D();$();var P;function ee(e,t,a){return P=he.createServer(async(r,o)=>{if(o.setHeader("Access-Control-Allow-Origin","*"),o.setHeader("Access-Control-Allow-Methods","GET, POST, PUT, DELETE, OPTIONS"),o.setHeader("Access-Control-Allow-Headers","Content-Type"),r.method==="OPTIONS"){o.writeHead(200),o.end();return}try{await Ve(r,o,e,t,a)}catch(n){i("ERROR","Request handler error",v(n)),o.writeHead(500,{"Content-Type":"application/json"}),o.end(JSON.stringify({error:"Internal server error"}))}}),P.listen(t,()=>{i("INFO",`\u2705 Server listening on port ${t}`)}),P.on("error",r=>{r.code==="EADDRINUSE"?i("ERROR",`Port ${t} is already in use. Please change the port in settings.`):i("ERROR","Server error occurred",{error:r.message,code:r.code})}),e.subscriptions.push({dispose:()=>{K()}}),P}function K(){P&&(i("INFO","Closing server"),P.close(),P=void 0)}async function Ve(e,t,a,r,o){let n=e.url||"/",c=e.method||"GET";i("DEBUG",`${c} ${n}`),n==="/help"||n==="/"?We(t,r):n==="/tasks"&&c==="GET"?await Ue(t,a):n==="/tasks"&&c==="POST"?await Je(e,t,a):n.startsWith("/tasks/")&&c==="PUT"?await ze(e,t,a,n):n.startsWith("/tasks/")&&c==="DELETE"?await Ge(t,a,n):n==="/feedback"&&c==="POST"?await Ke(e,t,o):n==="/restart-app"||n.startsWith("/restart-app?")?await _e(e,t):(t.writeHead(404,{"Content-Type":"application/json"}),t.end(JSON.stringify({error:"Not found",message:`Unknown endpoint: ${c} ${n}`})))}function We(e,t){let a=`
+"use strict";var Be=Object.create;var G=Object.defineProperty;var je=Object.getOwnPropertyDescriptor;var De=Object.getOwnPropertyNames;var We=Object.getPrototypeOf,He=Object.prototype.hasOwnProperty;var Z=(e,t)=>()=>(e&&(t=e(e=0)),t);var ee=(e,t)=>{for(var o in t)G(e,o,{get:t[o],enumerable:!0})},pe=(e,t,o,s)=>{if(t&&typeof t=="object"||typeof t=="function")for(let a of De(t))!He.call(e,a)&&a!==o&&G(e,a,{get:()=>t[a],enumerable:!(s=je(t,a))||s.enumerable});return e};var A=(e,t,o)=>(o=e!=null?Be(We(e)):{},pe(t||!e||!e.__esModule?G(o,"default",{value:e,enumerable:!0}):o,e)),ue=e=>pe(G({},"__esModule",{value:!0}),e);var $=Z(()=>{"use strict"});function ge(e){te=e}function i(e,t,o){let a=`[${new Date().toISOString()}] [${e}]`,n=o?`${a} ${t} ${JSON.stringify(o)}`:`${a} ${t}`;te&&te.appendLine(n),e==="ERROR"?console.error(n):e==="WARN"?console.warn(n):console.log(n)}function m(e){return e instanceof Error?e.message:String(e)}var te,D=Z(()=>{"use strict";$()});var Te={};ee(Te,{autoInjectScript:()=>L,getAutoApprovalScript:()=>Ie});async function L(e){try{let t=Ie(e);await Q.env.clipboard.writeText(t),i("INFO","\u{1F4CB} Auto-approval script copied to clipboard");try{await Q.commands.executeCommand("workbench.action.toggleDevTools"),i("INFO","\u{1F6E0}\uFE0F Developer Tools toggled")}catch(o){i("WARN","Could not toggle Developer Tools",m(o))}}catch(t){i("ERROR","Failed to copy script",m(t))}}function Ie(e){try{let t=Se.join(e.extensionPath,"scripts","auto-approval-script.js");return xe.readFileSync(t,"utf8")}catch(t){return i("ERROR","Failed to read auto-approval-script.js",m(t)),"// Error: Could not load auto-approval script"}}var Q,xe,Se,Y=Z(()=>{"use strict";Q=A(require("vscode")),xe=A(require("fs")),Se=A(require("path"));D();$()});var ht={};ee(ht,{activate:()=>dt,deactivate:()=>wt});module.exports=ue(ht);var r=A(require("vscode"));$();D();async function v(e){return e.workspaceState.get("tasks",[])}async function W(e,t){await e.workspaceState.update("tasks",t)}async function H(e,t,o="",s="other"){let a=await v(e),n={id:Date.now().toString(),title:t,description:o,status:"pending",category:s,createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()};return a.push(n),await W(e,a),n}async function R(e,t,o){let s=await v(e),a=s.find(n=>n.id===t);a&&(a.status=o,a.updatedAt=new Date().toISOString(),await W(e,s))}async function K(e,t){let s=(await v(e)).filter(a=>a.id!==t);await W(e,s)}async function me(e){let t=await v(e),o=t.filter(a=>a.status!=="completed"),s=t.length-o.length;return await W(e,o),s}var _=A(require("vscode")),be=A(require("http"));D();$();var ke="aiFeedbackBridge.portRegistry",ve=3737,Le=50;async function fe(e){return e.globalState.get(ke,[])}async function ae(e,t){await e.globalState.update(ke,t)}async function we(e){let t=await fe(e),o=_.workspace.name||"No Workspace",s=_.workspace.workspaceFolders?.[0]?.uri.fsPath||"no-workspace",a=Date.now()-60*60*1e3,n=t.filter(l=>l.timestamp>a),c=n.find(l=>l.workspace===s);if(c)return i("INFO",`Reusing existing port ${c.port} for workspace`),c.timestamp=Date.now(),await ae(e,n),c.port;let g=new Set(n.map(l=>l.port)),p=ve;for(let l=0;l<Le;l++){let T=ve+l;if(!g.has(T)&&await Ve(T)){p=T;break}}return n.push({port:p,workspace:s,timestamp:Date.now()}),await ae(e,n),i("INFO",`Auto-assigned port ${p} for workspace: ${o}`),p}async function Ve(e){return new Promise(t=>{let o=be.createServer();o.once("error",s=>{s.code==="EADDRINUSE"?t(!1):t(!0)}),o.once("listening",()=>{o.close(),t(!0)}),o.listen(e)})}async function he(e,t){let o=await fe(e),s=_.workspace.workspaceFolders?.[0]?.uri.fsPath||"no-workspace",a=o.filter(n=>!(n.port===t&&n.workspace===s));await ae(e,a),i("INFO",`Released port ${t}`)}var ie={};ee(ie,{startServer:()=>ne,stopServer:()=>q});var ye=A(require("vscode")),Ce=A(require("http"));D();$();var M;function ne(e,t,o){return M=Ce.createServer(async(s,a)=>{if(a.setHeader("Access-Control-Allow-Origin","*"),a.setHeader("Access-Control-Allow-Methods","GET, POST, PUT, DELETE, OPTIONS"),a.setHeader("Access-Control-Allow-Headers","Content-Type"),s.method==="OPTIONS"){a.writeHead(200),a.end();return}try{await Je(s,a,e,t,o)}catch(n){i("ERROR","Request handler error",m(n)),a.writeHead(500,{"Content-Type":"application/json"}),a.end(JSON.stringify({error:"Internal server error"}))}}),M.listen(t,()=>{i("INFO",`\u2705 Server listening on port ${t}`)}),M.on("error",s=>{s.code==="EADDRINUSE"?i("ERROR",`Port ${t} is already in use. Please change the port in settings.`):i("ERROR","Server error occurred",{error:s.message,code:s.code})}),e.subscriptions.push({dispose:()=>{q()}}),M}function q(){M&&(i("INFO","Closing server"),M.close(),M=void 0)}async function Je(e,t,o,s,a){let n=e.url||"/",c=e.method||"GET";i("DEBUG",`${c} ${n}`),n==="/help"||n==="/"?ze(t,s):n==="/tasks"&&c==="GET"?await Ge(t,o):n==="/tasks"&&c==="POST"?await Ke(e,t,o):n.startsWith("/tasks/")&&c==="PUT"?await _e(e,t,o,n):n.startsWith("/tasks/")&&c==="DELETE"?await qe(t,o,n):n==="/feedback"&&c==="POST"?await Qe(e,t,a):n==="/restart-app"||n.startsWith("/restart-app?")?await Ye(e,t):(t.writeHead(404,{"Content-Type":"application/json"}),t.end(JSON.stringify({error:"Not found",message:`Unknown endpoint: ${c} ${n}`})))}function ze(e,t){let o=`
 AI Feedback Bridge - API Documentation
 =======================================
 
@@ -68,33 +68,147 @@ curl -X PUT http://localhost:${t}/tasks/12345 \\
 curl -X POST http://localhost:${t}/feedback \\
   -H "Content-Type: application/json" \\
   -d '{"message": "Please review this code"}'
-`;e.writeHead(200,{"Content-Type":"text/plain"}),e.end(a)}async function Ue(e,t){try{let a=await f(t);e.writeHead(200,{"Content-Type":"application/json"}),e.end(JSON.stringify(a,null,2))}catch(a){i("ERROR","Failed to get tasks",v(a)),e.writeHead(500,{"Content-Type":"application/json"}),e.end(JSON.stringify({error:"Failed to retrieve tasks"}))}}async function Je(e,t,a){let r=await te(e);try{let o=JSON.parse(r);if(!o.title||typeof o.title!="string"){t.writeHead(400,{"Content-Type":"application/json"}),t.end(JSON.stringify({error:'Missing or invalid "title" field'}));return}let n=o.title.trim(),c=(o.description||"").trim(),l=o.category||"other",d=await L(a,n,c,l);i("INFO","Task created via API",{taskId:d.id,title:d.title}),t.writeHead(201,{"Content-Type":"application/json"}),t.end(JSON.stringify(d,null,2))}catch(o){o instanceof SyntaxError?(t.writeHead(400,{"Content-Type":"application/json"}),t.end(JSON.stringify({error:"Invalid JSON format"}))):(i("ERROR","Failed to create task",v(o)),t.writeHead(500,{"Content-Type":"application/json"}),t.end(JSON.stringify({error:"Failed to create task"})))}}async function ze(e,t,a,r){let o=r.split("/")[2],n=await te(e);try{let c=JSON.parse(n);if(!c.status||!["pending","in-progress","completed"].includes(c.status)){t.writeHead(400,{"Content-Type":"application/json"}),t.end(JSON.stringify({error:'Invalid or missing "status" field',valid:["pending","in-progress","completed"]}));return}await O(a,o,c.status),i("INFO","Task updated via API",{taskId:o,status:c.status}),t.writeHead(200,{"Content-Type":"application/json"}),t.end(JSON.stringify({success:!0,taskId:o,status:c.status}))}catch(c){c instanceof SyntaxError?(t.writeHead(400,{"Content-Type":"application/json"}),t.end(JSON.stringify({error:"Invalid JSON format"}))):(i("ERROR","Failed to update task",v(c)),t.writeHead(500,{"Content-Type":"application/json"}),t.end(JSON.stringify({error:"Failed to update task"})))}}async function Ge(e,t,a){let r=a.split("/")[2];try{await V(t,r),i("INFO","Task deleted via API",{taskId:r}),e.writeHead(200,{"Content-Type":"application/json"}),e.end(JSON.stringify({success:!0,taskId:r}))}catch(o){i("ERROR","Failed to delete task",v(o)),e.writeHead(500,{"Content-Type":"application/json"}),e.end(JSON.stringify({error:"Failed to delete task"}))}}async function Ke(e,t,a){let r=await te(e,1048576);try{let o=JSON.parse(r);if(!o||typeof o!="object")throw new Error("Invalid feedback structure: must be an object");if(!o.message||typeof o.message!="string")throw new Error('Invalid feedback: missing or invalid "message" field');let n=o.message.trim();if(n.length===0)throw new Error("Invalid feedback: message cannot be empty");if(n.length>5e4)throw new Error("Invalid feedback: message too long (max 50000 characters)");i("INFO","Received feedback",{messageLength:n.length,hasContext:!!o.context});let c=await a(n,o.context);t.writeHead(200,{"Content-Type":"application/json"}),t.end(JSON.stringify({success:c,message:c?"Feedback sent to AI Agent":"Failed to send to AI Agent"}))}catch(o){let n=v(o);i("ERROR","Error processing feedback",{error:n}),o instanceof SyntaxError?(t.writeHead(400,{"Content-Type":"application/json"}),t.end(JSON.stringify({error:"Invalid JSON format"}))):(t.writeHead(400,{"Content-Type":"application/json"}),t.end(JSON.stringify({error:n})))}}async function _e(e,t){let a=(e.url||"").split("?"),r=new URLSearchParams(a[1]||""),o=parseInt(r.get("delay")||"30",10);i("INFO",`Received restart request for Electron app (delay: ${o}s)`),t.writeHead(200,{"Content-Type":"application/json"}),t.end(JSON.stringify({success:!0,message:`App restart initiated (will restart in ${o}s)`,delay:o})),setTimeout(async()=>{try{let{exec:n}=require("child_process"),{promisify:c}=require("util"),l=c(n);i("INFO","Killing Electron process...");try{await l('pkill -f "electron.*Code/AI"')}catch{i("INFO","Kill command completed (process may not have been running)")}i("INFO",`Waiting ${o} seconds before restart...`),await new Promise(p=>setTimeout(p,o*1e3));let d=we.workspace.workspaceFolders?.[0]?.uri.fsPath;d&&d.includes("/AI")?(i("INFO",`Restarting Electron app in: ${d}`),n(`cd "${d}" && npm run dev > /dev/null 2>&1 &`),i("INFO","Electron app restart command sent")):i("WARN",`Could not find workspace path: ${d}`)}catch(n){i("ERROR","Restart error",v(n))}},100)}async function te(e,t=10*1024){return new Promise((a,r)=>{let o="",n=0;e.on("data",c=>{if(n+=c.length,n>t){r(new Error(`Request body too large (max ${t} bytes)`)),e.destroy();return}o+=c.toString()}),e.on("end",()=>{a(o)}),e.on("error",c=>{r(c)})})}ae();var w,ne,I,F,M,x,m=3737,C,T,R;function b(){return s.workspace.getConfiguration("aiFeedbackBridge")}async function ie(e,t){let a=b();await a.update(e,t,s.ConfigurationTarget.Workspace),i("DEBUG",`Config updated: ${e} = ${t}`,{scope:"Workspace",newValue:a.get(e)})}async function se(){if(R&&T){let e=await f(T);R.webview.html=await S(b(),m,e),i("DEBUG","Settings panel refreshed")}}async function qe(e){if(R){R.reveal(s.ViewColumn.One);let o=await f(e);R.webview.html=await S(b(),m,o);return}let t=s.window.createWebviewPanel("aiFeedbackBridgeSettings","AI Feedback Bridge Settings",s.ViewColumn.One,{enableScripts:!0,retainContextWhenHidden:!0});R=t,t.onDidDispose(()=>{R=void 0},null,e.subscriptions);let a=b(),r=await f(e);t.webview.html=await S(a,m,r),t.webview.onDidReceiveMessage(async o=>{switch(o.command){case"updateSetting":await ie(o.key,o.value),i("INFO",`Setting updated: ${o.key} = ${o.value}`);break;case"reload":let n=await f(e);t.webview.html=await S(b(),m,n);break;case"runNow":try{let l=await re(e,!0);l?(await B(l,{source:"manual_trigger",timestamp:new Date().toISOString()}),i("INFO","[Run Now] Manually triggered all enabled reminders")):s.window.showInformationMessage("No enabled categories (check settings)")}catch(l){i("ERROR","[Run Now] Failed to send message",{error:v(l)}),s.window.showErrorMessage("Failed to send reminders")}break;case"injectScript":W(T);break;case"sendInstructions":try{let l="\u{1F4CB} AI Feedback Bridge - Usage Instructions\\n\\nThis extension helps coordinate between external apps and AI agents in VS Code.\\n\\n\u{1F3AF} Key Features:\\n1. **Task Management** - Create and track workspace-specific tasks\\n   - Click any title/description to edit inline\\n   - Click status icon (\u23F3/\u{1F504}) to cycle status\\n   - Tasks auto-sync with external API at http://localhost:"+m+'/tasks\\n\\n2. **Auto-Continue System** - Periodic AI reminders\\n   - Configure categories: tasks, improvements, coverage, robustness, cleanup, commits\\n   - Customize messages and intervals\\n   - "Run Now" button triggers all reminders immediately\\n\\n3. **External API** - HTTP endpoints for automation\\n   - GET /tasks - List all workspace tasks\\n   - POST /tasks - Create new task\\n   - PUT /tasks/:id - Update task status\\n   - GET /help - Full API documentation\\n   - Server auto-starts on port '+m+'\\n\\n4. **Auto-Approval Script** - Browser dev tools automation\\n   - "Inject Script" copies script to clipboard\\n   - Paste in VS Code Developer Tools console\\n   - Auto-clicks "Allow" and "Keep" buttons\\n\\n\u{1F4A1} Quick Start:\\n- Add tasks inline by clicking "Add Task"\\n- Configure auto-continue in settings below\\n- External apps can POST to http://localhost:'+m+'/tasks\\n- Check Command Palette for "AI Feedback Bridge" commands\\n\\n\u{1F4D6} For full API docs, visit: http://localhost:'+m+"/help";await B(l,{source:"instructions",timestamp:new Date().toISOString()})}catch{s.window.showErrorMessage("Failed to send instructions")}break;case"saveNewTask":try{let l=await L(e,o.title,o.description,o.category),d=await f(e);t.webview.html=await S(b(),m,d)}catch(l){s.window.showErrorMessage(`Failed to create task: ${v(l)}`)}break;case"updateTaskField":try{let l=await f(e),d=l.find(p=>p.id===o.taskId);if(d){o.field==="title"?d.title=o.value:o.field==="description"&&(d.description=o.value),d.updatedAt=new Date().toISOString(),await H(e,l);let p=await f(e);t.webview.html=await S(b(),m,p)}}catch(l){s.window.showErrorMessage(`Failed to update task: ${v(l)}`)}break;case"updateTaskStatus":try{await O(e,o.taskId,o.status);let l=await f(e);t.webview.html=await S(b(),m,l)}catch(l){s.window.showErrorMessage(`Failed to update status: ${v(l)}`)}break;case"createTask":await s.commands.executeCommand("ai-feedback-bridge.addTask");let c=await f(e);t.webview.html=await S(b(),m,c);break;case"openTaskManager":await s.commands.executeCommand("ai-feedback-bridge.listTasks");break;case"clearCompleted":try{let d=(await f(e)).filter(u=>u.status==="completed");for(let u of d)await V(e,u.id);let p=await f(e);t.webview.html=await S(b(),m,p)}catch(l){s.window.showErrorMessage(`Failed to clear completed tasks: ${v(l)}`)}break}},void 0,e.subscriptions)}async function S(e,t,a){let r=[{key:"tasks",icon:"\u{1F4CB}",name:"Tasks",interval:300},{key:"improvements",icon:"\u2728",name:"Improvements",interval:600},{key:"coverage",icon:"\u{1F9EA}",name:"Coverage",interval:900},{key:"robustness",icon:"\u{1F6E1}\uFE0F",name:"Robustness",interval:600},{key:"cleanup",icon:"\u{1F9F9}",name:"Cleanup",interval:1200},{key:"commits",icon:"\u{1F4BE}",name:"Commits",interval:900}],o=e.get("autoContinue.enabled",!1),n=e.get("autoApproval.enabled",!0),c=e.get("autoApproval.autoInject",!1),l="";for(let d of r){let p=e.get(`autoContinue.${d.key}.enabled`,!0),u=e.get(`autoContinue.${d.key}.interval`,d.interval),A=e.get(`autoContinue.${d.key}.message`,"");l+=`
-			<tr class="${p?"":"disabled"}">
+`;e.writeHead(200,{"Content-Type":"text/plain"}),e.end(o)}async function Ge(e,t){try{let o=await v(t);e.writeHead(200,{"Content-Type":"application/json"}),e.end(JSON.stringify(o,null,2))}catch(o){i("ERROR","Failed to get tasks",m(o)),e.writeHead(500,{"Content-Type":"application/json"}),e.end(JSON.stringify({error:"Failed to retrieve tasks"}))}}async function Ke(e,t,o){let s=await se(e);try{let a=JSON.parse(s);if(!a.title||typeof a.title!="string"){t.writeHead(400,{"Content-Type":"application/json"}),t.end(JSON.stringify({error:'Missing or invalid "title" field'}));return}let n=a.title.trim(),c=(a.description||"").trim(),g=a.category||"other",p=await H(o,n,c,g);i("INFO","Task created via API",{taskId:p.id,title:p.title}),t.writeHead(201,{"Content-Type":"application/json"}),t.end(JSON.stringify(p,null,2))}catch(a){a instanceof SyntaxError?(t.writeHead(400,{"Content-Type":"application/json"}),t.end(JSON.stringify({error:"Invalid JSON format"}))):(i("ERROR","Failed to create task",m(a)),t.writeHead(500,{"Content-Type":"application/json"}),t.end(JSON.stringify({error:"Failed to create task"})))}}async function _e(e,t,o,s){let a=s.split("/")[2],n=await se(e);try{let c=JSON.parse(n);if(!c.status||!["pending","in-progress","completed"].includes(c.status)){t.writeHead(400,{"Content-Type":"application/json"}),t.end(JSON.stringify({error:'Invalid or missing "status" field',valid:["pending","in-progress","completed"]}));return}await R(o,a,c.status),i("INFO","Task updated via API",{taskId:a,status:c.status}),t.writeHead(200,{"Content-Type":"application/json"}),t.end(JSON.stringify({success:!0,taskId:a,status:c.status}))}catch(c){c instanceof SyntaxError?(t.writeHead(400,{"Content-Type":"application/json"}),t.end(JSON.stringify({error:"Invalid JSON format"}))):(i("ERROR","Failed to update task",m(c)),t.writeHead(500,{"Content-Type":"application/json"}),t.end(JSON.stringify({error:"Failed to update task"})))}}async function qe(e,t,o){let s=o.split("/")[2];try{await K(t,s),i("INFO","Task deleted via API",{taskId:s}),e.writeHead(200,{"Content-Type":"application/json"}),e.end(JSON.stringify({success:!0,taskId:s}))}catch(a){i("ERROR","Failed to delete task",m(a)),e.writeHead(500,{"Content-Type":"application/json"}),e.end(JSON.stringify({error:"Failed to delete task"}))}}async function Qe(e,t,o){let s=await se(e,1048576);try{let a=JSON.parse(s);if(!a||typeof a!="object")throw new Error("Invalid feedback structure: must be an object");if(!a.message||typeof a.message!="string")throw new Error('Invalid feedback: missing or invalid "message" field');let n=a.message.trim();if(n.length===0)throw new Error("Invalid feedback: message cannot be empty");if(n.length>5e4)throw new Error("Invalid feedback: message too long (max 50000 characters)");i("INFO","Received feedback",{messageLength:n.length,hasContext:!!a.context});let c=await o(n,a.context);t.writeHead(200,{"Content-Type":"application/json"}),t.end(JSON.stringify({success:c,message:c?"Feedback sent to AI Agent":"Failed to send to AI Agent"}))}catch(a){let n=m(a);i("ERROR","Error processing feedback",{error:n}),a instanceof SyntaxError?(t.writeHead(400,{"Content-Type":"application/json"}),t.end(JSON.stringify({error:"Invalid JSON format"}))):(t.writeHead(400,{"Content-Type":"application/json"}),t.end(JSON.stringify({error:n})))}}async function Ye(e,t){let o=(e.url||"").split("?"),s=new URLSearchParams(o[1]||""),a=parseInt(s.get("delay")||"30",10);i("INFO",`Received restart request for Electron app (delay: ${a}s)`),t.writeHead(200,{"Content-Type":"application/json"}),t.end(JSON.stringify({success:!0,message:`App restart initiated (will restart in ${a}s)`,delay:a})),setTimeout(async()=>{try{let{exec:n}=require("child_process"),{promisify:c}=require("util"),g=c(n);i("INFO","Killing Electron process...");try{await g('pkill -f "electron.*Code/AI"')}catch{i("INFO","Kill command completed (process may not have been running)")}i("INFO",`Waiting ${a} seconds before restart...`),await new Promise(l=>setTimeout(l,a*1e3));let p=ye.workspace.workspaceFolders?.[0]?.uri.fsPath;p&&p.includes("/AI")?(i("INFO",`Restarting Electron app in: ${p}`),n(`cd "${p}" && npm run dev > /dev/null 2>&1 &`),i("INFO","Electron app restart command sent")):i("WARN",`Could not find workspace path: ${p}`)}catch(n){i("ERROR","Restart error",m(n))}},100)}async function se(e,t=10*1024){return new Promise((o,s)=>{let a="",n=0;e.on("data",c=>{if(n+=c.length,n>t){s(new Error(`Request body too large (max ${t} bytes)`)),e.destroy();return}a+=c.toString()}),e.on("end",()=>{o(a)}),e.on("error",c=>{s(c)})})}Y();var f=A(require("vscode"));$();D();Y();var B;async function Ae(e,t,o,s,a,n){if(B){B.reveal(f.ViewColumn.One);let l=await v(e);B.webview.html=await E(o(),t,l);return}let c=f.window.createWebviewPanel("aiFeedbackBridgeSettings","AI Feedback Bridge Settings",f.ViewColumn.One,{enableScripts:!0,retainContextWhenHidden:!0});B=c,c.onDidDispose(()=>{B=void 0},null,e.subscriptions);let g=o(),p=await v(e);c.webview.html=await E(g,t,p),c.webview.onDidReceiveMessage(async l=>{await Xe(l,c,e,t,o,s,a,n)},void 0,e.subscriptions)}async function Xe(e,t,o,s,a,n,c,g){switch(e.command){case"updateSetting":await n(e.key,e.value),i("INFO",`Setting updated: ${e.key} = ${e.value}`);break;case"reload":let p=await v(o);t.webview.html=await E(a(),s,p);break;case"runNow":await Ze(o,c,g);break;case"injectScript":L(o);break;case"sendInstructions":await et(s,c);break;case"saveNewTask":await tt(e,t,o,s,a);break;case"updateTaskField":await ot(e,t,o,s,a);break;case"updateTaskStatus":await at(e,t,o,s,a);break;case"createTask":await nt(t,o,s,a);break;case"openTaskManager":await f.commands.executeCommand("ai-feedback-bridge.listTasks");break;case"clearCompleted":await st(t,o,s,a);break}}async function Ze(e,t,o){try{let s=await o(e,!0);s?(await t(s,{source:"manual_trigger",timestamp:new Date().toISOString()}),i("INFO","[Run Now] Manually triggered all enabled reminders")):f.window.showInformationMessage("No enabled categories (check settings)")}catch(s){i("ERROR","[Run Now] Failed to send message",{error:m(s)}),f.window.showErrorMessage("Failed to send reminders")}}async function et(e,t){try{let o="\u{1F4CB} AI Feedback Bridge - Usage Instructions\\n\\nThis extension helps coordinate between external apps and AI agents in VS Code.\\n\\n\u{1F3AF} Key Features:\\n1. **Task Management** - Create and track workspace-specific tasks\\n   - Click any title/description to edit inline\\n   - Click status icon (\u23F3/\u{1F504}) to cycle status\\n   - Tasks auto-sync with external API at http://localhost:"+e+'/tasks\\n\\n2. **Auto-Continue System** - Periodic AI reminders\\n   - Configure categories: tasks, improvements, coverage, robustness, cleanup, commits\\n   - Customize messages and intervals\\n   - "Run Now" button triggers all reminders immediately\\n\\n3. **External API** - HTTP endpoints for automation\\n   - GET /tasks - List all workspace tasks\\n   - POST /tasks - Create new task\\n   - PUT /tasks/:id - Update task status\\n   - GET /help - Full API documentation\\n   - Server auto-starts on port '+e+'\\n\\n4. **Auto-Approval Script** - Browser dev tools automation\\n   - "Inject Script" copies script to clipboard\\n   - Paste in VS Code Developer Tools console\\n   - Auto-clicks "Allow" and "Keep" buttons\\n\\n\u{1F4A1} Quick Start:\\n- Add tasks inline by clicking "Add Task"\\n- Configure auto-continue in settings below\\n- External apps can POST to http://localhost:'+e+'/tasks\\n- Check Command Palette for "AI Feedback Bridge" commands\\n\\n\u{1F4D6} For full API docs, visit: http://localhost:'+e+"/help";await t(o,{source:"instructions",timestamp:new Date().toISOString()})}catch{f.window.showErrorMessage("Failed to send instructions")}}async function tt(e,t,o,s,a){try{await H(o,e.title,e.description,e.category);let n=await v(o);t.webview.html=await E(a(),s,n)}catch(n){f.window.showErrorMessage(`Failed to create task: ${m(n)}`)}}async function ot(e,t,o,s,a){try{let n=await v(o),c=n.find(g=>g.id===e.taskId);if(c){e.field==="title"?c.title=e.value:e.field==="description"&&(c.description=e.value),c.updatedAt=new Date().toISOString(),await W(o,n);let g=await v(o);t.webview.html=await E(a(),s,g)}}catch(n){f.window.showErrorMessage(`Failed to update task: ${m(n)}`)}}async function at(e,t,o,s,a){try{await R(o,e.taskId,e.status);let n=await v(o);t.webview.html=await E(a(),s,n)}catch(n){f.window.showErrorMessage(`Failed to update status: ${m(n)}`)}}async function nt(e,t,o,s){await f.commands.executeCommand("ai-feedback-bridge.addTask");let a=await v(t);e.webview.html=await E(s(),o,a)}async function st(e,t,o,s){try{let a=await me(t),n=await v(t);e.webview.html=await E(s(),o,n),i("DEBUG",`Cleared ${a} completed tasks`)}catch(a){f.window.showErrorMessage(`Failed to clear completed tasks: ${m(a)}`)}}async function E(e,t,o){let s=[{key:"tasks",icon:"\u{1F4CB}",name:"Tasks",interval:300},{key:"improvements",icon:"\u2728",name:"Improvements",interval:600},{key:"coverage",icon:"\u{1F9EA}",name:"Coverage",interval:900},{key:"robustness",icon:"\u{1F6E1}\uFE0F",name:"Robustness",interval:600},{key:"cleanup",icon:"\u{1F9F9}",name:"Cleanup",interval:1200},{key:"commits",icon:"\u{1F4BE}",name:"Commits",interval:900}],a=e.get("autoContinue.enabled",!1),n=e.get("autoApproval.enabled",!0),c=e.get("autoApproval.autoInject",!1),g="";for(let d of s){let C=e.get(`autoContinue.${d.key}.enabled`,!0),N=e.get(`autoContinue.${d.key}.interval`,d.interval),F=e.get(`autoContinue.${d.key}.message`,"");g+=`
+			<tr class="${C?"":"disabled"}">
 				<td class="cat-icon">${d.icon}</td>
 				<td class="cat-name">${d.name}</td>
 				<td class="cat-message">
-					<input type="text" value="${A}" data-key="autoContinue.${d.key}.message" 
+					<input type="text" value="${F}" data-key="autoContinue.${d.key}.message" 
 					       placeholder="Enter message..." 
 					       style="width: 100%; padding: 4px 8px; font-size: 13px; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border); border-radius: 2px;" 
-					       ${p?"":"disabled"} data-auto-approved="skip">
+					       ${C?"":"disabled"} data-auto-approved="skip">
 				</td>
 				<td class="cat-interval">
-					<input type="number" value="${u}" data-key="autoContinue.${d.key}.interval" 
-					       min="60" step="60" style="width: 70px;" ${p?"":"disabled"} data-auto-approved="skip">s
+					<input type="number" value="${N}" data-key="autoContinue.${d.key}.interval" 
+					       min="60" step="60" style="width: 70px;" ${C?"":"disabled"} data-auto-approved="skip">s
 				</td>
 				<td class="cat-toggle">
-					<input type="checkbox" data-key="autoContinue.${d.key}.enabled" ${p?"checked":""} 
+					<input type="checkbox" data-key="autoContinue.${d.key}.enabled" ${C?"checked":""} 
 					       class="toggle-cb" id="cb-${d.key}" data-auto-approved="skip">
 					<label for="cb-${d.key}" class="toggle-label" data-auto-approved="skip"></label>
 				</td>
 			</tr>
-		`}return`<!DOCTYPE html>
+		`}let p=o.filter(d=>d.status!=="completed").reverse(),l=o.filter(d=>d.status==="completed").length,T=p.length===0?`
+		<div class="row">
+			<label style="color: var(--vscode-descriptionForeground); font-style: italic;">No active tasks for this workspace</label>
+			<button onclick="createTask()">Add Task</button>
+		</div>
+		${l>0?`
+		<div class="row" style="margin-top: 8px;">
+			<label style="font-size: 12px; color: var(--vscode-descriptionForeground);">${l} completed task${l>1?"s":""}</label>
+			<button onclick="clearCompleted()">Clear Completed</button>
+		</div>
+		`:""}
+	`:`
+		<table id="task-table">
+			<thead>
+				<tr>
+					<th style="width: 40px;"></th>
+					<th>Title</th>
+					<th>Description</th>
+					<th style="width: 120px;">Category</th>
+					<th style="width: 100px;">Status</th>
+				</tr>
+			</thead>
+			<tbody id="task-tbody">
+				${p.map(d=>{let C=d.status==="pending"?"\u23F3":d.status==="in-progress"?"\u{1F504}":"\u2705",N=d.status==="pending"?"Pending":d.status==="in-progress"?"In Progress":"Completed",F=d.status==="pending"?"#cca700":d.status==="in-progress"?"#3794ff":"#89d185";return`
+					<tr>
+						<td style="cursor: pointer; font-size: 18px;" onclick="cycleStatus('${d.id}', '${d.status}')" title="Click to cycle status">${C}</td>
+						<td style="cursor: pointer; font-weight: 500;" onclick="editField(this, '${d.id}', 'title')">${d.title}</td>
+						<td style="cursor: pointer; opacity: 0.8; font-size: 13px;" onclick="editField(this, '${d.id}', 'description')">${d.description||'<span style="opacity: 0.5;">(click to add description)</span>'}</td>
+						<td style="font-size: 12px; opacity: 0.7;">${d.category}</td>
+						<td style="color: ${F}; font-size: 12px;">${N}</td>
+					</tr>
+				`}).join("")}
+			</tbody>
+		</table>
+		<div class="row" style="margin-top: 8px;">
+			<button onclick="createTask()">Add Task</button>
+			<button onclick="openTaskManager()">Manage Tasks</button>
+			${l>0?`<button onclick="clearCompleted()">Clear Completed (${l})</button>`:""}
+		</div>
+	`;return`<!DOCTYPE html>
 <html lang="en">
 <head>
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<title>Settings</title>
 	<style>
+		${it()}
+	</style>
+</head>
+<body>
+	<div class="header">
+		<h1>\u{1F309} AI Feedback Bridge</h1>
+		<button onclick="runNow()">Run Now</button>
+		<button onclick="injectScript()">Inject Script</button>
+		<button onclick="sendInstructions()">Send Instructions</button>
+	</div>
+	
+	<div class="section">
+		<div class="section-title">Server</div>
+		<div class="row">
+			<label>Port (auto-assigned)</label>
+			<span class="port-display">${t}</span>
+		</div>
+	</div>
+	
+	<div class="section">
+		<div class="section-title">Auto-Approval</div>
+		<div class="row">
+			<label>Enable monitoring</label>
+			<div style="display: flex; align-items: center; gap: 8px;">
+				<input type="checkbox" data-key="autoApproval.enabled" ${n?"checked":""} 
+				       class="toggle-cb" id="cb-approval" data-auto-approved="skip">
+				<label for="cb-approval" class="toggle-label" data-auto-approved="skip"></label>
+			</div>
+		</div>
+		<div class="row">
+			<label>Auto-inject script on startup</label>
+			<div style="display: flex; align-items: center; gap: 8px;">
+				<input type="checkbox" data-key="autoApproval.autoInject" ${c?"checked":""} 
+				       class="toggle-cb" id="cb-autoinject" ${n?"":"disabled"} data-auto-approved="skip">
+				<label for="cb-autoinject" class="toggle-label" data-auto-approved="skip"></label>
+			</div>
+		</div>
+	</div>
+	
+	<div class="section">
+		<div class="section-title">Auto-Continue</div>
+		<div class="row" style="margin-bottom: 8px;">
+			<label>Enable reminders</label>
+			<div style="display: flex; align-items: center; gap: 8px;">
+				<input type="checkbox" data-key="autoContinue.enabled" ${a?"checked":""} 
+				       class="toggle-cb" id="cb-autocontinue" data-auto-approved="skip">
+				<label for="cb-autocontinue" class="toggle-label" data-auto-approved="skip"></label>
+			</div>
+		</div>
+		<table>
+			<thead>
+				<tr>
+					<th></th>
+					<th>Category</th>
+					<th>Message</th>
+					<th>Interval</th>
+					<th></th>
+				</tr>
+			</thead>
+			<tbody>
+				${g}
+			</tbody>
+		</table>
+	</div>
+	
+	<div class="section">
+		<div class="section-title">Task Management (Workspace)</div>
+		${T}
+	</div>
+	
+	<script>
+		${rt()}
+	</script>
+</body>
+</html>`}function it(){return`
 		* { box-sizing: border-box; margin: 0; padding: 0; }
 		body {
 			font-family: var(--vscode-font-family);
@@ -168,7 +282,6 @@ curl -X POST http://localhost:${t}/feedback \\
 			font-size: 14px;
 		}
 		
-		/* Better toggle switch */
 		.toggle-cb { display: none; }
 		.toggle-label {
 			display: inline-block;
@@ -221,115 +334,7 @@ curl -X POST http://localhost:${t}/feedback \\
 			color: var(--vscode-textLink-foreground);
 			font-size: 14px;
 		}
-	</style>
-</head>
-<body>
-	<div class="header">
-		<h1>\u{1F309} AI Feedback Bridge</h1>
-		<button onclick="runNow()">Run Now</button>
-		<button onclick="injectScript()">Inject Script</button>
-		<button onclick="sendInstructions()">Send Instructions</button>
-	</div>
-	
-	<div class="section">
-		<div class="section-title">Server</div>
-		<div class="row">
-			<label>Port (auto-assigned)</label>
-			<span class="port-display">${t}</span>
-		</div>
-	</div>
-	
-	<div class="section">
-		<div class="section-title">Auto-Approval</div>
-		<div class="row">
-			<label>Enable monitoring</label>
-			<div style="display: flex; align-items: center; gap: 8px;">
-				<input type="checkbox" data-key="autoApproval.enabled" ${n?"checked":""} 
-				       class="toggle-cb" id="cb-approval" data-auto-approved="skip">
-				<label for="cb-approval" class="toggle-label" data-auto-approved="skip"></label>
-			</div>
-		</div>
-		<div class="row">
-			<label>Auto-inject script on startup</label>
-			<div style="display: flex; align-items: center; gap: 8px;">
-				<input type="checkbox" data-key="autoApproval.autoInject" ${c?"checked":""} 
-				       class="toggle-cb" id="cb-autoinject" ${n?"":"disabled"} data-auto-approved="skip">
-				<label for="cb-autoinject" class="toggle-label" data-auto-approved="skip"></label>
-			</div>
-		</div>
-	</div>
-	
-	<div class="section">
-		<div class="section-title">Auto-Continue</div>
-		<div class="row" style="margin-bottom: 8px;">
-			<label>Enable reminders</label>
-			<div style="display: flex; align-items: center; gap: 8px;">
-				<input type="checkbox" data-key="autoContinue.enabled" ${o?"checked":""} 
-				       class="toggle-cb" id="cb-autocontinue" data-auto-approved="skip">
-				<label for="cb-autocontinue" class="toggle-label" data-auto-approved="skip"></label>
-			</div>
-		</div>
-		<table>
-			<thead>
-				<tr>
-					<th></th>
-					<th>Category</th>
-					<th>Message</th>
-					<th>Interval</th>
-					<th></th>
-				</tr>
-			</thead>
-			<tbody>
-				${l}
-			</tbody>
-		</table>
-	</div>
-	
-	<div class="section">
-		<div class="section-title">Task Management (Workspace)</div>
-		${(()=>{let d=a.filter(u=>u.status!=="completed").reverse(),p=a.filter(u=>u.status==="completed").length;return d.length===0?`
-			<div class="row">
-				<label style="color: var(--vscode-descriptionForeground); font-style: italic;">No active tasks for this workspace</label>
-				<button onclick="createTask()">Add Task</button>
-			</div>
-			${p>0?`
-			<div class="row" style="margin-top: 8px;">
-				<label style="font-size: 12px; color: var(--vscode-descriptionForeground);">${p} completed task${p>1?"s":""}</label>
-				<button onclick="clearCompleted()">Clear Completed</button>
-			</div>
-			`:""}
-		`:`
-			<table id="task-table">
-				<thead>
-					<tr>
-						<th style="width: 40px;"></th>
-						<th>Title</th>
-						<th>Description</th>
-						<th style="width: 120px;">Category</th>
-						<th style="width: 100px;">Status</th>
-					</tr>
-				</thead>
-				<tbody id="task-tbody">
-					${d.map(u=>{let A=u.status==="pending"?"\u23F3":u.status==="in-progress"?"\u{1F504}":"\u2705",N=u.status==="pending"?"Pending":u.status==="in-progress"?"In Progress":"Completed",j=u.status==="pending"?"#cca700":u.status==="in-progress"?"#3794ff":"#89d185";return`
-						<tr>
-							<td style="cursor: pointer; font-size: 18px;" onclick="cycleStatus('${u.id}', '${u.status}')" title="Click to cycle status">${A}</td>
-							<td style="cursor: pointer; font-weight: 500;" onclick="editField(this, '${u.id}', 'title')">${u.title}</td>
-							<td style="cursor: pointer; opacity: 0.8; font-size: 13px;" onclick="editField(this, '${u.id}', 'description')">${u.description||'<span style="opacity: 0.5;">(click to add description)</span>'}</td>
-							<td style="font-size: 12px; opacity: 0.7;">${u.category}</td>
-							<td style="color: ${j}; font-size: 12px;">${N}</td>
-						</tr>
-					`}).join("")}
-				</tbody>
-			</table>
-			<div class="row" style="margin-top: 8px;">
-				<button onclick="createTask()">Add Task</button>
-				<button onclick="openTaskManager()">Manage Tasks</button>
-				${p>0?`<button onclick="clearCompleted()">Clear Completed (${p})</button>`:""}
-			</div>
-		`})()} 
-	</div>
-	
-	<script>
+	`}function rt(){return`
 		const vscode = acquireVsCodeApi();
 		
 		// Handle all input changes
@@ -353,16 +358,14 @@ curl -X POST http://localhost:${t}/feedback \\
 					const row = e.target.closest('tr');
 					if (row) {
 						row.classList.toggle('disabled', !value);
-						// Toggle message input in current row
 						const messageInput = row.querySelector('input[type="text"]');
 						if (messageInput) messageInput.disabled = !value;
-						// Toggle interval input in current row
 						const intervalInput = row.querySelector('input[type="number"]');
 						if (intervalInput) intervalInput.disabled = !value;
 					}
 				}
 				
-				// Handle auto-approval enabled toggle - enable/disable auto-inject
+				// Handle auto-approval enabled toggle
 				if (key === 'autoApproval.enabled') {
 					const autoInjectCheckbox = document.getElementById('cb-autoinject');
 					if (autoInjectCheckbox) {
@@ -380,77 +383,76 @@ curl -X POST http://localhost:${t}/feedback \\
 			vscode.postMessage({ command: 'injectScript' });
 		}
 		
-	function createTask() {
-		const tbody = document.getElementById('task-tbody');
-		if (!tbody) {
-			vscode.postMessage({ command: 'createTask' });
-			return;
+		function createTask() {
+			const tbody = document.getElementById('task-tbody');
+			if (!tbody) {
+				vscode.postMessage({ command: 'createTask' });
+				return;
+			}
+			
+			if (document.getElementById('new-task-row')) {
+				return;
+			}
+			
+			const newRow = document.createElement('tr');
+			newRow.id = 'new-task-row';
+			newRow.style.opacity = '0.7';
+			newRow.innerHTML = \`
+				<td>\u23F3</td>
+				<td><input type="text" id="new-title" placeholder="Task title..." style="width: 100%; padding: 4px; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border);" autofocus></td>
+				<td><input type="text" id="new-description" placeholder="Description (optional)..." style="width: 100%; padding: 4px; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border);"></td>
+				<td>
+					<select id="new-category" style="padding: 4px; font-size: 12px; background: var(--vscode-dropdown-background); color: var(--vscode-dropdown-foreground); border: 1px solid var(--vscode-dropdown-border);">
+						<option value="bug">bug</option>
+						<option value="feature">feature</option>
+						<option value="improvement">improvement</option>
+						<option value="documentation">documentation</option>
+						<option value="testing">testing</option>
+						<option value="other">other</option>
+					</select>
+				</td>
+				<td>
+					<button onclick="saveNewTask()" style="padding: 4px 12px; font-size: 12px;">Save</button>
+				</td>
+			\`;
+			
+			tbody.insertBefore(newRow, tbody.firstChild);
+			document.getElementById('new-title').focus();
+			
+			document.getElementById('new-title').addEventListener('keydown', (e) => {
+				if (e.key === 'Enter') saveNewTask();
+				if (e.key === 'Escape') cancelNewTask();
+			});
+			document.getElementById('new-description').addEventListener('keydown', (e) => {
+				if (e.key === 'Enter') saveNewTask();
+				if (e.key === 'Escape') cancelNewTask();
+			});
 		}
 		
-		// Check if there's already a new task row
-		if (document.getElementById('new-task-row')) {
-			return;
+		function saveNewTask() {
+			const title = document.getElementById('new-title')?.value.trim();
+			const description = document.getElementById('new-description')?.value.trim();
+			const category = document.getElementById('new-category')?.value;
+			
+			if (!title) {
+				cancelNewTask();
+				return;
+			}
+			
+			vscode.postMessage({ 
+				command: 'saveNewTask',
+				title: title,
+				description: description || '',
+				category: category || 'other'
+			});
 		}
 		
-		const newRow = document.createElement('tr');
-		newRow.id = 'new-task-row';
-		newRow.style.opacity = '0.7';
-		newRow.innerHTML = \`
-			<td>\u23F3</td>
-			<td><input type="text" id="new-title" placeholder="Task title..." style="width: 100%; padding: 4px; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border);" autofocus></td>
-			<td><input type="text" id="new-description" placeholder="Description (optional)..." style="width: 100%; padding: 4px; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border);"></td>
-			<td>
-				<select id="new-category" style="padding: 4px; font-size: 12px; background: var(--vscode-dropdown-background); color: var(--vscode-dropdown-foreground); border: 1px solid var(--vscode-dropdown-border);">
-					<option value="bug">bug</option>
-					<option value="feature">feature</option>
-					<option value="improvement">improvement</option>
-					<option value="documentation">documentation</option>
-					<option value="testing">testing</option>
-					<option value="other">other</option>
-				</select>
-			</td>
-			<td>
-				<button onclick="saveNewTask()" style="padding: 4px 12px; font-size: 12px;">Save</button>
-			</td>
-		\`;
-		
-		tbody.insertBefore(newRow, tbody.firstChild);
-		document.getElementById('new-title').focus();
-		
-		// Handle Enter key to save, Escape to cancel
-		document.getElementById('new-title').addEventListener('keydown', (e) => {
-			if (e.key === 'Enter') saveNewTask();
-			if (e.key === 'Escape') cancelNewTask();
-		});
-		document.getElementById('new-description').addEventListener('keydown', (e) => {
-			if (e.key === 'Enter') saveNewTask();
-			if (e.key === 'Escape') cancelNewTask();
-		});
-	}
-	
-	function saveNewTask() {
-		const title = document.getElementById('new-title')?.value.trim();
-		const description = document.getElementById('new-description')?.value.trim();
-		const category = document.getElementById('new-category')?.value;
-		
-		if (!title) {
-			cancelNewTask();
-			return;
+		function cancelNewTask() {
+			const row = document.getElementById('new-task-row');
+			if (row) row.remove();
 		}
 		
-		vscode.postMessage({ 
-			command: 'saveNewTask',
-			title: title,
-			description: description || '',
-			category: category || 'other'
-		});
-	}
-	
-	function cancelNewTask() {
-		const row = document.getElementById('new-task-row');
-		if (row) row.remove();
-	}
-			function editField(cell, taskId, field) {
+		function editField(cell, taskId, field) {
 			const currentValue = cell.textContent.trim();
 			const input = document.createElement('input');
 			input.type = 'text';
@@ -495,42 +497,40 @@ curl -X POST http://localhost:${t}/feedback \\
 		function sendInstructions() {
 			vscode.postMessage({ command: 'sendInstructions' });
 		}
-	</script>
-</body>
-</html>`}async function Qe(e){T=e,w=s.window.createOutputChannel("AI Agent Feedback"),e.subscriptions.push(w),pe(w),i("INFO","\u{1F680} AI Agent Feedback Bridge activated");let t=b(),a=s.workspace.getConfiguration("aiFeedbackBridge");a.inspect("autoContinue.enabled")?.globalValue!==void 0&&(i("WARN","Detected old Global settings, clearing to use Workspace scope"),await a.update("autoContinue.enabled",void 0,s.ConfigurationTarget.Global));let o=t.get("port");m=await ke(e),i("INFO",`Auto-selected port: ${m} for this window`);let n=s.workspace.name||"No Workspace",c=s.workspace.workspaceFolders?.length||0;i("INFO",`Window context: ${n} (${c} folders)`),F=s.window.createStatusBarItem(s.StatusBarAlignment.Right,100),F.command="ai-feedback-bridge.openSettings",F.show(),e.subscriptions.push(F),I=s.window.createStatusBarItem(s.StatusBarAlignment.Right,99),I.command="ai-feedback-bridge.toggleAutoContinue",I.show(),e.subscriptions.push(I),M=s.window.createStatusBarItem(s.StatusBarAlignment.Right,98),M.command="ai-feedback-bridge.injectScript",M.text="$(clippy) Inject",M.tooltip="Copy auto-approval script to clipboard",M.show(),e.subscriptions.push(M),Ie(t);let l=s.commands.registerCommand("ai-feedback-bridge.openSettings",async()=>{qe(e)});e.subscriptions.push(l);let d=s.commands.registerCommand("ai-feedback-bridge.runNow",async()=>{try{let g=await re(e,!0);g?(i("INFO","[Run Now] Manually triggered all enabled reminders"),await B(g,{source:"manual_trigger",timestamp:new Date().toISOString()})):s.window.showInformationMessage("No enabled categories (check settings)")}catch(g){i("ERROR","[Run Now] Failed to send message",{error:g}),s.window.showErrorMessage("Failed to send reminders")}});e.subscriptions.push(d);let p=s.commands.registerCommand("ai-feedback-bridge.injectScript",async()=>{W(T)});e.subscriptions.push(p);let u=s.commands.registerCommand("ai-feedback-bridge.getPort",()=>m);e.subscriptions.push(u);let A=s.commands.registerCommand("ai-feedback-bridge.addTask",async()=>{let g=await s.window.showInputBox({prompt:"Task title"});if(!g)return;let h=await s.window.showInputBox({prompt:"Task description (optional)"}),k=await s.window.showQuickPick(["bug","feature","improvement","documentation","testing","other"],{placeHolder:"Select category"});await L(e,g,h||"",k||"other"),await se()});e.subscriptions.push(A);let N=s.commands.registerCommand("ai-feedback-bridge.listTasks",async()=>{let g=await f(e);if(g.length===0){s.window.showInformationMessage("No tasks found");return}let h=g.map(y=>({label:`${y.status==="completed"?"\u2705":y.status==="in-progress"?"\u{1F504}":"\u23F3"} ${y.title}`,description:y.description,task:y})),k=await s.window.showQuickPick(h,{placeHolder:"Select a task to update"});if(k){let y=await s.window.showQuickPick(["Mark as In Progress","Mark as Completed","Mark as Pending","Delete"],{placeHolder:"What do you want to do?"});y==="Delete"?await V(e,k.task.id):y==="Mark as In Progress"?await O(e,k.task.id,"in-progress"):y==="Mark as Completed"?await O(e,k.task.id,"completed"):y==="Mark as Pending"&&await O(e,k.task.id,"pending"),await se()}});e.subscriptions.push(N),et(e);let j=s.commands.registerCommand("ai-agent-feedback-bridge.sendToCopilotChat",async g=>{g||(g=await s.window.showInputBox({prompt:"Enter feedback to send to Copilot Chat",placeHolder:"Describe the issue or request..."})),g&&await Ze(g,{source:"manual_command",timestamp:new Date().toISOString()})});e.subscriptions.push(j);let q=s.commands.registerCommand("ai-feedback-bridge.toggleAutoContinue",async()=>{let h=b().get("autoContinue.enabled",!1);await ie("autoContinue.enabled",!h),i("INFO",`Auto-Continue ${h?"disabled":"enabled"}`),se()});e.subscriptions.push(q);let Ae=s.commands.registerCommand("ai-feedback-bridge.changePort",async()=>{let g=await s.window.showInputBox({prompt:"Enter new port number",value:m.toString(),validateInput:h=>{let k=parseInt(h);return isNaN(k)||k<1024||k>65535?"Invalid port (1024-65535)":null}});g&&(await ie("port",parseInt(g)),i("INFO",`Port changed to ${g}. Reloading VS Code...`),s.commands.executeCommand("workbench.action.reloadWindow"))});e.subscriptions.push(Ae);let Ee=s.commands.registerCommand("ai-feedback-bridge.showStatus",()=>{let g=b(),h=g.get("autoContinue.interval",300),k=g.get("autoContinue.enabled",!1),Fe=`\u{1F309} AI Feedback Bridge Status
+	`}async function X(e,t,o){if(B){let s=await v(e);B.webview.html=await E(t(),o,s),i("DEBUG","Settings panel refreshed")}}var h,re,P,j,V,I,k=3737,S,O;function w(){return r.workspace.getConfiguration("aiFeedbackBridge")}async function ce(e,t){let o=w();await o.update(e,t,r.ConfigurationTarget.Workspace),i("DEBUG",`Config updated: ${e} = ${t}`,{scope:"Workspace",newValue:o.get(e)})}async function dt(e){O=e,h=r.window.createOutputChannel("AI Agent Feedback"),e.subscriptions.push(h),ge(h),i("INFO","\u{1F680} AI Agent Feedback Bridge activated");let t=w(),o=r.workspace.getConfiguration("aiFeedbackBridge");o.inspect("autoContinue.enabled")?.globalValue!==void 0&&(i("WARN","Detected old Global settings, clearing to use Workspace scope"),await o.update("autoContinue.enabled",void 0,r.ConfigurationTarget.Global));let a=t.get("port");k=await we(e),i("INFO",`Auto-selected port: ${k} for this window`);let n=r.workspace.name||"No Workspace",c=r.workspace.workspaceFolders?.length||0;i("INFO",`Window context: ${n} (${c} folders)`),j=r.window.createStatusBarItem(r.StatusBarAlignment.Right,100),j.command="ai-feedback-bridge.openSettings",j.show(),e.subscriptions.push(j),P=r.window.createStatusBarItem(r.StatusBarAlignment.Right,99),P.command="ai-feedback-bridge.toggleAutoContinue",P.show(),e.subscriptions.push(P),V=r.window.createStatusBarItem(r.StatusBarAlignment.Right,98),V.command="ai-feedback-bridge.injectScript",V.text="$(clippy) Inject",V.tooltip="Copy auto-approval script to clipboard",V.show(),e.subscriptions.push(V),Ee(t);let g=r.commands.registerCommand("ai-feedback-bridge.openSettings",async()=>{Ae(e,k,w,ce,J,de)});e.subscriptions.push(g);let p=r.commands.registerCommand("ai-feedback-bridge.runNow",async()=>{try{let u=await de(e,!0);u?(i("INFO","[Run Now] Manually triggered all enabled reminders"),await J(u,{source:"manual_trigger",timestamp:new Date().toISOString()})):r.window.showInformationMessage("No enabled categories (check settings)")}catch(u){i("ERROR","[Run Now] Failed to send message",{error:u}),r.window.showErrorMessage("Failed to send reminders")}});e.subscriptions.push(p);let l=r.commands.registerCommand("ai-feedback-bridge.injectScript",async()=>{L(O)});e.subscriptions.push(l);let T=r.commands.registerCommand("ai-feedback-bridge.getPort",()=>k);e.subscriptions.push(T);let d=r.commands.registerCommand("ai-feedback-bridge.addTask",async()=>{let u=await r.window.showInputBox({prompt:"Task title"});if(!u)return;let y=await r.window.showInputBox({prompt:"Task description (optional)"}),b=await r.window.showQuickPick(["bug","feature","improvement","documentation","testing","other"],{placeHolder:"Select category"});await H(e,u,y||"",b||"other"),await X(O,w,k)});e.subscriptions.push(d);let C=r.commands.registerCommand("ai-feedback-bridge.listTasks",async()=>{let u=await v(e);if(u.length===0){r.window.showInformationMessage("No tasks found");return}let y=u.map(x=>({label:`${x.status==="completed"?"\u2705":x.status==="in-progress"?"\u{1F504}":"\u23F3"} ${x.title}`,description:x.description,task:x})),b=await r.window.showQuickPick(y,{placeHolder:"Select a task to update"});if(b){let x=await r.window.showQuickPick(["Mark as In Progress","Mark as Completed","Mark as Pending","Delete"],{placeHolder:"What do you want to do?"});x==="Delete"?await K(e,b.task.id):x==="Mark as In Progress"?await R(e,b.task.id,"in-progress"):x==="Mark as Completed"?await R(e,b.task.id,"completed"):x==="Mark as Pending"&&await R(e,b.task.id,"pending"),await X(O,w,k)}});e.subscriptions.push(C),gt(e);let N=r.commands.registerCommand("ai-agent-feedback-bridge.sendToCopilotChat",async u=>{u||(u=await r.window.showInputBox({prompt:"Enter feedback to send to Copilot Chat",placeHolder:"Describe the issue or request..."})),u&&await ut(u,{source:"manual_command",timestamp:new Date().toISOString()})});e.subscriptions.push(N);let F=r.commands.registerCommand("ai-feedback-bridge.toggleAutoContinue",async()=>{let y=w().get("autoContinue.enabled",!1);await ce("autoContinue.enabled",!y),i("INFO",`Auto-Continue ${y?"disabled":"enabled"}`),X(O,w,k)});e.subscriptions.push(F);let Oe=r.commands.registerCommand("ai-feedback-bridge.changePort",async()=>{let u=await r.window.showInputBox({prompt:"Enter new port number",value:k.toString(),validateInput:y=>{let b=parseInt(y);return isNaN(b)||b<1024||b>65535?"Invalid port (1024-65535)":null}});u&&(await ce("port",parseInt(u)),i("INFO",`Port changed to ${u}. Reloading VS Code...`),r.commands.executeCommand("workbench.action.reloadWindow"))});e.subscriptions.push(Oe);let Re=r.commands.registerCommand("ai-feedback-bridge.showStatus",()=>{let u=w(),y=u.get("autoContinue.interval",300),b=u.get("autoContinue.enabled",!1),Me=`\u{1F309} AI Feedback Bridge Status
 
-Window: ${s.workspace.name||"No Workspace"}
-Port: ${m}
-Server: ${oe?"Running \u2705":"Stopped \u274C"}
-Auto-Continue: ${k?`Enabled \u2705 (every ${h}s)`:"Disabled \u274C"}
-Endpoint: http://localhost:${m}`;w.appendLine(Fe),w.show()});e.subscriptions.push(Ee);let ce=t.get("autoContinue.enabled",!1),U=t.inspect("autoContinue.enabled");i("INFO","[STARTUP] Auto-Continue check:",{enabled:ce,defaultValue:U?.defaultValue,globalValue:U?.globalValue,workspaceValue:U?.workspaceValue,workspaceFolderValue:U?.workspaceFolderValue}),ce?Te(e):i("INFO","[STARTUP] Auto-Continue is disabled, not starting"),tt(),e.subscriptions.push(s.workspace.onDidChangeConfiguration(g=>{if(g.affectsConfiguration("aiFeedbackBridge")){let h=b();if(i("DEBUG","Configuration changed",{workspace:s.workspace.name,affectedKeys:["port","autoContinue"].filter(k=>g.affectsConfiguration(`aiFeedbackBridge.${k}`))}),g.affectsConfiguration("aiFeedbackBridge.port")){let k=h.get("port",3737);k!==m&&(i("INFO",`Port change detected: ${m} \u2192 ${k}. Reloading window...`),s.commands.executeCommand("workbench.action.reloadWindow"))}Ie(h),g.affectsConfiguration("aiFeedbackBridge.autoContinue")&&Ye(e)}})),ne=s.chat.createChatParticipant("ai-agent-feedback-bridge.agent",Xe),ne.iconPath=s.Uri.file(e.asAbsolutePath("icon.png")),e.subscriptions.push(ne);let Oe=s.commands.registerCommand("ai-agent-feedback-bridge.enableAutoApproval",()=>ot(e));e.subscriptions.push(Oe);let Pe=s.commands.registerCommand("ai-agent-feedback-bridge.disableAutoApproval",()=>at());e.subscriptions.push(Pe);let Re=s.commands.registerCommand("ai-agent-feedback-bridge.injectAutoApprovalScript",()=>nt());e.subscriptions.push(Re),i("INFO",`Feedback server started on http://localhost:${m}`)}function Ie(e){if(!I||!F)return;let t=e.get("autoContinue.enabled",!1);F.text=`AI Dev: ${m}`,F.tooltip="Click to configure AI Feedback Bridge",t?(I.text="$(sync~spin) Stop AI Dev",I.tooltip=`Auto-Continue active
-Click to stop`):(I.text="$(play) Start AI Dev",I.tooltip=`Auto-Continue inactive
-Click to start`)}async function re(e,t=!1){let a=b(),r=["tasks","improvements","coverage","robustness","cleanup","commits"],o=Date.now(),n=[],c="autoContinue.lastSent",l=e.globalState.get(c,{}),d={...l};for(let p of r){let u=a.get(`autoContinue.${p}.enabled`,!0),A=a.get(`autoContinue.${p}.interval`,300),N=a.get(`autoContinue.${p}.message`,"");if(!u||!N)continue;let j=l[p]||0,q=(o-j)/1e3;(t||q>=A)&&(n.push(N),d[p]=o)}return await e.globalState.update(c,d),n.length===0?"":n.join(". ")+"."}function Te(e){if(b().get("autoContinue.enabled",!1)){let o=s.workspace.name||"No Workspace";i("INFO",`\u2705 Auto-Continue enabled for window: ${o}`),x=setInterval(async()=>{try{if(!b().get("autoContinue.enabled",!1)){i("INFO","[Auto-Continue] Detected disabled state, stopping timer"),x&&(clearInterval(x),x=void 0);return}let l=await re(e);l&&(i("INFO","[Auto-Continue] Sending periodic reminder"),await B(l,{source:"auto_continue",timestamp:new Date().toISOString()}))}catch(n){i("ERROR","[Auto-Continue] Failed to send message",{error:v(n)})}},500)}else i("DEBUG","Auto-Continue is disabled")}function Ye(e){x&&(clearInterval(x),x=void 0,i("INFO","Auto-Continue timer stopped")),Te(e)}async function Xe(e,t,a,r){w.appendLine(`Chat request received: ${e.prompt}`),a.markdown(`### \u{1F504} Processing Feedback
+Window: ${r.workspace.name||"No Workspace"}
+Port: ${k}
+Server: ${ie?"Running \u2705":"Stopped \u274C"}
+Auto-Continue: ${b?`Enabled \u2705 (every ${y}s)`:"Disabled \u274C"}
+Endpoint: http://localhost:${k}`;h.appendLine(Me),h.show()});e.subscriptions.push(Re);let le=t.get("autoContinue.enabled",!1),z=t.inspect("autoContinue.enabled");i("INFO","[STARTUP] Auto-Continue check:",{enabled:le,defaultValue:z?.defaultValue,globalValue:z?.globalValue,workspaceValue:z?.workspaceValue,workspaceFolderValue:z?.workspaceFolderValue}),le?Pe(e):i("INFO","[STARTUP] Auto-Continue is disabled, not starting"),mt(),e.subscriptions.push(r.workspace.onDidChangeConfiguration(u=>{if(u.affectsConfiguration("aiFeedbackBridge")){let y=w();if(i("DEBUG","Configuration changed",{workspace:r.workspace.name,affectedKeys:["port","autoContinue"].filter(b=>u.affectsConfiguration(`aiFeedbackBridge.${b}`))}),u.affectsConfiguration("aiFeedbackBridge.port")){let b=y.get("port",3737);b!==k&&(i("INFO",`Port change detected: ${k} \u2192 ${b}. Reloading window...`),r.commands.executeCommand("workbench.action.reloadWindow"))}Ee(y),u.affectsConfiguration("aiFeedbackBridge.autoContinue")&&lt(e)}})),re=r.chat.createChatParticipant("ai-agent-feedback-bridge.agent",pt),re.iconPath=r.Uri.file(e.asAbsolutePath("icon.png")),e.subscriptions.push(re);let Ne=r.commands.registerCommand("ai-agent-feedback-bridge.enableAutoApproval",()=>vt(e));e.subscriptions.push(Ne);let Fe=r.commands.registerCommand("ai-agent-feedback-bridge.disableAutoApproval",()=>bt());e.subscriptions.push(Fe);let $e=r.commands.registerCommand("ai-agent-feedback-bridge.injectAutoApprovalScript",()=>kt());e.subscriptions.push($e),i("INFO",`Feedback server started on http://localhost:${k}`)}function Ee(e){if(!P||!j)return;let t=e.get("autoContinue.enabled",!1);j.text=`AI Dev: ${k}`,j.tooltip="Click to configure AI Feedback Bridge",t?(P.text="$(sync~spin) Stop AI Dev",P.tooltip=`Auto-Continue active
+Click to stop`):(P.text="$(play) Start AI Dev",P.tooltip=`Auto-Continue inactive
+Click to start`)}async function de(e,t=!1){let o=w(),s=["tasks","improvements","coverage","robustness","cleanup","commits"],a=Date.now(),n=[],c="autoContinue.lastSent",g=e.globalState.get(c,{}),p={...g};for(let l of s){let T=o.get(`autoContinue.${l}.enabled`,!0),d=o.get(`autoContinue.${l}.interval`,300),C=o.get(`autoContinue.${l}.message`,"");if(!T||!C)continue;let N=g[l]||0,F=(a-N)/1e3;(t||F>=d)&&(n.push(C),p[l]=a)}return await e.globalState.update(c,p),n.length===0?"":n.join(". ")+"."}function Pe(e){if(w().get("autoContinue.enabled",!1)){let a=r.workspace.name||"No Workspace";i("INFO",`\u2705 Auto-Continue enabled for window: ${a}`),I=setInterval(async()=>{try{if(!w().get("autoContinue.enabled",!1)){i("INFO","[Auto-Continue] Detected disabled state, stopping timer"),I&&(clearInterval(I),I=void 0);return}let g=await de(e);g&&(i("INFO","[Auto-Continue] Sending periodic reminder"),await J(g,{source:"auto_continue",timestamp:new Date().toISOString()}))}catch(n){i("ERROR","[Auto-Continue] Failed to send message",{error:m(n)})}},500)}else i("DEBUG","Auto-Continue is disabled")}function lt(e){I&&(clearInterval(I),I=void 0,i("INFO","Auto-Continue timer stopped")),Pe(e)}async function pt(e,t,o,s){h.appendLine(`Chat request received: ${e.prompt}`),o.markdown(`### \u{1F504} Processing Feedback
 
-`),a.markdown(`**Message:** ${e.prompt}
+`),o.markdown(`**Message:** ${e.prompt}
 
-`),e.prompt.match(/# 🔄 FEEDBACK FROM AI AGENT SYSTEM APP/)?a.markdown(`I've received feedback from your external AI agent system. Let me analyze it:
+`),e.prompt.match(/# 🔄 FEEDBACK FROM AI AGENT SYSTEM APP/)?o.markdown(`I've received feedback from your external AI agent system. Let me analyze it:
 
-`):a.markdown(`Processing your message...
+`):o.markdown(`Processing your message...
 
-`);try{let[n]=await s.lm.selectChatModels({vendor:"copilot",family:"gpt-4o"});if(n){let c=[s.LanguageModelChatMessage.User(e.prompt)],l=await n.sendRequest(c,{},r);for await(let d of l.text)a.markdown(d)}}catch(n){n instanceof s.LanguageModelError&&(w.appendLine(`Language model error: ${n.message}`),a.markdown(`\u26A0\uFE0F Error: ${n.message}
+`);try{let[n]=await r.lm.selectChatModels({vendor:"copilot",family:"gpt-4o"});if(n){let c=[r.LanguageModelChatMessage.User(e.prompt)],g=await n.sendRequest(c,{},s);for await(let p of g.text)o.markdown(p)}}catch(n){n instanceof r.LanguageModelError&&(h.appendLine(`Language model error: ${n.message}`),o.markdown(`\u26A0\uFE0F Error: ${n.message}
 
-`))}return{metadata:{command:"process-feedback"}}}async function B(e,t){let a=t||{source:"unknown",timestamp:new Date().toISOString()};try{let r=`# \uFFFD AI DEV MODE
+`))}return{metadata:{command:"process-feedback"}}}async function J(e,t){let o=t||{source:"unknown",timestamp:new Date().toISOString()};try{let s=`# \uFFFD AI DEV MODE
 
-`;r+=`**User Feedback:**
+`;s+=`**User Feedback:**
 ${e}
 
-`,Object.keys(a).filter(n=>n!=="source"&&n!=="timestamp").length>0&&(r+=`**Context:**
+`,Object.keys(o).filter(n=>n!=="source"&&n!=="timestamp").length>0&&(s+=`**Context:**
 \`\`\`json
-${JSON.stringify(a,null,2)}
+${JSON.stringify(o,null,2)}
 \`\`\`
 
-`),r+=`**Instructions:**
-`,r+=`Analyze feedback, take appropriate action:
-`,r+=`\u2022 If a bug \u2192 find and fix root cause
-`,r+=`\u2022 If a feature \u2192 draft implementation plan
-`,r+=`\u2022 Apply and commit changes
-`,w.appendLine("Processing feedback through AI agent..."),w.appendLine(r);try{let[n]=await s.lm.selectChatModels({vendor:"copilot",family:"gpt-4o"});if(n)return w.appendLine("\u2705 AI Agent processing request..."),await s.commands.executeCommand("workbench.action.chat.open",{query:`@agent ${r}`}),setTimeout(async()=>{try{await s.commands.executeCommand("workbench.action.chat.submit")}catch{w.appendLine("Note: Could not auto-submit. User can press Enter to submit.")}},300),i("INFO","Feedback sent to AI Agent"),!0}catch(n){w.appendLine(`Could not access language model: ${v(n)}`)}return await s.env.clipboard.writeText(r),i("INFO","Feedback copied to clipboard"),!0}catch(r){return i("ERROR",`Error sending to agent: ${v(r)}`),!1}}async function Ze(e,t){return B(e,t)}function et(e){ee(e,m,B)}function tt(){let e=b(),t=e.get("autoApproval.enabled",!0),a=e.get("autoApproval.autoInject",!1);if(t&&(i("INFO",'Auto-approval enabled. Use "AI Feedback Bridge: Copy Auto-Approval Script" command to get the script.'),a)){let r=e.inspect("autoApproval.autoInject");if(!!!(r&&(r.workspaceValue||r.workspaceFolderValue))){i("INFO","Skipping auto-inject because autoApproval.autoInject is not set at workspace scope."),i("INFO",'To enable auto-inject for this workspace, set "aiFeedbackBridge.autoApproval.autoInject" in Workspace Settings.');return}i("INFO","Auto-inject enabled at workspace scope. Launching quick setup..."),setTimeout(()=>{W(T).catch(n=>{i("WARN","Auto-inject setup failed:",v(n))})},1e3)}}function ot(e){if(C){w.appendLine("Auto-approval is already enabled");return}let a=b().get("autoApproval.intervalMs",2e3);i("INFO",`Enabling auto-approval with ${a}ms interval`),C=setInterval(async()=>{try{await s.commands.executeCommand("workbench.action.acceptSelectedQuickOpenItem")}catch{}},a),e.subscriptions.push({dispose:()=>{C&&(clearInterval(C),C=void 0)}}),i("INFO",'Auto-approval enabled. Use "AI Feedback Bridge: Copy Auto-Approval Script" command to get the script.')}function at(){C?(clearInterval(C),C=void 0,w.appendLine("Auto-approval disabled"),i("INFO","Auto-approval disabled")):i("INFO","Auto-approval is not currently enabled")}function nt(){let{getAutoApprovalScript:e}=(ae(),le(Se)),t=e(T),a=s.window.createWebviewPanel("autoApprovalScript","Auto-Approval Script",s.ViewColumn.One,{enableScripts:!0});a.webview.html=st(t),s.env.clipboard.writeText(t),i("INFO","Auto-approval script copied to clipboard")}function st(e){return`<!DOCTYPE html>
+`),s+=`**Instructions:**
+`,s+=`Analyze feedback, take appropriate action:
+`,s+=`\u2022 If a bug \u2192 find and fix root cause
+`,s+=`\u2022 If a feature \u2192 draft implementation plan
+`,s+=`\u2022 Apply and commit changes
+`,h.appendLine("Processing feedback through AI agent..."),h.appendLine(s);try{let[n]=await r.lm.selectChatModels({vendor:"copilot",family:"gpt-4o"});if(n)return h.appendLine("\u2705 AI Agent processing request..."),await r.commands.executeCommand("workbench.action.chat.open",{query:`@agent ${s}`}),setTimeout(async()=>{try{await r.commands.executeCommand("workbench.action.chat.submit")}catch{h.appendLine("Note: Could not auto-submit. User can press Enter to submit.")}},300),i("INFO","Feedback sent to AI Agent"),!0}catch(n){h.appendLine(`Could not access language model: ${m(n)}`)}return await r.env.clipboard.writeText(s),i("INFO","Feedback copied to clipboard"),!0}catch(s){return i("ERROR",`Error sending to agent: ${m(s)}`),!1}}async function ut(e,t){return J(e,t)}function gt(e){ne(e,k,J)}function mt(){let e=w(),t=e.get("autoApproval.enabled",!0),o=e.get("autoApproval.autoInject",!1);if(t&&(i("INFO",'Auto-approval enabled. Use "AI Feedback Bridge: Copy Auto-Approval Script" command to get the script.'),o)){let s=e.inspect("autoApproval.autoInject");if(!!!(s&&(s.workspaceValue||s.workspaceFolderValue))){i("INFO","Skipping auto-inject because autoApproval.autoInject is not set at workspace scope."),i("INFO",'To enable auto-inject for this workspace, set "aiFeedbackBridge.autoApproval.autoInject" in Workspace Settings.');return}i("INFO","Auto-inject enabled at workspace scope. Launching quick setup..."),setTimeout(()=>{L(O).catch(n=>{i("WARN","Auto-inject setup failed:",m(n))})},1e3)}}function vt(e){if(S){h.appendLine("Auto-approval is already enabled");return}let o=w().get("autoApproval.intervalMs",2e3);i("INFO",`Enabling auto-approval with ${o}ms interval`),S=setInterval(async()=>{try{await r.commands.executeCommand("workbench.action.acceptSelectedQuickOpenItem")}catch{}},o),e.subscriptions.push({dispose:()=>{S&&(clearInterval(S),S=void 0)}}),i("INFO",'Auto-approval enabled. Use "AI Feedback Bridge: Copy Auto-Approval Script" command to get the script.')}function bt(){S?(clearInterval(S),S=void 0,h.appendLine("Auto-approval disabled"),i("INFO","Auto-approval disabled")):i("INFO","Auto-approval is not currently enabled")}function kt(){let{getAutoApprovalScript:e}=(Y(),ue(Te)),t=e(O),o=r.window.createWebviewPanel("autoApprovalScript","Auto-Approval Script",r.ViewColumn.One,{enableScripts:!0});o.webview.html=ft(t),r.env.clipboard.writeText(t),i("INFO","Auto-approval script copied to clipboard")}function ft(e){return`<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -642,4 +642,4 @@ ${JSON.stringify(a,null,2)}
         }
     </script>
 </body>
-</html>`}async function it(){K(),i("INFO","HTTP server closed"),x&&(clearInterval(x),x=void 0,i("INFO","Auto-continue timer cleared")),C&&(clearInterval(C),C=void 0,i("INFO","Auto-approval interval cleared")),T&&await fe(T,m),i("INFO","\u{1F44B} AI Agent Feedback Bridge deactivated")}0&&(module.exports={activate,deactivate});
+</html>`}async function wt(){q(),i("INFO","HTTP server closed"),I&&(clearInterval(I),I=void 0,i("INFO","Auto-continue timer cleared")),S&&(clearInterval(S),S=void 0,i("INFO","Auto-approval interval cleared")),O&&await he(O,k),i("INFO","\u{1F44B} AI Agent Feedback Bridge deactivated")}0&&(module.exports={activate,deactivate});
