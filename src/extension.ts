@@ -1096,13 +1096,13 @@ function initializeAutoApproval() {
 		
 		// Auto-inject if enabled
 		if (autoInjectEnabled) {
-			log(LogLevel.INFO, 'Auto-inject enabled. Attempting to inject script...');
+			log(LogLevel.INFO, 'Auto-inject enabled. Launching quick setup...');
 			// Delay slightly to ensure extension is fully initialized
 			setTimeout(() => {
 				autoInjectScript().catch(err => {
-					log(LogLevel.WARN, 'Auto-inject failed:', err);
+					log(LogLevel.WARN, 'Auto-inject setup failed:', err);
 				});
-			}, 1000);
+			}, 1500); // Slightly longer delay for better UX
 		}
 	}
 }
@@ -1110,7 +1110,7 @@ function initializeAutoApproval() {
 /**
  * Attempt to automatically inject the script into the console
  * Since we can't directly inject into browser console from VS Code extension,
- * we'll do the next best thing: open dev tools, copy script, and show notification
+ * we'll do the next best thing: open dev tools, copy script, and show prominent notification
  */
 async function autoInjectScript() {
 	try {
@@ -1128,10 +1128,10 @@ async function autoInjectScript() {
 			log(LogLevel.WARN, 'Could not auto-open Developer Tools. Please open manually with Cmd+Option+I', error);
 		}
 		
-		// Step 3: Show a helpful webview panel with instructions
+		// Step 3: Show a prominent ready-to-paste panel
 		const panel = vscode.window.createWebviewPanel(
 			'autoInject',
-			'🚀 Auto-Approval Setup',
+			'🚀 Quick Setup - Ready to Paste!',
 			vscode.ViewColumn.Beside,
 			{
 				enableScripts: true,
@@ -1145,80 +1145,122 @@ async function autoInjectScript() {
 			<head>
 				<meta charset="UTF-8">
 				<meta name="viewport" content="width=device-width, initial-scale=1.0">
-				<title>Auto-Approval Setup</title>
+				<title>Quick Setup</title>
 				<style>
 					* { box-sizing: border-box; margin: 0; padding: 0; }
 					body { 
 						font-family: var(--vscode-font-family); 
-						padding: 20px; 
+						padding: 30px; 
 						background: var(--vscode-editor-background);
 						color: var(--vscode-editor-foreground);
 						line-height: 1.6;
-					}
-					h2 { 
-						margin-bottom: 20px; 
-						color: var(--vscode-textLink-foreground);
-					}
-					.steps {
-						background: var(--vscode-textCodeBlock-background);
-						padding: 20px;
-						border-radius: 6px;
-						margin: 20px 0;
-					}
-					.step {
 						display: flex;
-						gap: 12px;
-						margin: 15px 0;
-						align-items: flex-start;
-					}
-					.step-num {
-						background: var(--vscode-button-background);
-						color: var(--vscode-button-foreground);
-						width: 28px;
-						height: 28px;
-						border-radius: 50%;
-						display: flex;
+						flex-direction: column;
 						align-items: center;
 						justify-content: center;
+						min-height: 100vh;
+					}
+					.hero {
+						text-align: center;
+						margin-bottom: 30px;
+					}
+					.hero h1 {
+						font-size: 32px;
+						color: var(--vscode-textLink-foreground);
+						margin-bottom: 15px;
+					}
+					.big-message {
+						background: linear-gradient(135deg, var(--vscode-button-background), var(--vscode-textLink-foreground));
+						color: white;
+						padding: 25px 40px;
+						border-radius: 12px;
+						font-size: 24px;
 						font-weight: bold;
-						flex-shrink: 0;
+						margin: 20px 0;
+						box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+						animation: pulse 2s ease-in-out infinite;
 					}
-					.step-text {
-						flex: 1;
-						padding-top: 4px;
+					@keyframes pulse {
+						0%, 100% { transform: scale(1); }
+						50% { transform: scale(1.05); }
 					}
-					.highlight {
-						background: var(--vscode-textLink-foreground);
-						color: var(--vscode-editor-background);
-						padding: 2px 6px;
-						border-radius: 3px;
-						font-weight: 600;
+					.quick-steps {
+						background: var(--vscode-textCodeBlock-background);
+						padding: 25px;
+						border-radius: 8px;
+						max-width: 600px;
+						margin: 20px 0;
+					}
+					.quick-step {
+						display: flex;
+						gap: 15px;
+						margin: 15px 0;
+						align-items: center;
+						font-size: 16px;
+					}
+					.step-icon {
+						font-size: 28px;
+						min-width: 40px;
+						text-align: center;
+					}
+					.kbd {
+						background: var(--vscode-input-background);
+						border: 1px solid var(--vscode-input-border);
+						padding: 4px 8px;
+						border-radius: 4px;
+						font-family: monospace;
+						font-weight: bold;
+						font-size: 14px;
+						white-space: nowrap;
 					}
 					button { 
 						background: var(--vscode-button-background);
 						color: var(--vscode-button-foreground);
 						border: none;
-						padding: 10px 20px;
-						border-radius: 4px;
+						padding: 12px 24px;
+						border-radius: 6px;
 						cursor: pointer;
-						margin: 5px 5px 5px 0;
-						font-size: 13px;
+						margin: 8px;
+						font-size: 14px;
+						font-weight: 600;
 						font-family: var(--vscode-font-family);
+						transition: all 0.2s;
 					}
-					button:hover { background: var(--vscode-button-hoverBackground); }
-					.success {
+					button:hover { 
+						background: var(--vscode-button-hoverBackground);
+						transform: translateY(-1px);
+					}
+					.actions {
+						margin-top: 30px;
+						text-align: center;
+					}
+					.success-msg {
 						background: rgba(0, 200, 0, 0.15);
-						border-left: 3px solid #0c0;
-						padding: 10px 15px;
-						margin: 15px 0;
-						border-radius: 3px;
+						border: 2px solid #0c0;
+						padding: 15px 20px;
+						margin: 20px 0;
+						border-radius: 6px;
+						font-size: 14px;
+						max-width: 600px;
+					}
+					details {
+						margin-top: 30px;
+						max-width: 600px;
+					}
+					summary {
+						cursor: pointer;
+						user-select: none;
+						padding: 10px;
+						background: var(--vscode-textCodeBlock-background);
+						border-radius: 4px;
+						font-weight: 600;
 					}
 					.code-box {
 						background: var(--vscode-editor-background);
 						border: 1px solid var(--vscode-panel-border);
 						padding: 15px;
 						border-radius: 4px;
-						margin: 15px 0;
+						margin-top: 10px;
 						max-height: 300px;
 						overflow-y: auto;
 						font-family: 'Monaco', 'Courier New', monospace;
@@ -1226,73 +1268,59 @@ async function autoInjectScript() {
 						white-space: pre-wrap;
 						word-break: break-all;
 					}
-					.actions {
-						margin-top: 20px;
-						padding-top: 20px;
-						border-top: 1px solid var(--vscode-panel-border);
-					}
 				</style>
 			</head>
 			<body>
-				<h2>🚀 Auto-Approval Script Ready!</h2>
-				
-				<div class="success">
-					<strong>✅ Script copied to clipboard!</strong><br>
-					Follow the steps below to complete the setup.
+				<div class="hero">
+					<h1>🚀 Auto-Approval Setup</h1>
 				</div>
 
-				<div class="steps">
-					<div class="step">
-						<div class="step-num">1</div>
-						<div class="step-text">
-							Open Developer Tools in your browser window<br>
-							<span style="opacity: 0.7; font-size: 11px;">
-								(Usually <span class="highlight">Cmd+Option+I</span> on Mac or <span class="highlight">F12</span> on Windows/Linux)
-							</span>
-						</div>
-					</div>
-					
-					<div class="step">
-						<div class="step-num">2</div>
-						<div class="step-text">
-							Click on the <span class="highlight">Console</span> tab in the developer tools
-						</div>
-					</div>
-					
-					<div class="step">
-						<div class="step-num">3</div>
-						<div class="step-text">
-							Paste the script with <span class="highlight">Cmd+V</span> (Mac) or <span class="highlight">Ctrl+V</span> (Windows/Linux)
-						</div>
-					</div>
-					
-					<div class="step">
-						<div class="step-num">4</div>
-						<div class="step-text">
-							Press <span class="highlight">Enter</span> to execute the script
-						</div>
-					</div>
-					
-					<div class="step">
-						<div class="step-num">5</div>
-						<div class="step-text">
-							You should see: <span style="color: #0c0;">"✅ AI Auto-Approval enabled!"</span>
-						</div>
-					</div>
+				<div class="big-message">
+					✅ Script Copied! Ready to Paste
 				</div>
 
-				<details>
-					<summary style="cursor: pointer; user-select: none; margin: 15px 0;">
-						<strong>📝 Script Contents</strong> (click to view)
-					</summary>
-					<div class="code-box" id="scriptContent"></div>
-				</details>
+				<div class="success-msg">
+					<strong>🎉 Everything is ready!</strong> The script is in your clipboard.<br>
+					Just paste it into the browser console and press Enter.
+				</div>
+
+				<div class="quick-steps">
+					<div class="quick-step">
+						<div class="step-icon">🛠️</div>
+						<div>Open browser DevTools: <span class="kbd">Cmd+Option+I</span> or <span class="kbd">F12</span></div>
+					</div>
+					
+					<div class="quick-step">
+						<div class="step-icon">📋</div>
+						<div>Click <strong>Console</strong> tab</div>
+					</div>
+					
+					<div class="quick-step">
+						<div class="step-icon">⌨️</div>
+						<div>Paste with <span class="kbd">Cmd+V</span> or <span class="kbd">Ctrl+V</span></div>
+					</div>
+					
+					<div class="quick-step">
+						<div class="step-icon">⏎</div>
+						<div>Press <span class="kbd">Enter</span> to run</div>
+					</div>
+					
+					<div class="quick-step">
+						<div class="step-icon">✅</div>
+						<div>Look for success message in console</div>
+					</div>
+				</div>
 
 				<div class="actions">
 					<button onclick="copyAgain()">📋 Copy Script Again</button>
-					<button onclick="openDevTools()">🛠️ Open Developer Tools</button>
-					<button onclick="done()">✅ Done</button>
+					<button onclick="openDevTools()">🛠️ Toggle DevTools</button>
+					<button onclick="done()" style="background: rgba(0, 200, 0, 0.3);">✅ Done - Close This</button>
 				</div>
+
+				<details>
+					<summary>📝 View Script Contents</summary>
+					<div class="code-box" id="scriptContent"></div>
+				</details>
 
 				<script>
 					const vscode = acquireVsCodeApi();
