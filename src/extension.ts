@@ -12,12 +12,12 @@ import * as server from './modules/server';
 import { autoInjectScript } from './modules/autoApproval';
 import * as settingsPanelModule from './modules/settingsPanel';
 import * as chatIntegration from './modules/chatIntegration';
+import * as autoContinue from './modules/autoContinue';
 
 let outputChannel: vscode.OutputChannel;
 let statusBarToggle: vscode.StatusBarItem | undefined;
 let statusBarSettings: vscode.StatusBarItem | undefined;
 let statusBarInject: vscode.StatusBarItem | undefined;
-let autoContinueTimer: NodeJS.Timeout | undefined;
 let currentPort: number = 3737;
 let autoApprovalInterval: NodeJS.Timeout | undefined;
 let extensionContext: vscode.ExtensionContext | undefined;
@@ -110,14 +110,15 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	// Register open settings command with custom webview
 	const openSettingsCmd = vscode.commands.registerCommand('ai-feedback-bridge.openSettings', async () => {
-		settingsPanelModule.showSettingsPanel(context, currentPort, getConfig, updateConfig, chatIntegration.sendToAgent, getSmartAutoContinueMessage);
+		settingsPanelModule.showSettingsPanel(context, currentPort, getConfig, updateConfig, chatIntegration.sendToAgent, 
+			(ctx: vscode.ExtensionContext, force?: boolean) => autoContinue.getSmartAutoContinueMessage(ctx, getConfig, force));
 	});
 	context.subscriptions.push(openSettingsCmd);
 	
 	// Register run now command - manually trigger reminder check
 	const runNowCmd = vscode.commands.registerCommand('ai-feedback-bridge.runNow', async () => {
 		try {
-			const message = await getSmartAutoContinueMessage(context, true); // force=true to ignore intervals
+			const message = await autoContinue.getSmartAutoContinueMessage(context, getConfig, true); // force=true to ignore intervals
 			if (message) {
 				log(LogLevel.INFO, '[Run Now] Manually triggered all enabled reminders');
 				await chatIntegration.sendToAgent(message, { 
@@ -284,7 +285,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	});
 	
 	if (autoEnabled) {
-		startAutoContinue(context);
+		autoContinue.startAutoContinue(context, getConfig, chatIntegration.sendToAgent);
 	} else {
 		log(LogLevel.INFO, '[STARTUP] Auto-Continue is disabled, not starting');
 	}
@@ -318,7 +319,7 @@ export async function activate(context: vscode.ExtensionContext) {
 				updateStatusBar(cfg);
 				
 				if (e.affectsConfiguration('aiFeedbackBridge.autoContinue')) {
-					restartAutoContinue(context);
+					autoContinue.restartAutoContinue(context, getConfig, chatIntegration.sendToAgent);
 				}
 			}
 		})
@@ -372,115 +373,6 @@ function updateStatusBar(config: vscode.WorkspaceConfiguration) {
 		statusBarToggle.text = '$(play) Start AI Dev';
 		statusBarToggle.tooltip = 'Auto-Continue inactive\nClick to start';
 	}
-}
-
-/**
- * Get smart auto-continue message by rotating through enabled categories
- * based on elapsed time since last sent
- */
-async function getSmartAutoContinueMessage(context: vscode.ExtensionContext, force: boolean = false): Promise<string> {
-	const config = getConfig();
-	const categories = ['tasks', 'improvements', 'coverage', 'robustness', 'cleanup', 'commits'];
-	const now = Date.now();
-	const messages: string[] = [];
-	
-	// Track last sent times in global state
-	const lastSentKey = 'autoContinue.lastSent';
-	const lastSent = context.globalState.get<Record<string, number>>(lastSentKey, {});
-	const newLastSent: Record<string, number> = { ...lastSent };
-	
-	for (const category of categories) {
-		const enabled = config.get<boolean>(`autoContinue.${category}.enabled`, true);
-		const interval = config.get<number>(`autoContinue.${category}.interval`, 300);
-		const message = config.get<string>(`autoContinue.${category}.message`, '');
-		
-		if (!enabled || !message) {
-			continue;
-		}
-		
-		const lastSentTime = lastSent[category] || 0;
-		const elapsed = (now - lastSentTime) / 1000; // seconds
-		
-		// Include message if enough time has elapsed OR if force=true (manual trigger)
-		if (force || elapsed >= interval) {
-			messages.push(message);
-			newLastSent[category] = now;
-		}
-	}
-	
-	// Save updated last sent times
-	await context.globalState.update(lastSentKey, newLastSent);
-	
-	// If no messages due yet, return empty (don't send)
-	if (messages.length === 0) {
-		return '';
-	}
-	
-	// Combine messages with proper formatting
-	return messages.join('. ') + '.';
-}
-
-/**
- * Start auto-continue feature if enabled
- */
-function startAutoContinue(context: vscode.ExtensionContext) {
-	const config = getConfig();
-	const enabled = config.get<boolean>('autoContinue.enabled', false);
-	
-	if (enabled) {
-		// Fixed 500ms check interval for responsiveness
-		const checkInterval = 500;
-		
-		const workspaceName = vscode.workspace.name || 'No Workspace';
-		log(LogLevel.INFO, `✅ Auto-Continue enabled for window: ${workspaceName}`);
-		
-		autoContinueTimer = setInterval(async () => {
-			try {
-				// Re-check if still enabled before sending
-				const currentConfig = getConfig();
-				const stillEnabled = currentConfig.get<boolean>('autoContinue.enabled', false);
-				
-				if (!stillEnabled) {
-					log(LogLevel.INFO, '[Auto-Continue] Detected disabled state, stopping timer');
-					if (autoContinueTimer) {
-						clearInterval(autoContinueTimer);
-						autoContinueTimer = undefined;
-					}
-					return;
-				}
-				
-				const message = await getSmartAutoContinueMessage(context);
-				if (message) {
-					log(LogLevel.INFO, '[Auto-Continue] Sending periodic reminder');
-					await chatIntegration.sendToAgent(message, { 
-						source: 'auto_continue', 
-						timestamp: new Date().toISOString()
-					});
-				}
-			} catch (error) {
-				log(LogLevel.ERROR, '[Auto-Continue] Failed to send message', { 
-					error: getErrorMessage(error)
-				});
-			}
-		}, checkInterval);
-	} else {
-		log(LogLevel.DEBUG, 'Auto-Continue is disabled');
-	}
-}
-
-/**
- * Restart auto-continue with new configuration
- */
-function restartAutoContinue(context: vscode.ExtensionContext) {
-	// Stop existing timer if running
-	if (autoContinueTimer) {
-		clearInterval(autoContinueTimer);
-		autoContinueTimer = undefined;
-		log(LogLevel.INFO, 'Auto-Continue timer stopped');
-	}
-	
-	// Start auto-continue (will check if enabled internally)
-	startAutoContinue(context);
 }
 
 /**
@@ -730,11 +622,7 @@ export async function deactivate() {
 	log(LogLevel.INFO, 'HTTP server closed');
 	
 	// Clean up auto-continue timer
-	if (autoContinueTimer) {
-		clearInterval(autoContinueTimer);
-		autoContinueTimer = undefined;
-		log(LogLevel.INFO, 'Auto-continue timer cleared');
-	}
+	autoContinue.stopAutoContinue();
 	
 	// Clean up auto-approval interval
 	if (autoApprovalInterval) {
