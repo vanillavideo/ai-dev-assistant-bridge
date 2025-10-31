@@ -2,6 +2,16 @@
 
 All notable changes to the AI Feedback Bridge extension will be documented in this file.
 
+## [0.6.5] - 2025-10-31
+
+### Fixed
+- **Auto-continue on startup** - Now only starts if explicitly enabled in settings
+- Extension no longer auto-starts auto-continue when disabled in config
+
+### Changed
+- **Removed notification spam** - "Run Now" button no longer shows "Reminders sent!" popup
+- Cleaner UX with silent reminder sending (still logs to output channel)
+
 ## [0.6.4] - 2025-01-31
 
 ### Changed

@@ -204,13 +204,12 @@ function showSettingsPanel(context: vscode.ExtensionContext) {
 							timestamp: new Date().toISOString()
 						});
 							log(LogLevel.INFO, '[Run Now] Manually triggered all enabled reminders');
-							vscode.window.showInformationMessage('✅ Reminders sent!');
 						} else {
-							vscode.window.showInformationMessage('⚠️ No enabled categories (check settings)');
+							vscode.window.showInformationMessage('No enabled categories (check settings)');
 						}
 					} catch (error) {
 						log(LogLevel.ERROR, '[Run Now] Failed to send message', { error });
-						vscode.window.showErrorMessage('❌ Failed to send reminders');
+						vscode.window.showErrorMessage('Failed to send reminders');
 					}
 					break;
 				case 'injectScript':
@@ -577,13 +576,12 @@ export async function activate(context: vscode.ExtensionContext) {
 					source: 'manual_trigger', 
 					timestamp: new Date().toISOString()
 				});
-				vscode.window.showInformationMessage('✅ Reminders sent!');
 			} else {
-				vscode.window.showInformationMessage('⚠️ No enabled categories (check settings)');
+				vscode.window.showInformationMessage('No enabled categories (check settings)');
 			}
 		} catch (error) {
 			log(LogLevel.ERROR, '[Run Now] Failed to send message', { error });
-			vscode.window.showErrorMessage('❌ Failed to send reminders');
+			vscode.window.showErrorMessage('Failed to send reminders');
 		}
 	});
 	context.subscriptions.push(runNowCmd);
@@ -663,8 +661,10 @@ export async function activate(context: vscode.ExtensionContext) {
 	});
 	context.subscriptions.push(showStatusCmd);
 
-	// Start auto-continue if enabled
-	startAutoContinue(context);
+	// Start auto-continue only if enabled in config
+	if (config.get<boolean>('autoContinue.enabled', false)) {
+		startAutoContinue(context);
+	}
 
 	// Initialize auto-approval if enabled
 	initializeAutoApproval();
