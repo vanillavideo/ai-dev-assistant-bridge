@@ -384,9 +384,8 @@ export async function activate(context: vscode.ExtensionContext) {
 	);
 	context.subscriptions.push(injectAutoApprovalScriptCommand);
 
-	// Show notification that server is running
-	vscode.window.showInformationMessage(`AI Agent Feedback Bridge is listening on http://localhost:${currentPort}`);
-	outputChannel.appendLine('Feedback server started on http://localhost:3737');
+	// Log server status (no popup notification)
+	log(LogLevel.INFO, `Feedback server started on http://localhost:${currentPort}`);
 }
 
 /**
@@ -555,7 +554,8 @@ async function sendToAgent(feedbackMessage: string, appContext: any): Promise<bo
 					}
 				}, 500);
 				
-				vscode.window.showInformationMessage('✅ Feedback sent to AI Agent!');
+				// Silent success - logged only
+				log(LogLevel.INFO, 'Feedback sent to AI Agent');
 				return true;
 			}
 		} catch (modelError) {
@@ -739,7 +739,6 @@ function startFeedbackServer(context: vscode.ExtensionContext) {
 	try {
 		server.listen(currentPort, () => {
 			log(LogLevel.INFO, `✅ Server listening on port ${currentPort}`);
-			vscode.window.showInformationMessage(`AI Agent Feedback Bridge is listening on http://localhost:${currentPort}`);
 		});
 
 		// Handle server errors
