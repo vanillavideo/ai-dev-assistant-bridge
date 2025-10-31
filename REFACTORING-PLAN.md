@@ -1,27 +1,28 @@
 # Extension.ts Refactoring Plan
 
-## Current Status
-- **File Size**: 1936 lines
-- **Issue**: Too large for efficient development and AI assistance
-- **Goal**: Break into focused, maintainable modules
+## Current Status (After Phase 2)
+- **extension.ts**: 1536 lines (down from 1936)
+- **Modules created**: 6 files, 810 lines
+- **Issue**: Still need to extract settings panel, chat integration, auto-continue, status bar, commands
+- **Goal**: Reduce extension.ts to ~200 lines (activation/deactivation only)
 
 ## Module Structure
 
-### ✅ Created Modules
+### ✅ Created Modules (Phase 1 & 2 Complete)
 
-1. **`modules/types.ts`** (46 lines)
+1. **`modules/types.ts`** (50 lines)
    - Task interface
    - LogLevel enum
    - ExtensionConfig interface
    - Shared type definitions
 
-2. **`modules/logging.ts`** (49 lines)
+2. **`modules/logging.ts`** (46 lines)
    - log() function
    - getErrorMessage() function
    - initLogging() function
    - Output channel management
 
-3. **`modules/taskManager.ts`** (101 lines)
+3. **`modules/taskManager.ts`** (98 lines)
    - getTasks()
    - saveTasks()
    - addTask()
@@ -30,62 +31,79 @@
    - updateTaskField()
    - clearCompletedTasks()
 
-4. **`modules/autoApproval.ts`** (42 lines)
+4. **`modules/autoApproval.ts`** (47 lines)
    - autoInjectScript()
    - getAutoApprovalScript()
 
-### 📋 Pending Modules
+5. **`modules/portManager.ts`** (122 lines) ✅ NEW
+   - findAvailablePort()
+   - releasePort()
+   - isPortAvailable()
+   - Port registry management
 
-5. **`modules/server.ts`** (~300 lines)
+6. **`modules/server.ts`** (447 lines) ✅ NEW
    - startServer()
    - stopServer()
-   - All HTTP request handlers (GET/POST/PUT)
-   - Port finding logic
-   - Server status management
+   - All HTTP request handlers:
+     * GET / and GET /help - API documentation
+     * GET /tasks - List all tasks
+     * POST /tasks - Create task
+     * PUT /tasks/:id - Update task status
+     * DELETE /tasks/:id - Delete task
+     * POST /feedback - Send to AI agent
+     * POST /restart-app - Restart Electron app
+   - CORS handling
+   - Request body parsing
 
-6. **`modules/settingsPanel.ts`** (~600 lines)
+### 📋 Pending Modules
+
+7. **`modules/settingsPanel.ts`** (~600 lines)
    - showSettingsPanel()
    - getSettingsHtml()
    - All webview message handlers
    - HTML/CSS generation
    - Panel state management
 
-7. **`modules/chatIntegration.ts`** (~200 lines)
+8. **`modules/chatIntegration.ts`** (~200 lines)
    - sendToAgent()
    - Chat participant creation
    - Message formatting
    - Chat request handling
 
-8. **`modules/autoContinue.ts`** (~150 lines)
+9. **`modules/autoContinue.ts`** (~150 lines)
    - startAutoContinue()
    - stopAutoContinue()
    - runAllReminders()
    - Timer management
 
-9. **`modules/statusBar.ts`** (~100 lines)
-   - createStatusBarItems()
-   - updateStatusBarItems()
-   - Status bar click handlers
+10. **`modules/statusBar.ts`** (~100 lines)
+    - createStatusBarItems()
+    - updateStatusBarItems()
+    - Status bar click handlers
 
-10. **`modules/commands.ts`** (~150 lines)
+11. **`modules/commands.ts`** (~150 lines)
     - Command registration
     - Command handlers (addTask, listTasks, etc.)
 
 ## Implementation Steps
 
-### Phase 1: Core Infrastructure (DONE)
+### Phase 1: Core Infrastructure ✅ DONE
 - [x] Create modules directory
 - [x] Extract types to types.ts
 - [x] Extract logging to logging.ts
 - [x] Extract task management to taskManager.ts
 - [x] Extract auto-approval to autoApproval.ts
 
-### Phase 2: Server Module (NEXT)
-- [ ] Create server.ts
-- [ ] Move HTTP server logic
-- [ ] Move all endpoint handlers
-- [ ] Update imports in extension.ts
-- [ ] Test server functionality
+### Phase 2: Server Module ✅ DONE
+- [x] Create server.ts
+- [x] Move HTTP server logic
+- [x] Move all endpoint handlers
+- [x] Create portManager.ts
+- [x] Move port registry logic
+- [x] Update imports in extension.ts
+- [x] Test server functionality
+- [x] Add comprehensive task API endpoints
+- [x] Compile and package successfully
 
 ### Phase 3: Settings Panel Module
 - [ ] Create settingsPanel.ts
@@ -119,21 +137,23 @@
 5. **Code Reuse**: Functions can be imported across modules
 6. **Debugging**: Easier to locate and fix bugs in specific areas
 
-## Estimated Final Sizes
+## Estimated Final Sizes (Updated)
 
-- extension.ts: ~200 lines (activation/deactivation only)
-- types.ts: 46 lines
-- logging.ts: 49 lines
-- taskManager.ts: 101 lines
-- autoApproval.ts: 42 lines
-- server.ts: ~300 lines
+- extension.ts: ~200 lines (activation/deactivation only)  [Current: 1536]
+- types.ts: 50 lines ✅
+- logging.ts: 46 lines ✅
+- taskManager.ts: 98 lines ✅
+- autoApproval.ts: 47 lines ✅
+- portManager.ts: 122 lines ✅
+- server.ts: 447 lines ✅
 - settingsPanel.ts: ~600 lines
 - chatIntegration.ts: ~200 lines
 - autoContinue.ts: ~150 lines
 - statusBar.ts: ~100 lines
 - commands.ts: ~150 lines
 
-**Total**: ~1,938 lines (same functionality, better organization)
+**Total**: ~2,210 lines (better organization, same functionality)
+**Progress**: 810/2,210 lines extracted (37% complete)
 
 ## Testing Strategy
 
