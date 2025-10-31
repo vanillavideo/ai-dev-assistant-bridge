@@ -193,6 +193,12 @@ function showSettingsPanel(context: vscode.ExtensionContext) {
 				case 'reload':
 					panel.webview.html = getSettingsHtml(getConfig());
 					break;
+				case 'injectScript':
+					// Copy auto-approval script and open dev tools
+					await vscode.commands.executeCommand('ai-agent-feedback-bridge.showAutoApprovalScript');
+					vscode.commands.executeCommand('workbench.action.toggleDevTools');
+					log(LogLevel.INFO, 'Auto-approval script copied to clipboard, dev tools opened');
+					break;
 			}
 		},
 		undefined,
@@ -205,46 +211,37 @@ function showSettingsPanel(context: vscode.ExtensionContext) {
  */
 function getSettingsHtml(config: vscode.WorkspaceConfiguration): string {
 	const categories = [
-		{ key: 'tasks', icon: '📋', name: 'Tasks', desc: 'Continue with current tasks' },
-		{ key: 'improvements', icon: '✨', name: 'Improvements', desc: 'Code quality and optimizations' },
-		{ key: 'coverage', icon: '🧪', name: 'Coverage', desc: 'Testing and validation' },
-		{ key: 'robustness', icon: '🛡️', name: 'Robustness', desc: 'Error handling and stability' },
-		{ key: 'cleanup', icon: '🧹', name: 'Cleanup', desc: 'Remove unused code' },
-		{ key: 'commits', icon: '💾', name: 'Commits', desc: 'Save progress regularly' }
+		{ key: 'tasks', icon: '📋', name: 'Tasks', interval: 300 },
+		{ key: 'improvements', icon: '✨', name: 'Improvements', interval: 600 },
+		{ key: 'coverage', icon: '🧪', name: 'Coverage', interval: 900 },
+		{ key: 'robustness', icon: '🛡️', name: 'Robustness', interval: 600 },
+		{ key: 'cleanup', icon: '🧹', name: 'Cleanup', interval: 1200 },
+		{ key: 'commits', icon: '💾', name: 'Commits', interval: 900 }
 	];
 
 	const autoContinueEnabled = config.get<boolean>('autoContinue.enabled', false);
 	const autoApprovalEnabled = config.get<boolean>('autoApproval.enabled', false);
 	const port = config.get<number>('port', 3737);
-	const autoStart = config.get<boolean>('autoStart', true);
 
-	let categoriesHtml = '';
+	let categoriesRows = '';
 	for (const cat of categories) {
 		const enabled = config.get<boolean>(`autoContinue.${cat.key}.enabled`, true);
-		const interval = config.get<number>(`autoContinue.${cat.key}.interval`, 300);
-		const message = config.get<string>(`autoContinue.${cat.key}.message`, '');
+		const interval = config.get<number>(`autoContinue.${cat.key}.interval`, cat.interval);
 		
-		categoriesHtml += `
-			<div class="category ${enabled ? 'enabled' : 'disabled'}">
-				<div class="category-header">
-					<span class="icon">${cat.icon}</span>
-					<span class="name">${cat.name}</span>
-					<label class="toggle">
-						<input type="checkbox" data-key="autoContinue.${cat.key}.enabled" ${enabled ? 'checked' : ''}>
-						<span class="slider"></span>
-					</label>
-				</div>
-				<div class="category-body ${enabled ? '' : 'hidden'}">
-					<div class="field">
-						<label>Interval (seconds)</label>
-						<input type="number" value="${interval}" data-key="autoContinue.${cat.key}.interval" min="60" step="60">
-					</div>
-					<div class="field">
-						<label>Message</label>
-						<textarea data-key="autoContinue.${cat.key}.message" rows="2">${message}</textarea>
-					</div>
-				</div>
-			</div>
+		categoriesRows += `
+			<tr class="${enabled ? '' : 'disabled'}">
+				<td class="cat-icon">${cat.icon}</td>
+				<td class="cat-name">${cat.name}</td>
+				<td class="cat-interval">
+					<input type="number" value="${interval}" data-key="autoContinue.${cat.key}.interval" 
+					       min="60" step="60" style="width: 70px;" ${enabled ? '' : 'disabled'}>s
+				</td>
+				<td class="cat-toggle">
+					<input type="checkbox" data-key="autoContinue.${cat.key}.enabled" ${enabled ? 'checked' : ''} 
+					       class="toggle-cb" id="cb-${cat.key}">
+					<label for="cb-${cat.key}" class="toggle-label"></label>
+				</td>
+			</tr>
 		`;
 	}
 
@@ -253,148 +250,191 @@ function getSettingsHtml(config: vscode.WorkspaceConfiguration): string {
 <head>
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<title>AI Feedback Bridge Settings</title>
+	<title>Settings</title>
 	<style>
 		* { box-sizing: border-box; margin: 0; padding: 0; }
 		body {
 			font-family: var(--vscode-font-family);
-			font-size: var(--vscode-font-size);
+			font-size: 13px;
 			color: var(--vscode-foreground);
 			background: var(--vscode-editor-background);
-			padding: 20px;
-		}
-		h1 { margin-bottom: 20px; font-size: 24px; }
-		h2 { margin: 30px 0 15px; font-size: 18px; border-bottom: 1px solid var(--vscode-panel-border); padding-bottom: 8px; }
-		
-		.section { margin-bottom: 30px; }
-		.field { margin-bottom: 15px; }
-		.field label { display: block; margin-bottom: 5px; font-weight: 500; }
-		.field input[type="number"], .field input[type="text"] {
-			width: 200px;
-			padding: 6px 10px;
-			background: var(--vscode-input-background);
-			color: var(--vscode-input-foreground);
-			border: 1px solid var(--vscode-input-border);
-			border-radius: 3px;
-		}
-		.field textarea {
-			width: 100%;
-			max-width: 600px;
-			padding: 8px 10px;
-			background: var(--vscode-input-background);
-			color: var(--vscode-input-foreground);
-			border: 1px solid var(--vscode-input-border);
-			border-radius: 3px;
-			font-family: var(--vscode-font-family);
-			resize: vertical;
+			padding: 16px;
+			max-width: 800px;
 		}
 		
-		.toggle { position: relative; display: inline-block; width: 42px; height: 24px; }
-		.toggle input { opacity: 0; width: 0; height: 0; }
-		.slider {
-			position: absolute; cursor: pointer; inset: 0;
-			background-color: var(--vscode-input-background);
-			border: 1px solid var(--vscode-input-border);
-			border-radius: 24px;
-			transition: .3s;
+		.header {
+			display: flex;
+			align-items: center;
+			gap: 12px;
+			margin-bottom: 16px;
+			padding-bottom: 10px;
+			border-bottom: 1px solid var(--vscode-panel-border);
 		}
-		.slider:before {
-			position: absolute; content: ""; height: 16px; width: 16px;
-			left: 3px; bottom: 3px;
-			background-color: var(--vscode-input-foreground);
-			border-radius: 50%;
-			transition: .3s;
-		}
-		input:checked + .slider { background-color: var(--vscode-button-background); border-color: var(--vscode-button-background); }
-		input:checked + .slider:before { transform: translateX(18px); background-color: white; }
+		.header h1 { font-size: 16px; flex: 1; font-weight: 600; }
 		
-		.category {
-			border: 1px solid var(--vscode-panel-border);
-			border-radius: 6px;
-			margin-bottom: 12px;
+		.section {
 			background: var(--vscode-sideBar-background);
+			border: 1px solid var(--vscode-panel-border);
+			border-radius: 4px;
+			padding: 10px 12px;
+			margin-bottom: 10px;
 		}
-		.category.disabled { opacity: 0.6; }
-		.category-header {
-			padding: 12px 15px;
-			display: flex;
-			align-items: center;
-			gap: 12px;
-			cursor: pointer;
+		.section-title {
+			font-weight: 600;
+			margin-bottom: 8px;
+			font-size: 13px;
 		}
-		.category-header .icon { font-size: 20px; }
-		.category-header .name { flex: 1; font-weight: 500; font-size: 15px; }
-		.category-body {
-			padding: 0 15px 15px;
-			border-top: 1px solid var(--vscode-panel-border);
-		}
-		.category-body.hidden { display: none; }
-		.category-body .field { margin-top: 12px; }
 		
-		.main-toggle {
+		.row {
 			display: flex;
 			align-items: center;
 			gap: 12px;
-			padding: 15px;
-			background: var(--vscode-editor-background);
-			border: 2px solid var(--vscode-panel-border);
-			border-radius: 6px;
-			margin-bottom: 20px;
+			padding: 4px 0;
 		}
-		.main-toggle .label { flex: 1; font-size: 16px; font-weight: 600; }
+		.row label { flex: 1; font-size: 12px; }
+		
+		table {
+			width: 100%;
+			border-collapse: collapse;
+		}
+		th {
+			text-align: left;
+			padding: 6px 4px;
+			font-weight: 600;
+			font-size: 11px;
+			opacity: 0.7;
+			border-bottom: 1px solid var(--vscode-panel-border);
+		}
+		td {
+			padding: 6px 4px;
+			border-bottom: 1px solid rgba(128,128,128,0.1);
+		}
+		tr.disabled { opacity: 0.5; }
+		.cat-icon { width: 28px; font-size: 15px; }
+		.cat-name { font-weight: 500; font-size: 12px; }
+		.cat-interval { width: 100px; font-size: 12px; }
+		.cat-toggle { width: 45px; text-align: right; }
+		
+		input[type="number"] {
+			padding: 3px 5px;
+			background: var(--vscode-input-background);
+			color: var(--vscode-input-foreground);
+			border: 1px solid var(--vscode-input-border);
+			border-radius: 3px;
+			font-size: 11px;
+		}
+		
+		/* Better toggle switch */
+		.toggle-cb { display: none; }
+		.toggle-label {
+			display: inline-block;
+			width: 34px;
+			height: 18px;
+			background: var(--vscode-input-background);
+			border: 1px solid var(--vscode-input-border);
+			border-radius: 9px;
+			position: relative;
+			cursor: pointer;
+			transition: all 0.2s;
+		}
+		.toggle-label:after {
+			content: '';
+			position: absolute;
+			width: 12px;
+			height: 12px;
+			border-radius: 50%;
+			background: var(--vscode-input-foreground);
+			top: 2px;
+			left: 2px;
+			transition: all 0.2s;
+		}
+		.toggle-cb:checked + .toggle-label {
+			background: var(--vscode-button-background);
+			border-color: var(--vscode-button-background);
+		}
+		.toggle-cb:checked + .toggle-label:after {
+			left: 18px;
+			background: white;
+		}
+		
+		button {
+			background: var(--vscode-button-background);
+			color: var(--vscode-button-foreground);
+			border: none;
+			padding: 5px 10px;
+			border-radius: 3px;
+			cursor: pointer;
+			font-size: 12px;
+			font-family: var(--vscode-font-family);
+		}
+		button:hover {
+			background: var(--vscode-button-hoverBackground);
+		}
+		
+		.port-display {
+			font-family: 'Monaco', 'Courier New', monospace;
+			font-weight: 600;
+			color: var(--vscode-textLink-foreground);
+			font-size: 13px;
+		}
 	</style>
 </head>
 <body>
-	<h1>🌉 AI Feedback Bridge Settings</h1>
+	<div class="header">
+		<h1>🌉 AI Feedback Bridge</h1>
+		<button onclick="injectScript()">📋 Inject Script</button>
+	</div>
 	
 	<div class="section">
-		<h2>Server</h2>
-		<div class="field">
-			<label>Port (auto-assigned per window)</label>
-			<input type="number" value="${port}" data-key="port" min="1024" max="65535" readonly>
-			<p style="margin-top: 5px; font-size: 12px; opacity: 0.7;">Port is automatically selected for each window</p>
-		</div>
-		<div class="field">
-			<label class="toggle">
-				<input type="checkbox" data-key="autoStart" ${autoStart ? 'checked' : ''}>
-				<span class="slider"></span>
-			</label>
-			<label style="display: inline; margin-left: 10px;">Auto-start server on launch</label>
+		<div class="section-title">Server</div>
+		<div class="row">
+			<label>Port (auto-assigned)</label>
+			<span class="port-display">${port}</span>
 		</div>
 	</div>
 	
 	<div class="section">
-		<h2>Auto-Approval</h2>
-		<div class="field">
-			<label class="toggle">
-				<input type="checkbox" data-key="autoApproval.enabled" ${autoApprovalEnabled ? 'checked' : ''}>
-				<span class="slider"></span>
-			</label>
-			<label style="display: inline; margin-left: 10px;">Enable auto-approval (requires manual console script)</label>
+		<div class="section-title">Auto-Approval</div>
+		<div class="row">
+			<label>Enable monitoring</label>
+			<input type="checkbox" data-key="autoApproval.enabled" ${autoApprovalEnabled ? 'checked' : ''} 
+			       class="toggle-cb" id="cb-approval">
+			<label for="cb-approval" class="toggle-label"></label>
 		</div>
 	</div>
 	
 	<div class="section">
-		<h2>Auto-Continue</h2>
-		<div class="main-toggle">
-			<span class="label">Enable Auto-Continue</span>
-			<label class="toggle">
-				<input type="checkbox" data-key="autoContinue.enabled" ${autoContinueEnabled ? 'checked' : ''}>
-				<span class="slider"></span>
-			</label>
+		<div class="section-title">Auto-Continue</div>
+		<div class="row" style="margin-bottom: 8px;">
+			<label>Enable reminders</label>
+			<input type="checkbox" data-key="autoContinue.enabled" ${autoContinueEnabled ? 'checked' : ''} 
+			       class="toggle-cb" id="cb-autocontinue">
+			<label for="cb-autocontinue" class="toggle-label"></label>
 		</div>
-		
-		<p style="margin-bottom: 15px; opacity: 0.8;">Configure which reminders to send and how often:</p>
-		${categoriesHtml}
+		<table>
+			<thead>
+				<tr>
+					<th></th>
+					<th>Category</th>
+					<th>Interval</th>
+					<th></th>
+				</tr>
+			</thead>
+			<tbody>
+				${categoriesRows}
+			</tbody>
+		</table>
 	</div>
 	
 	<script>
 		const vscode = acquireVsCodeApi();
 		
 		// Handle all input changes
-		document.querySelectorAll('input, textarea').forEach(el => {
+		document.querySelectorAll('input').forEach(el => {
 			el.addEventListener('change', (e) => {
 				const key = e.target.dataset.key;
+				if (!key) return;
+				
 				let value = e.target.type === 'checkbox' ? e.target.checked : 
 				           e.target.type === 'number' ? parseInt(e.target.value) : 
 				           e.target.value;
@@ -405,34 +445,26 @@ function getSettingsHtml(config: vscode.WorkspaceConfiguration): string {
 					value: value
 				});
 				
-				// Toggle category body visibility
+				// Update row state
 				if (key.includes('.enabled')) {
-					const category = e.target.closest('.category');
-					if (category) {
-						const body = category.querySelector('.category-body');
-						if (body) {
-							body.classList.toggle('hidden', !value);
-						}
-						category.classList.toggle('enabled', value);
-						category.classList.toggle('disabled', !value);
+					const row = e.target.closest('tr');
+					if (row) {
+						row.classList.toggle('disabled', !value);
+						const input = row.querySelector('input[type="number"]');
+						if (input) input.disabled = !value;
 					}
 				}
 			});
 		});
 		
-		// Make category headers clickable
-		document.querySelectorAll('.category-header').forEach(header => {
-			header.addEventListener('click', (e) => {
-				if (e.target.type !== 'checkbox' && !e.target.classList.contains('slider')) {
-					const toggle = header.querySelector('input[type="checkbox"]');
-					toggle.click();
-				}
-			});
-		});
+		function injectScript() {
+			vscode.postMessage({ command: 'injectScript' });
+		}
 	</script>
 </body>
 </html>`;
 }
+
 
 // This method is called when your extension is activated
 // Your extension is activated the very first time the command is executed
