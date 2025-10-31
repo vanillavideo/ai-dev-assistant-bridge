@@ -10,6 +10,17 @@ import * as taskManager from './taskManager';
 
 let server: http.Server | undefined;
 
+// Constants for security
+const MAX_REQUEST_SIZE = 1024 * 1024; // 1MB max request body
+const REQUEST_TIMEOUT = 30000; // 30 seconds
+
+/**
+ * Validate port number
+ */
+function isValidPort(port: number): boolean {
+	return Number.isInteger(port) && port >= 1024 && port <= 65535;
+}
+
 /**
  * Start the HTTP server
  */
@@ -18,7 +29,23 @@ export function startServer(
 	port: number,
 	sendToAgent: (message: string, context?: unknown) => Promise<boolean>
 ): http.Server {
+	// Validate port number
+	if (!isValidPort(port)) {
+		const error = `Invalid port number: ${port}. Must be between 1024 and 65535.`;
+		log(LogLevel.ERROR, error);
+		throw new Error(error);
+	}
+
 	server = http.createServer(async (req, res) => {
+		// Set timeout for request
+		req.setTimeout(REQUEST_TIMEOUT, () => {
+			log(LogLevel.WARN, 'Request timeout', { url: req.url, method: req.method });
+			if (!res.headersSent) {
+				res.writeHead(408, { 'Content-Type': 'application/json' });
+				res.end(JSON.stringify({ error: 'Request timeout' }));
+			}
+		});
+
 		// Set CORS headers
 		res.setHeader('Access-Control-Allow-Origin', '*');
 		res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
@@ -35,8 +62,10 @@ export function startServer(
 			await handleRequest(req, res, context, port, sendToAgent);
 		} catch (error) {
 			log(LogLevel.ERROR, 'Request handler error', getErrorMessage(error));
-			res.writeHead(500, { 'Content-Type': 'application/json' });
-			res.end(JSON.stringify({ error: 'Internal server error' }));
+			if (!res.headersSent) {
+				res.writeHead(500, { 'Content-Type': 'application/json' });
+				res.end(JSON.stringify({ error: 'Internal server error' }));
+			}
 		}
 	});
 
@@ -214,20 +243,40 @@ async function handleCreateTask(
 	res: http.ServerResponse,
 	context: vscode.ExtensionContext
 ): Promise<void> {
-	const body = await readRequestBody(req);
-	
 	try {
+		const body = await readRequestBody(req);
 		const data = JSON.parse(body);
 		
+		// Validate required fields
 		if (!data.title || typeof data.title !== 'string') {
 			res.writeHead(400, { 'Content-Type': 'application/json' });
-			res.end(JSON.stringify({ error: 'Missing or invalid "title" field' }));
+			res.end(JSON.stringify({ error: 'Missing or invalid "title" field (must be non-empty string)' }));
 			return;
 		}
 
+		// Validate title length
 		const title = data.title.trim();
-		const description = (data.description || '').trim();
-		const category = data.category || 'other';
+		if (title.length === 0) {
+			res.writeHead(400, { 'Content-Type': 'application/json' });
+			res.end(JSON.stringify({ error: 'Title cannot be empty' }));
+			return;
+		}
+		if (title.length > 200) {
+			res.writeHead(400, { 'Content-Type': 'application/json' });
+			res.end(JSON.stringify({ error: 'Title too long (max 200 characters)' }));
+			return;
+		}
+
+		// Validate optional fields
+		const description = data.description ? String(data.description).trim() : '';
+		if (description.length > 5000) {
+			res.writeHead(400, { 'Content-Type': 'application/json' });
+			res.end(JSON.stringify({ error: 'Description too long (max 5000 characters)' }));
+			return;
+		}
+
+		const validCategories = ['feature', 'bug', 'improvement', 'other'];
+		const category = validCategories.includes(data.category) ? data.category : 'other';
 
 		const task = await taskManager.addTask(context, title, description, category);
 		
@@ -239,6 +288,9 @@ async function handleCreateTask(
 		if (error instanceof SyntaxError) {
 			res.writeHead(400, { 'Content-Type': 'application/json' });
 			res.end(JSON.stringify({ error: 'Invalid JSON format' }));
+		} else if (error instanceof Error && error.message.includes('too large')) {
+			res.writeHead(413, { 'Content-Type': 'application/json' });
+			res.end(JSON.stringify({ error: error.message }));
 		} else {
 			log(LogLevel.ERROR, 'Failed to create task', getErrorMessage(error));
 			res.writeHead(500, { 'Content-Type': 'application/json' });

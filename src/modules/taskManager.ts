@@ -8,14 +8,34 @@ import { Task } from './types';
  * Get all tasks from workspace state
  */
 export async function getTasks(context: vscode.ExtensionContext): Promise<Task[]> {
-	return context.workspaceState.get<Task[]>('tasks', []);
+	try {
+		const tasks = context.workspaceState.get<Task[]>('tasks', []);
+		// Validate tasks array
+		if (!Array.isArray(tasks)) {
+			console.error('Invalid tasks data in workspace state, resetting to empty array');
+			await context.workspaceState.update('tasks', []);
+			return [];
+		}
+		return tasks;
+	} catch (error) {
+		console.error('Error reading tasks from workspace state:', error);
+		return [];
+	}
 }
 
 /**
  * Save tasks to workspace state
  */
 export async function saveTasks(context: vscode.ExtensionContext, tasks: Task[]): Promise<void> {
-	await context.workspaceState.update('tasks', tasks);
+	try {
+		if (!Array.isArray(tasks)) {
+			throw new Error('Tasks must be an array');
+		}
+		await context.workspaceState.update('tasks', tasks);
+	} catch (error) {
+		console.error('Error saving tasks to workspace state:', error);
+		throw error;
+	}
 }
 
 /**
@@ -27,11 +47,25 @@ export async function addTask(
 	description: string = '',
 	category: Task['category'] = 'other'
 ): Promise<Task> {
+	// Validate inputs
+	if (!title || typeof title !== 'string' || title.trim().length === 0) {
+		throw new Error('Task title is required and must be a non-empty string');
+	}
+	if (title.length > 200) {
+		throw new Error('Task title too long (max 200 characters)');
+	}
+	if (typeof description !== 'string') {
+		throw new Error('Task description must be a string');
+	}
+	if (description.length > 5000) {
+		throw new Error('Task description too long (max 5000 characters)');
+	}
+
 	const tasks = await getTasks(context);
 	const newTask: Task = {
 		id: Date.now().toString(),
-		title,
-		description,
+		title: title.trim(),
+		description: description.trim(),
 		status: 'pending',
 		category,
 		createdAt: new Date().toISOString(),
