@@ -326,6 +326,64 @@ async function showSettingsPanel(context: vscode.ExtensionContext) {
 					// Call the auto-inject function
 					autoInjectScript();
 					break;
+				case 'saveNewTask':
+					try {
+						const newTask = await addTask(context, message.title, message.description, message.category);
+						const createdTasks = await getTasks(context);
+						panel.webview.html = await getSettingsHtml(getConfig(), currentPort, createdTasks);
+					} catch (error) {
+						vscode.window.showErrorMessage(`Failed to create task: ${getErrorMessage(error)}`);
+					}
+					break;
+				case 'updateTaskField':
+					try {
+						const allTasks = await getTasks(context);
+						const task = allTasks.find(t => t.id === message.taskId);
+						if (task) {
+							if (message.field === 'title') {
+								task.title = message.value;
+							} else if (message.field === 'description') {
+								task.description = message.value;
+							}
+							task.updatedAt = new Date().toISOString();
+							await saveTasks(context, allTasks);
+							const updatedTasks = await getTasks(context);
+							panel.webview.html = await getSettingsHtml(getConfig(), currentPort, updatedTasks);
+						}
+					} catch (error) {
+						vscode.window.showErrorMessage(`Failed to update task: ${getErrorMessage(error)}`);
+					}
+					break;
+				case 'updateTaskStatus':
+					try {
+						await updateTaskStatus(context, message.taskId, message.status);
+						const statusTasks = await getTasks(context);
+						panel.webview.html = await getSettingsHtml(getConfig(), currentPort, statusTasks);
+					} catch (error) {
+						vscode.window.showErrorMessage(`Failed to update status: ${getErrorMessage(error)}`);
+					}
+					break;
+				case 'createTask':
+					await vscode.commands.executeCommand('ai-feedback-bridge.addTask');
+					const taskListAfterCreate = await getTasks(context);
+					panel.webview.html = await getSettingsHtml(getConfig(), currentPort, taskListAfterCreate);
+					break;
+				case 'openTaskManager':
+					await vscode.commands.executeCommand('ai-feedback-bridge.listTasks');
+					break;
+				case 'clearCompleted':
+					try {
+						const allTasksForClear = await getTasks(context);
+						const completedTasks = allTasksForClear.filter(t => t.status === 'completed');
+						for (const task of completedTasks) {
+							await removeTask(context, task.id);
+						}
+						const remainingTasks = await getTasks(context);
+						panel.webview.html = await getSettingsHtml(getConfig(), currentPort, remainingTasks);
+					} catch (error) {
+						vscode.window.showErrorMessage(`Failed to clear completed tasks: ${getErrorMessage(error)}`);
+					}
+					break;
 			}
 		},
 		undefined,
@@ -575,6 +633,57 @@ async function getSettingsHtml(config: vscode.WorkspaceConfiguration, actualPort
 		</table>
 	</div>
 	
+	<div class="section">
+		<div class="section-title">Task Management (Workspace)</div>
+		${(() => {
+			const activeTasks = tasks.filter(t => t.status !== 'completed').reverse();
+			const completedCount = tasks.filter(t => t.status === 'completed').length;
+			return activeTasks.length === 0 ? `
+			<div class="row">
+				<label style="color: var(--vscode-descriptionForeground); font-style: italic;">No active tasks for this workspace</label>
+				<button onclick="createTask()">Add Task</button>
+			</div>
+			${completedCount > 0 ? `
+			<div class="row" style="margin-top: 8px;">
+				<label style="font-size: 12px; color: var(--vscode-descriptionForeground);">${completedCount} completed task${completedCount > 1 ? 's' : ''}</label>
+				<button onclick="clearCompleted()">Clear Completed</button>
+			</div>
+			` : ''}
+		` : `
+			<table id="task-table">
+				<thead>
+					<tr>
+						<th style="width: 40px;"></th>
+						<th>Title</th>
+						<th>Description</th>
+						<th style="width: 120px;">Category</th>
+						<th style="width: 100px;">Status</th>
+					</tr>
+				</thead>
+				<tbody id="task-tbody">
+					${activeTasks.map(t => {
+						const statusIcon = t.status === 'pending' ? '⏳' : t.status === 'in-progress' ? '🔄' : '✅';
+						const statusText = t.status === 'pending' ? 'Pending' : t.status === 'in-progress' ? 'In Progress' : 'Completed';
+						const statusColor = t.status === 'pending' ? '#cca700' : t.status === 'in-progress' ? '#3794ff' : '#89d185';
+						return `
+						<tr>
+							<td style="cursor: pointer; font-size: 18px;" onclick="cycleStatus('${t.id}', '${t.status}')" title="Click to cycle status">${statusIcon}</td>
+							<td style="cursor: pointer; font-weight: 500;" onclick="editField(this, '${t.id}', 'title')">${t.title}</td>
+							<td style="cursor: pointer; opacity: 0.8; font-size: 13px;" onclick="editField(this, '${t.id}', 'description')">${t.description || '<span style="opacity: 0.5;">(click to add description)</span>'}</td>
+							<td style="font-size: 12px; opacity: 0.7;">${t.category}</td>
+							<td style="color: ${statusColor}; font-size: 12px;">${statusText}</td>
+						</tr>
+					`;}).join('')}
+				</tbody>
+			</table>
+			<div class="row" style="margin-top: 8px;">
+				<button onclick="createTask()">Add Task</button>
+				<button onclick="openTaskManager()">Manage Tasks</button>
+				${completedCount > 0 ? `<button onclick="clearCompleted()">Clear Completed (${completedCount})</button>` : ''}
+			</div>
+		`;})()} 
+	</div>
+	
 	<script>
 		const vscode = acquireVsCodeApi();
 		
@@ -624,6 +733,56 @@ async function getSettingsHtml(config: vscode.WorkspaceConfiguration, actualPort
 		
 		function injectScript() {
 			vscode.postMessage({ command: 'injectScript' });
+		}
+		
+		function createTask() {
+			vscode.postMessage({ command: 'createTask' });
+		}
+		
+		function editField(cell, taskId, field) {
+			const currentValue = cell.textContent.trim();
+			const input = document.createElement('input');
+			input.type = 'text';
+			input.value = currentValue.includes('click to add') ? '' : currentValue;
+			input.style.cssText = 'width:100%;padding:4px;background:var(--vscode-input-background);color:var(--vscode-input-foreground);border:1px solid var(--vscode-input-border)';
+			
+			const save = () => {
+				const newValue = input.value.trim();
+				if (newValue && newValue !== currentValue) {
+					vscode.postMessage({ command: 'updateTaskField', taskId, field, value: newValue });
+				} else {
+					cell.textContent = currentValue;
+				}
+			};
+			
+			input.addEventListener('blur', save);
+			input.addEventListener('keydown', (e) => {
+				if (e.key === 'Enter') save();
+				else if (e.key === 'Escape') cell.textContent = currentValue;
+			});
+			
+			cell.textContent = '';
+			cell.appendChild(input);
+			input.focus();
+			input.select();
+		}
+		
+		function cycleStatus(taskId, currentStatus) {
+			const nextStatus = currentStatus === 'pending' ? 'in-progress' : 
+			                   currentStatus === 'in-progress' ? 'completed' : 'pending';
+			vscode.postMessage({ command: 'updateTaskStatus', taskId, status: nextStatus });
+		}
+		
+		function openTaskManager() {
+			vscode.postMessage({ command: 'openTaskManager' });
+		}
+		
+		function clearCompleted() {
+			vscode.postMessage({ command: 'clearCompleted' });
+		}
+		
+		function sendInstructions() {
+			vscode.postMessage({ command: 'sendInstructions' });
 		}
 	</script>
 </body>
