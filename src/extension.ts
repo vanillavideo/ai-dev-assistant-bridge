@@ -1,22 +1,16 @@
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
-import * as http from 'http';
-import * as fs from 'fs';
 import * as path from 'path';
 
-// Task interface for workspace-specific tasks
-interface Task {
-	id: string;
-	title: string;
-	description: string;
-	status: 'pending' | 'in-progress' | 'completed';
-	category: 'bug' | 'feature' | 'improvement' | 'documentation' | 'testing' | 'other';
-	createdAt: string;
-	updatedAt: string;
-}
+// Import modules
+import { Task, LogLevel } from './modules/types';
+import { initLogging, log, getErrorMessage } from './modules/logging';
+import * as taskManager from './modules/taskManager';
+import * as portManager from './modules/portManager';
+import * as server from './modules/server';
+import { autoInjectScript } from './modules/autoApproval';
 
-let server: http.Server | undefined;
 let outputChannel: vscode.OutputChannel;
 let chatParticipant: vscode.ChatParticipant | undefined;
 let statusBarToggle: vscode.StatusBarItem | undefined;
@@ -27,96 +21,6 @@ let currentPort: number = 3737;
 let autoApprovalInterval: NodeJS.Timeout | undefined;
 let extensionContext: vscode.ExtensionContext | undefined;
 let settingsPanel: vscode.WebviewPanel | undefined;
-
-/**
- * Logging levels for structured output
- */
-enum LogLevel {
-	INFO = 'INFO',
-	WARN = 'WARN',
-	ERROR = 'ERROR',
-	DEBUG = 'DEBUG'
-}
-
-/**
- * Structured logging helper with timestamps
- */
-function log(level: LogLevel, message: string, data?: unknown) {
-	const timestamp = new Date().toISOString();
-	const prefix = `[${timestamp}] [${level}]`;
-	const fullMessage = data ? `${prefix} ${message} ${JSON.stringify(data)}` : `${prefix} ${message}`;
-	
-
-	outputChannel.appendLine(fullMessage);
-	
-	// Also log errors to console for debugging
-	if (level === LogLevel.ERROR) {
-		console.error(fullMessage);
-	}
-}
-
-/**
- * Type guard to check if error is an Error instance
- */
-function isError(error: unknown): error is Error {
-	return error instanceof Error;
-}
-
-/**
- * Safely extract error message from unknown error type
- */
-function getErrorMessage(error: unknown): string {
-	if (isError(error)) {
-		return error.message;
-	}
-	if (typeof error === 'string') {
-		return error;
-	}
-	return JSON.stringify(error);
-}
-
-/**
- * Task Management Functions
- */
-async function getTasks(context: vscode.ExtensionContext): Promise<Task[]> {
-	return context.workspaceState.get<Task[]>('tasks', []);
-}
-
-async function saveTasks(context: vscode.ExtensionContext, tasks: Task[]): Promise<void> {
-	await context.workspaceState.update('tasks', tasks);
-}
-
-async function addTask(context: vscode.ExtensionContext, title: string, description: string = '', category: Task['category'] = 'other'): Promise<Task> {
-	const tasks = await getTasks(context);
-	const newTask: Task = {
-		id: Date.now().toString(),
-		title,
-		description,
-		status: 'pending',
-		category,
-		createdAt: new Date().toISOString(),
-		updatedAt: new Date().toISOString()
-	};
-	tasks.push(newTask);
-	await saveTasks(context, tasks);
-	return newTask;
-}
-
-async function updateTaskStatus(context: vscode.ExtensionContext, taskId: string, status: Task['status']): Promise<void> {
-	const tasks = await getTasks(context);
-	const task = tasks.find(t => t.id === taskId);
-	if (task) {
-		task.status = status;
-		task.updatedAt = new Date().toISOString();
-		await saveTasks(context, tasks);
-	}
-}
-
-async function removeTask(context: vscode.ExtensionContext, taskId: string): Promise<void> {
-	const tasks = await getTasks(context);
-	const filtered = tasks.filter(t => t.id !== taskId);
-	await saveTasks(context, filtered);
-}
 
 /**
  * Get configuration with proper scope for window isolation
@@ -146,113 +50,10 @@ async function updateConfig(key: string, value: unknown): Promise<void> {
  */
 async function refreshSettingsPanel() {
 	if (settingsPanel && extensionContext) {
-		const tasks = await getTasks(extensionContext);
+		const tasks = await taskManager.getTasks(extensionContext);
 		settingsPanel.webview.html = await getSettingsHtml(getConfig(), currentPort, tasks);
 		log(LogLevel.DEBUG, 'Settings panel refreshed');
 	}
-}
-
-/**
- * Port registry management for automatic port selection
- * Tracks which ports are in use across all VS Code windows
- */
-const PORT_REGISTRY_KEY = 'aiFeedbackBridge.portRegistry';
-const BASE_PORT = 3737;
-const MAX_PORT_SEARCH = 50; // Try up to 50 ports
-
-interface PortRegistryEntry {
-	port: number;
-	workspace: string;
-	timestamp: number;
-}
-
-async function getPortRegistry(context: vscode.ExtensionContext): Promise<PortRegistryEntry[]> {
-	return context.globalState.get<PortRegistryEntry[]>(PORT_REGISTRY_KEY, []);
-}
-
-async function savePortRegistry(context: vscode.ExtensionContext, registry: PortRegistryEntry[]): Promise<void> {
-	await context.globalState.update(PORT_REGISTRY_KEY, registry);
-}
-
-async function findAvailablePort(context: vscode.ExtensionContext): Promise<number> {
-	const registry = await getPortRegistry(context);
-	const workspaceName = vscode.workspace.name || 'No Workspace';
-	const workspaceId = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || 'no-workspace';
-	
-	// Clean up stale entries (older than 1 hour - window likely closed)
-	const oneHourAgo = Date.now() - (60 * 60 * 1000);
-	const activeRegistry = registry.filter(entry => entry.timestamp > oneHourAgo);
-	
-	// Check if this workspace already has a port assigned
-	const existingEntry = activeRegistry.find(entry => entry.workspace === workspaceId);
-	if (existingEntry) {
-		log(LogLevel.INFO, `Reusing existing port ${existingEntry.port} for workspace`);
-		// Update timestamp
-		existingEntry.timestamp = Date.now();
-		await savePortRegistry(context, activeRegistry);
-		return existingEntry.port;
-	}
-	
-	// Find next available port
-	const usedPorts = new Set(activeRegistry.map(e => e.port));
-	let port = BASE_PORT;
-	
-	for (let i = 0; i < MAX_PORT_SEARCH; i++) {
-		const candidatePort = BASE_PORT + i;
-		if (!usedPorts.has(candidatePort)) {
-			// Check if port is actually available using a quick bind test
-			const isAvailable = await isPortAvailable(candidatePort);
-			if (isAvailable) {
-				port = candidatePort;
-				break;
-			}
-		}
-	}
-	
-	// Register this port
-	activeRegistry.push({
-		port,
-		workspace: workspaceId,
-		timestamp: Date.now()
-	});
-	
-	await savePortRegistry(context, activeRegistry);
-	log(LogLevel.INFO, `Auto-assigned port ${port} for workspace: ${workspaceName}`);
-	
-	return port;
-}
-
-async function isPortAvailable(port: number): Promise<boolean> {
-	return new Promise((resolve) => {
-		const testServer = http.createServer();
-		
-		testServer.once('error', (err: NodeJS.ErrnoException) => {
-			if (err.code === 'EADDRINUSE') {
-				resolve(false);
-			} else {
-				resolve(true); // Other errors, assume available
-			}
-		});
-		
-		testServer.once('listening', () => {
-			testServer.close();
-			resolve(true);
-		});
-		
-		testServer.listen(port);
-	});
-}
-
-async function releasePort(context: vscode.ExtensionContext, port: number): Promise<void> {
-	const registry = await getPortRegistry(context);
-	const workspaceId = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || 'no-workspace';
-	
-	const filtered = registry.filter(entry => 
-		!(entry.port === port && entry.workspace === workspaceId)
-	);
-	
-	await savePortRegistry(context, filtered);
-	log(LogLevel.INFO, `Released port ${port}`);
 }
 
 /**
@@ -263,7 +64,7 @@ async function showSettingsPanel(context: vscode.ExtensionContext) {
 	if (settingsPanel) {
 		settingsPanel.reveal(vscode.ViewColumn.One);
 		// Refresh with current config and tasks
-		const tasks = await getTasks(context);
+		const tasks = await taskManager.getTasks(context);
 		settingsPanel.webview.html = await getSettingsHtml(getConfig(), currentPort, tasks);
 		return;
 	}
@@ -287,7 +88,7 @@ async function showSettingsPanel(context: vscode.ExtensionContext) {
 	}, null, context.subscriptions);
 
 	const config = getConfig();
-	const tasks = await getTasks(context);
+	const tasks = await taskManager.getTasks(context);
 	
 	panel.webview.html = await getSettingsHtml(config, currentPort, tasks);
 	
@@ -300,7 +101,7 @@ async function showSettingsPanel(context: vscode.ExtensionContext) {
 					log(LogLevel.INFO, `Setting updated: ${message.key} = ${message.value}`);
 					break;
 				case 'reload':
-					const reloadTasks = await getTasks(context); panel.webview.html = await getSettingsHtml(getConfig(), currentPort, reloadTasks);
+					const reloadTasks = await taskManager.getTasks(context); panel.webview.html = await getSettingsHtml(getConfig(), currentPort, reloadTasks);
 					break;
 				case 'runNow':
 					// Manually trigger reminder check, bypassing interval limits
@@ -324,7 +125,7 @@ async function showSettingsPanel(context: vscode.ExtensionContext) {
 					break;
 				case 'injectScript':
 					// Call the auto-inject function
-					autoInjectScript();
+					autoInjectScript(extensionContext!);
 					break;
 				case 'sendInstructions':
 					try {
@@ -366,8 +167,8 @@ async function showSettingsPanel(context: vscode.ExtensionContext) {
 					break;
 				case 'saveNewTask':
 					try {
-						const newTask = await addTask(context, message.title, message.description, message.category);
-						const createdTasks = await getTasks(context);
+						const newTask = await taskManager.addTask(context, message.title, message.description, message.category);
+						const createdTasks = await taskManager.getTasks(context);
 						panel.webview.html = await getSettingsHtml(getConfig(), currentPort, createdTasks);
 					} catch (error) {
 						vscode.window.showErrorMessage(`Failed to create task: ${getErrorMessage(error)}`);
@@ -375,7 +176,7 @@ async function showSettingsPanel(context: vscode.ExtensionContext) {
 					break;
 				case 'updateTaskField':
 					try {
-						const allTasks = await getTasks(context);
+						const allTasks = await taskManager.getTasks(context);
 						const task = allTasks.find(t => t.id === message.taskId);
 						if (task) {
 							if (message.field === 'title') {
@@ -384,8 +185,8 @@ async function showSettingsPanel(context: vscode.ExtensionContext) {
 								task.description = message.value;
 							}
 							task.updatedAt = new Date().toISOString();
-							await saveTasks(context, allTasks);
-							const updatedTasks = await getTasks(context);
+							await taskManager.saveTasks(context, allTasks);
+							const updatedTasks = await taskManager.getTasks(context);
 							panel.webview.html = await getSettingsHtml(getConfig(), currentPort, updatedTasks);
 						}
 					} catch (error) {
@@ -394,8 +195,8 @@ async function showSettingsPanel(context: vscode.ExtensionContext) {
 					break;
 				case 'updateTaskStatus':
 					try {
-						await updateTaskStatus(context, message.taskId, message.status);
-						const statusTasks = await getTasks(context);
+						await taskManager.updateTaskStatus(context, message.taskId, message.status);
+						const statusTasks = await taskManager.getTasks(context);
 						panel.webview.html = await getSettingsHtml(getConfig(), currentPort, statusTasks);
 					} catch (error) {
 						vscode.window.showErrorMessage(`Failed to update status: ${getErrorMessage(error)}`);
@@ -403,7 +204,7 @@ async function showSettingsPanel(context: vscode.ExtensionContext) {
 					break;
 				case 'createTask':
 					await vscode.commands.executeCommand('ai-feedback-bridge.addTask');
-					const taskListAfterCreate = await getTasks(context);
+					const taskListAfterCreate = await taskManager.getTasks(context);
 					panel.webview.html = await getSettingsHtml(getConfig(), currentPort, taskListAfterCreate);
 					break;
 				case 'openTaskManager':
@@ -411,12 +212,12 @@ async function showSettingsPanel(context: vscode.ExtensionContext) {
 					break;
 				case 'clearCompleted':
 					try {
-						const allTasksForClear = await getTasks(context);
+						const allTasksForClear = await taskManager.getTasks(context);
 						const completedTasks = allTasksForClear.filter(t => t.status === 'completed');
 						for (const task of completedTasks) {
-							await removeTask(context, task.id);
+							await taskManager.removeTask(context, task.id);
 						}
-						const remainingTasks = await getTasks(context);
+						const remainingTasks = await taskManager.getTasks(context);
 						panel.webview.html = await getSettingsHtml(getConfig(), currentPort, remainingTasks);
 					} catch (error) {
 						vscode.window.showErrorMessage(`Failed to clear completed tasks: ${getErrorMessage(error)}`);
@@ -905,6 +706,9 @@ export async function activate(context: vscode.ExtensionContext) {
 	outputChannel = vscode.window.createOutputChannel('AI Agent Feedback');
 	context.subscriptions.push(outputChannel);
 	
+	// Initialize logging module
+	initLogging(outputChannel);
+	
 	log(LogLevel.INFO, '🚀 AI Agent Feedback Bridge activated');
 
 	// Auto-select available port (or use configured port if valid)
@@ -922,7 +726,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	
 	// Always use auto-selection to ensure each window gets unique port
 	// Don't save back to config - let each window find its own port
-	currentPort = await findAvailablePort(context);
+	currentPort = await portManager.findAvailablePort(context);
 	log(LogLevel.INFO, `Auto-selected port: ${currentPort} for this window`);
 	
 	// Log window identification to help debug multi-window scenarios
@@ -982,7 +786,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	
 	// Register inject script command
 	const injectScriptCmd = vscode.commands.registerCommand('ai-feedback-bridge.injectScript', async () => {
-		autoInjectScript();
+		autoInjectScript(extensionContext!);
 	});
 	context.subscriptions.push(injectScriptCmd);
 	
@@ -1005,13 +809,13 @@ export async function activate(context: vscode.ExtensionContext) {
 			{ placeHolder: 'Select category' }
 		) as Task['category'] | undefined;
 		
-		await addTask(context, title, description || '', category || 'other');
+		await taskManager.addTask(context, title, description || '', category || 'other');
 		await refreshSettingsPanel();
 	});
 	context.subscriptions.push(addTaskCmd);
 
 	const listTasksCmd = vscode.commands.registerCommand('ai-feedback-bridge.listTasks', async () => {
-		const tasks = await getTasks(context);
+		const tasks = await taskManager.getTasks(context);
 		if (tasks.length === 0) {
 			vscode.window.showInformationMessage('No tasks found');
 			return;
@@ -1034,13 +838,13 @@ export async function activate(context: vscode.ExtensionContext) {
 			);
 			
 			if (action === 'Delete') {
-				await removeTask(context, selected.task.id);
+				await taskManager.removeTask(context, selected.task.id);
 			} else if (action === 'Mark as In Progress') {
-				await updateTaskStatus(context, selected.task.id, 'in-progress');
+				await taskManager.updateTaskStatus(context, selected.task.id, 'in-progress');
 			} else if (action === 'Mark as Completed') {
-				await updateTaskStatus(context, selected.task.id, 'completed');
+				await taskManager.updateTaskStatus(context, selected.task.id, 'completed');
 			} else if (action === 'Mark as Pending') {
-				await updateTaskStatus(context, selected.task.id, 'pending');
+				await taskManager.updateTaskStatus(context, selected.task.id, 'pending');
 			}
 			
 			await refreshSettingsPanel();
@@ -1392,16 +1196,17 @@ interface FeedbackContext {
 /**
  * Send feedback directly to the AI agent for automatic processing
  */
-async function sendToAgent(feedbackMessage: string, appContext: FeedbackContext): Promise<boolean> {
+async function sendToAgent(feedbackMessage: string, appContext?: unknown): Promise<boolean> {
+	const context: FeedbackContext = (appContext as FeedbackContext) || { source: "unknown", timestamp: new Date().toISOString() };
 	try {
 		// Ultra-concise format to minimize token usage
 		let fullMessage = `# � AI DEV MODE\n\n`;
 		fullMessage += `**User Feedback:**\n${feedbackMessage}\n\n`;
 
 		// Only include context if it has meaningful data beyond source/timestamp
-		const contextKeys = Object.keys(appContext).filter(k => k !== 'source' && k !== 'timestamp');
+		const contextKeys = Object.keys(context).filter(k => k !== 'source' && k !== 'timestamp');
 		if (contextKeys.length > 0) {
-			fullMessage += `**Context:**\n\`\`\`json\n${JSON.stringify(appContext, null, 2)}\n\`\`\`\n\n`;
+			fullMessage += `**Context:**\n\`\`\`json\n${JSON.stringify(context, null, 2)}\n\`\`\`\n\n`;
 		}
 
 		fullMessage += `**Instructions:**\n`;
@@ -1466,175 +1271,7 @@ async function sendToCopilotChat(feedbackMessage: string, appContext: FeedbackCo
  * Start HTTP server to receive feedback from Electron app
  */
 function startFeedbackServer(context: vscode.ExtensionContext) {
-	server = http.createServer(async (req, res) => {
-		// Set CORS headers
-		res.setHeader('Access-Control-Allow-Origin', '*');
-		res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-		res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-
-		// Handle OPTIONS preflight
-		if (req.method === 'OPTIONS') {
-			res.writeHead(200);
-			res.end();
-			return;
-		}
-
-		// Only accept POST requests
-		if (req.method !== 'POST') {
-			res.writeHead(405, { 'Content-Type': 'application/json' });
-			res.end(JSON.stringify({ error: 'Method not allowed' }));
-			return;
-		}
-
-		// Handle /restart-app endpoint
-		if (req.url === '/restart-app' || req.url?.startsWith('/restart-app?')) {
-			// Parse query parameters for delay
-			const urlParts = req.url.split('?');
-			const queryParams = new URLSearchParams(urlParts[1] || '');
-			const delaySeconds = parseInt(queryParams.get('delay') || '30', 10);
-			
-			outputChannel.appendLine(`Received restart request for Electron app (delay: ${delaySeconds}s)`);
-			
-			res.writeHead(200, { 'Content-Type': 'application/json' });
-			res.end(JSON.stringify({ 
-				success: true, 
-				message: `App restart initiated (will restart in ${delaySeconds}s)`,
-				delay: delaySeconds
-			}));
-			
-			// Restart asynchronously (don't block response)
-			setTimeout(async () => {
-				try {
-					// Kill existing Electron process
-					const { exec } = require('child_process');
-					const { promisify } = require('util');
-					const execAsync = promisify(exec);
-					
-					outputChannel.appendLine('Killing Electron process...');
-					try {
-						await execAsync('pkill -f "electron.*Code/AI"');
-					} catch (e) {
-						// Process might not be running, that's okay
-						outputChannel.appendLine('Kill command completed (process may not have been running)');
-					}
-					
-					// Wait configured delay before restart
-					outputChannel.appendLine(`Waiting ${delaySeconds} seconds before restart...`);
-					await new Promise(resolve => setTimeout(resolve, delaySeconds * 1000));
-					
-					const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-					if (workspacePath && workspacePath.includes('/AI')) {
-						outputChannel.appendLine(`Restarting Electron app in: ${workspacePath}`);
-						exec(`cd "${workspacePath}" && npm run dev > /dev/null 2>&1 &`);
-						outputChannel.appendLine('Electron app restart command sent');
-					} else {
-						outputChannel.appendLine(`Could not find workspace path: ${workspacePath}`);
-					}
-				} catch (error) {
-					outputChannel.appendLine(`Restart error: ${error}`);
-				}
-			}, 100);
-			
-			return;
-		}
-
-		// Handle /feedback endpoint (default)
-		// Read request body with size limit
-		let body = '';
-		const maxBodySize = 1024 * 1024; // 1MB limit
-		let bodySize = 0;
-		
-		req.on('data', chunk => {
-			bodySize += chunk.length;
-			if (bodySize > maxBodySize) {
-				log(LogLevel.WARN, 'Request body too large', { size: bodySize });
-				res.writeHead(413, { 'Content-Type': 'application/json' });
-				res.end(JSON.stringify({ error: 'Request body too large (max 1MB)' }));
-				req.destroy();
-				return;
-			}
-			body += chunk.toString();
-		});
-
-		req.on('end', async () => {
-			try {
-				// Validate JSON structure
-				const feedback = JSON.parse(body);
-				
-				if (!feedback || typeof feedback !== 'object') {
-					throw new Error('Invalid feedback structure: must be an object');
-				}
-				
-				if (!feedback.message || typeof feedback.message !== 'string') {
-					throw new Error('Invalid feedback: missing or invalid "message" field');
-				}
-				
-				// Sanitize message (basic XSS prevention)
-				const sanitizedMessage = feedback.message.trim();
-				if (sanitizedMessage.length === 0) {
-					throw new Error('Invalid feedback: message cannot be empty');
-				}
-				
-				if (sanitizedMessage.length > 50000) {
-					throw new Error('Invalid feedback: message too long (max 50000 characters)');
-				}
-				
-				log(LogLevel.INFO, 'Received feedback', { 
-					messageLength: sanitizedMessage.length,
-					hasContext: !!feedback.context 
-				});
-
-				// Send directly to the chat participant for automatic processing
-				const success = await sendToAgent(sanitizedMessage, feedback.context);
-
-				res.writeHead(200, { 'Content-Type': 'application/json' });
-				res.end(JSON.stringify({ 
-					success, 
-					message: success ? 'Feedback sent to AI Agent' : 'Failed to send to AI Agent' 
-				}));
-
-			} catch (error) {
-				const errorMessage = error instanceof Error ? error.message : String(error);
-				log(LogLevel.ERROR, 'Error processing feedback', { error: errorMessage });
-				
-				if (error instanceof SyntaxError) {
-					res.writeHead(400, { 'Content-Type': 'application/json' });
-					res.end(JSON.stringify({ error: 'Invalid JSON format' }));
-				} else {
-					res.writeHead(400, { 'Content-Type': 'application/json' });
-					res.end(JSON.stringify({ error: errorMessage }));
-				}
-			}
-		});
-	});
-
-	// Start server with error handling
-	try {
-		server.listen(currentPort, () => {
-			log(LogLevel.INFO, `✅ Server listening on port ${currentPort}`);
-		});
-
-		// Handle server errors
-		server.on('error', (error: NodeJS.ErrnoException) => {
-			if (error.code === 'EADDRINUSE') {
-				log(LogLevel.ERROR, `Port ${currentPort} is already in use. Please change the port in settings.`);
-			} else {
-				log(LogLevel.ERROR, 'Server error occurred', { error: error.message, code: error.code });
-			}
-		});
-	} catch (error) {
-		log(LogLevel.ERROR, 'Failed to start server', { error });
-	}
-
-	// Clean up server on deactivation
-	context.subscriptions.push({
-		dispose: () => {
-			if (server) {
-				log(LogLevel.INFO, 'Closing server');
-				server.close();
-			}
-		}
-	});
+	server.startServer(context, currentPort, sendToAgent);
 }
 
 /**
@@ -1663,7 +1300,7 @@ function initializeAutoApproval() {
 			log(LogLevel.INFO, 'Auto-inject enabled at workspace scope. Launching quick setup...');
 			// Minimal delay to ensure extension is fully initialized (1s is sufficient)
 			setTimeout(() => {
-				autoInjectScript().catch(err => {
+				autoInjectScript(extensionContext!).catch(err => {
 					log(LogLevel.WARN, 'Auto-inject setup failed:', getErrorMessage(err));
 				});
 			}, 1000);
@@ -1675,42 +1312,6 @@ function initializeAutoApproval() {
  * Copy auto-approval script to clipboard
  * Simple, non-intrusive - just copy and optionally open dev tools
  */
-async function autoInjectScript() {
-	try {
-		const script = getAutoApprovalScript();
-		
-		// Copy script to clipboard
-		await vscode.env.clipboard.writeText(script);
-		log(LogLevel.INFO, '📋 Auto-approval script copied to clipboard');
-		
-		// Optionally open developer tools
-		try {
-			await vscode.commands.executeCommand('workbench.action.toggleDevTools');
-			log(LogLevel.INFO, '🛠️ Developer Tools toggled');
-		} catch (error) {
-			log(LogLevel.WARN, 'Could not toggle Developer Tools', getErrorMessage(error));
-		}
-		
-	} catch (error) {
-		log(LogLevel.ERROR, 'Failed to copy script', getErrorMessage(error));
-	}
-}
-
-/**
- * Get the auto-approval script as a string
- */
-function getAutoApprovalScript(): string {
-	try {
-		// Read the actual auto-approval-script.js file from the extension directory
-		const scriptPath = path.join(extensionContext!.extensionPath, 'scripts', 'auto-approval-script.js');
-		const scriptContent = fs.readFileSync(scriptPath, 'utf8');
-		return scriptContent;
-	} catch (error) {
-		log(LogLevel.ERROR, 'Failed to read auto-approval-script.js', getErrorMessage(error));
-		return '// Error: Could not load auto-approval script';
-	}
-}
-
 /**
  * Enable automatic approval of chat buttons
  */
@@ -1767,7 +1368,9 @@ function disableAutoApproval() {
  * Show instructions for injecting the DOM manipulation script
  */
 function injectAutoApprovalScript() {
-	const script = getAutoApprovalScript();
+	// Import the function from autoApproval module
+	const { getAutoApprovalScript } = require('./modules/autoApproval');
+	const script = getAutoApprovalScript(extensionContext!);
 
 	const panel = vscode.window.createWebviewPanel(
 		'autoApprovalScript',
@@ -1907,10 +1510,8 @@ function getAutoApprovalInstructionsHtml(script: string): string {
 // This method is called when your extension is deactivated
 export async function deactivate() {
 	// Clean up HTTP server
-	if (server) {
-		server.close();
-		log(LogLevel.INFO, 'HTTP server closed');
-	}
+	server.stopServer();
+	log(LogLevel.INFO, 'HTTP server closed');
 	
 	// Clean up auto-continue timer
 	if (autoContinueTimer) {
@@ -1928,7 +1529,7 @@ export async function deactivate() {
 	
 	// Release port from registry
 	if (extensionContext) {
-		await releasePort(extensionContext, currentPort);
+		await portManager.releasePort(extensionContext, currentPort);
 	}
 	
 	log(LogLevel.INFO, '👋 AI Agent Feedback Bridge deactivated');
