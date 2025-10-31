@@ -105,6 +105,13 @@ export function stopServer(): void {
 }
 
 /**
+ * Get the current server instance
+ */
+export function getServer(): http.Server | undefined {
+	return server;
+}
+
+/**
  * Handle incoming HTTP requests
  */
 async function handleRequest(

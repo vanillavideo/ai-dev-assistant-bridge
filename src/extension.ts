@@ -14,6 +14,7 @@ import * as settingsPanelModule from './modules/settingsPanel';
 import * as chatIntegration from './modules/chatIntegration';
 import * as autoContinue from './modules/autoContinue';
 import * as statusBar from './modules/statusBar';
+import * as commands from './modules/commands';
 
 let outputChannel: vscode.OutputChannel;
 let currentPort: number = 3737;
@@ -86,176 +87,25 @@ export async function activate(context: vscode.ExtensionContext) {
 	// Initialize status bar items
 	statusBar.initializeStatusBar(context, currentPort, config);
 
-	// Register open settings command with custom webview
-	const openSettingsCmd = vscode.commands.registerCommand('ai-feedback-bridge.openSettings', async () => {
-		settingsPanelModule.showSettingsPanel(context, currentPort, getConfig, updateConfig, chatIntegration.sendToAgent, 
-			(ctx: vscode.ExtensionContext, force?: boolean) => autoContinue.getSmartAutoContinueMessage(ctx, getConfig, force));
+	// Register all commands
+	commands.registerCommands({
+		context,
+		currentPort,
+		getConfig,
+		updateConfig,
+		sendToAgent: chatIntegration.sendToAgent,
+		autoInjectScript,
+		enableAutoApproval,
+		disableAutoApproval,
+		injectAutoApprovalScript,
+		startCountdownUpdates,
+		stopCountdownUpdates,
+		outputChannel,
+		server: server.getServer()
 	});
-	context.subscriptions.push(openSettingsCmd);
-	
-	// Register run now command - manually trigger reminder check
-	const runNowCmd = vscode.commands.registerCommand('ai-feedback-bridge.runNow', async () => {
-		try {
-			const message = await autoContinue.getSmartAutoContinueMessage(context, getConfig, true); // force=true to ignore intervals
-			if (message) {
-				log(LogLevel.INFO, '[Run Now] Manually triggered all enabled reminders');
-				await chatIntegration.sendToAgent(message, { 
-					source: 'manual_trigger', 
-					timestamp: new Date().toISOString()
-				});
-			} else {
-				vscode.window.showInformationMessage('No enabled categories (check settings)');
-			}
-		} catch (error) {
-			log(LogLevel.ERROR, '[Run Now] Failed to send message', { error });
-			vscode.window.showErrorMessage('Failed to send reminders');
-		}
-	});
-	context.subscriptions.push(runNowCmd);
-	
-	// Register inject script command
-	const injectScriptCmd = vscode.commands.registerCommand('ai-feedback-bridge.injectScript', async () => {
-		autoInjectScript(extensionContext!);
-	});
-	context.subscriptions.push(injectScriptCmd);
-	
-	// Register get port command - returns the current port for this window
-	const getPortCmd = vscode.commands.registerCommand('ai-feedback-bridge.getPort', () => {
-		return currentPort;
-	});
-	context.subscriptions.push(getPortCmd);
-
-	// Register task management commands
-	const addTaskCmd = vscode.commands.registerCommand('ai-feedback-bridge.addTask', async () => {
-		const title = await vscode.window.showInputBox({ prompt: 'Task title' });
-		if (!title) {
-			return;
-		}
-		
-		const description = await vscode.window.showInputBox({ prompt: 'Task description (optional)' });
-		const category = await vscode.window.showQuickPick(
-			['bug', 'feature', 'improvement', 'documentation', 'testing', 'other'],
-			{ placeHolder: 'Select category' }
-		) as Task['category'] | undefined;
-		
-		await taskManager.addTask(context, title, description || '', category || 'other');
-		await settingsPanelModule.refreshSettingsPanel(extensionContext!, getConfig, currentPort);
-	});
-	context.subscriptions.push(addTaskCmd);
-
-	const listTasksCmd = vscode.commands.registerCommand('ai-feedback-bridge.listTasks', async () => {
-		const tasks = await taskManager.getTasks(context);
-		if (tasks.length === 0) {
-			vscode.window.showInformationMessage('No tasks found');
-			return;
-		}
-		
-		const items = tasks.map(t => ({
-			label: `${t.status === 'completed' ? '✅' : t.status === 'in-progress' ? '🔄' : '⏳'} ${t.title}`,
-			description: t.description,
-			task: t
-		}));
-		
-		const selected = await vscode.window.showQuickPick(items, {
-			placeHolder: 'Select a task to update'
-		});
-		
-		if (selected) {
-			const action = await vscode.window.showQuickPick(
-				['Mark as In Progress', 'Mark as Completed', 'Mark as Pending', 'Delete'],
-				{ placeHolder: 'What do you want to do?' }
-			);
-			
-			if (action === 'Delete') {
-				await taskManager.removeTask(context, selected.task.id);
-			} else if (action === 'Mark as In Progress') {
-				await taskManager.updateTaskStatus(context, selected.task.id, 'in-progress');
-			} else if (action === 'Mark as Completed') {
-				await taskManager.updateTaskStatus(context, selected.task.id, 'completed');
-			} else if (action === 'Mark as Pending') {
-				await taskManager.updateTaskStatus(context, selected.task.id, 'pending');
-			}
-			
-			await settingsPanelModule.refreshSettingsPanel(extensionContext!, getConfig, currentPort);
-		}
-	});
-	context.subscriptions.push(listTasksCmd);
 
 	// Start HTTP server to receive feedback
 	startFeedbackServer(context);
-
-	// Register command to manually open chat with feedback
-	const disposable = vscode.commands.registerCommand('ai-agent-feedback-bridge.sendToCopilotChat', async (feedbackText?: string) => {
-		if (!feedbackText) {
-			feedbackText = await vscode.window.showInputBox({
-				prompt: 'Enter feedback to send to Copilot Chat',
-				placeHolder: 'Describe the issue or request...'
-			});
-		}
-
-		if (feedbackText) {
-			await chatIntegration.sendToCopilotChat(feedbackText, {
-				source: 'manual_command',
-				timestamp: new Date().toISOString()
-			});
-		}
-	});
-
-	context.subscriptions.push(disposable);
-
-	// Register toggle auto-continue command
-	const toggleAutoContinueCmd = vscode.commands.registerCommand('ai-feedback-bridge.toggleAutoContinue', async () => {
-		const cfg = getConfig();
-		const currentState = cfg.get<boolean>('autoContinue.enabled', false);
-		await updateConfig('autoContinue.enabled', !currentState);
-		log(LogLevel.INFO, `Auto-Continue ${!currentState ? 'enabled' : 'disabled'}`);
-		
-		// Start or stop countdown updates based on new state
-		if (!currentState) {
-			startCountdownUpdates(context);
-		} else {
-			stopCountdownUpdates();
-		}
-		
-		// Refresh settings panel if it's open
-		settingsPanelModule.refreshSettingsPanel(extensionContext!, getConfig, currentPort);
-	});
-	context.subscriptions.push(toggleAutoContinueCmd);
-
-	// Register change port command
-	const changePortCmd = vscode.commands.registerCommand('ai-feedback-bridge.changePort', async () => {
-		const newPort = await vscode.window.showInputBox({
-			prompt: 'Enter new port number',
-			value: currentPort.toString(),
-			validateInput: (value) => {
-				const port = parseInt(value);
-				return (isNaN(port) || port < 1024 || port > 65535) ? 'Invalid port (1024-65535)' : null;
-			}
-		});
-		if (newPort) {
-			await updateConfig('port', parseInt(newPort));
-			log(LogLevel.INFO, `Port changed to ${newPort}. Reloading VS Code...`);
-			vscode.commands.executeCommand('workbench.action.reloadWindow');
-		}
-	});
-	context.subscriptions.push(changePortCmd);
-
-	// Register show status command
-	const showStatusCmd = vscode.commands.registerCommand('ai-feedback-bridge.showStatus', () => {
-		const cfg = getConfig();
-		const autoInterval = cfg.get<number>('autoContinue.interval', 300);
-		const autoEnabled = cfg.get<boolean>('autoContinue.enabled', false);
-		const workspaceName = vscode.workspace.name || 'No Workspace';
-		const msg = `🌉 AI Feedback Bridge Status\n\n` +
-			`Window: ${workspaceName}\n` +
-			`Port: ${currentPort}\n` +
-			`Server: ${server ? 'Running ✅' : 'Stopped ❌'}\n` +
-			`Auto-Continue: ${autoEnabled ? `Enabled ✅ (every ${autoInterval}s)` : 'Disabled ❌'}\n` +
-			`Endpoint: http://localhost:${currentPort}`;
-		outputChannel.appendLine(msg);
-		outputChannel.show();
-	});
-	context.subscriptions.push(showStatusCmd);
 
 	// Start auto-continue only if enabled in config
 	const autoEnabled = config.get<boolean>('autoContinue.enabled', false);
@@ -321,25 +171,6 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	// Register chat participant for automatic processing
 	chatIntegration.createChatParticipant(context);
-
-	// Register auto-approval commands
-	const enableAutoApprovalCommand = vscode.commands.registerCommand(
-		'ai-agent-feedback-bridge.enableAutoApproval',
-		() => enableAutoApproval(context)
-	);
-	context.subscriptions.push(enableAutoApprovalCommand);
-
-	const disableAutoApprovalCommand = vscode.commands.registerCommand(
-		'ai-agent-feedback-bridge.disableAutoApproval',
-		() => disableAutoApproval()
-	);
-	context.subscriptions.push(disableAutoApprovalCommand);
-
-	const injectAutoApprovalScriptCommand = vscode.commands.registerCommand(
-		'ai-agent-feedback-bridge.injectAutoApprovalScript',
-		() => injectAutoApprovalScript()
-	);
-	context.subscriptions.push(injectAutoApprovalScriptCommand);
 
 	// Log server status (no popup notification)
 	log(LogLevel.INFO, `Feedback server started on http://localhost:${currentPort}`);
