@@ -323,46 +323,46 @@ async function showSettingsPanel(context: vscode.ExtensionContext) {
 					}
 					break;
 				case 'injectScript':
-			case 'sendInstructions':
-				try {
-					const instructions = '📋 AI Feedback Bridge - Usage Instructions\\n\\n' +
-						'This extension helps coordinate between external apps and AI agents in VS Code.\\n\\n' +
-						'🎯 Key Features:\\n' +
-						'1. **Task Management** - Create and track workspace-specific tasks\\n' +
-						'   - Click any title/description to edit inline\\n' +
-						'   - Click status icon (⏳/🔄) to cycle status\\n' +
-						'   - Tasks auto-sync with external API at http://localhost:' + currentPort + '/tasks\\n\\n' +
-						'2. **Auto-Continue System** - Periodic AI reminders\\n' +
-						'   - Configure categories: tasks, improvements, coverage, robustness, cleanup, commits\\n' +
-						'   - Customize messages and intervals\\n' +
-						'   - "Run Now" button triggers all reminders immediately\\n\\n' +
-						'3. **External API** - HTTP endpoints for automation\\n' +
-						'   - GET /tasks - List all workspace tasks\\n' +
-						'   - POST /tasks - Create new task\\n' +
-						'   - PUT /tasks/:id - Update task status\\n' +
-						'   - GET /help - Full API documentation\\n' +
-						'   - Server auto-starts on port ' + currentPort + '\\n\\n' +
-						'4. **Auto-Approval Script** - Browser dev tools automation\\n' +
-						'   - "Inject Script" copies script to clipboard\\n' +
-						'   - Paste in VS Code Developer Tools console\\n' +
-						'   - Auto-clicks "Allow" and "Keep" buttons\\n\\n' +
-						'💡 Quick Start:\\n' +
-						'- Add tasks inline by clicking "Add Task"\\n' +
-						'- Configure auto-continue in settings below\\n' +
-						'- External apps can POST to http://localhost:' + currentPort + '/tasks\\n' +
-						'- Check Command Palette for "AI Feedback Bridge" commands\\n\\n' +
-						'📖 For full API docs, visit: http://localhost:' + currentPort + '/help';
-					
-					await sendToAgent(instructions, {
-						source: 'instructions',
-						timestamp: new Date().toISOString()
-					});
-				} catch (error) {
-					vscode.window.showErrorMessage('Failed to send instructions');
-				}
-				break;
 					// Call the auto-inject function
 					autoInjectScript();
+					break;
+				case 'sendInstructions':
+					try {
+						const instructions = '📋 AI Feedback Bridge - Usage Instructions\\n\\n' +
+							'This extension helps coordinate between external apps and AI agents in VS Code.\\n\\n' +
+							'🎯 Key Features:\\n' +
+							'1. **Task Management** - Create and track workspace-specific tasks\\n' +
+							'   - Click any title/description to edit inline\\n' +
+							'   - Click status icon (⏳/🔄) to cycle status\\n' +
+							'   - Tasks auto-sync with external API at http://localhost:' + currentPort + '/tasks\\n\\n' +
+							'2. **Auto-Continue System** - Periodic AI reminders\\n' +
+							'   - Configure categories: tasks, improvements, coverage, robustness, cleanup, commits\\n' +
+							'   - Customize messages and intervals\\n' +
+							'   - "Run Now" button triggers all reminders immediately\\n\\n' +
+							'3. **External API** - HTTP endpoints for automation\\n' +
+							'   - GET /tasks - List all workspace tasks\\n' +
+							'   - POST /tasks - Create new task\\n' +
+							'   - PUT /tasks/:id - Update task status\\n' +
+							'   - GET /help - Full API documentation\\n' +
+							'   - Server auto-starts on port ' + currentPort + '\\n\\n' +
+							'4. **Auto-Approval Script** - Browser dev tools automation\\n' +
+							'   - "Inject Script" copies script to clipboard\\n' +
+							'   - Paste in VS Code Developer Tools console\\n' +
+							'   - Auto-clicks "Allow" and "Keep" buttons\\n\\n' +
+							'💡 Quick Start:\\n' +
+							'- Add tasks inline by clicking "Add Task"\\n' +
+							'- Configure auto-continue in settings below\\n' +
+							'- External apps can POST to http://localhost:' + currentPort + '/tasks\\n' +
+							'- Check Command Palette for "AI Feedback Bridge" commands\\n\\n' +
+							'📖 For full API docs, visit: http://localhost:' + currentPort + '/help';
+						
+						await sendToAgent(instructions, {
+							source: 'instructions',
+							timestamp: new Date().toISOString()
+						});
+					} catch (error) {
+						vscode.window.showErrorMessage('Failed to send instructions');
+					}
 					break;
 				case 'saveNewTask':
 					try {
@@ -613,9 +613,9 @@ async function getSettingsHtml(config: vscode.WorkspaceConfiguration, actualPort
 <body>
 	<div class="header">
 		<h1>🌉 AI Feedback Bridge</h1>
-		<button onclick="sendInstructions()">Send Instructions</button>
 		<button onclick="runNow()">Run Now</button>
 		<button onclick="injectScript()">Inject Script</button>
+		<button onclick="sendInstructions()">Send Instructions</button>
 	</div>
 	
 	<div class="section">
@@ -1702,7 +1702,7 @@ async function autoInjectScript() {
 function getAutoApprovalScript(): string {
 	try {
 		// Read the actual auto-approval-script.js file from the extension directory
-		const scriptPath = path.join(extensionContext!.extensionPath, 'auto-approval-script.js');
+		const scriptPath = path.join(extensionContext!.extensionPath, 'scripts', 'auto-approval-script.js');
 		const scriptContent = fs.readFileSync(scriptPath, 'utf8');
 		return scriptContent;
 	} catch (error) {
