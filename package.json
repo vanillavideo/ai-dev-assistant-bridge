@@ -1,8 +1,8 @@
 {
-  "name": "ai-feedback-bridge",
-  "displayName": "AI Agent Feedback Bridge",
-  "description": "Bridges feedback from AI Agent system to GitHub Copilot for recursive improvement",
-  "version": "0.5.8",
+	"name": "ai-feedback-bridge",
+	"displayName": "AI Feedback Bridge",
+	"description": "Bridge for AI coding assistants to receive feedback from terminals, tests, and other tools",
+	"version": "0.5.9",
   "publisher": "local",
   "repository": {
     "type": "git",

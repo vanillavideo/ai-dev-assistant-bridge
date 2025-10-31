@@ -504,16 +504,10 @@ export async function activate(context: vscode.ExtensionContext) {
 	const config = getConfig();
 	const configuredPort = config.get<number>('port');
 	
-	// If no port configured, or port is the default, use auto-selection
-	if (!configuredPort || configuredPort === 3737) {
-		currentPort = await findAvailablePort(context);
-		// Save the auto-selected port
-		await updateConfig('port', currentPort);
-		log(LogLevel.INFO, `Auto-selected port: ${currentPort}`);
-	} else {
-		currentPort = configuredPort;
-		log(LogLevel.INFO, `Using configured port: ${currentPort}`);
-	}
+	// Always use auto-selection to ensure each window gets unique port
+	// Don't save back to config - let each window find its own port
+	currentPort = await findAvailablePort(context);
+	log(LogLevel.INFO, `Auto-selected port: ${currentPort} for this window`);
 	
 	// Log window identification to help debug multi-window scenarios
 	const workspaceName = vscode.workspace.name || 'No Workspace';
@@ -1121,266 +1115,27 @@ function initializeAutoApproval() {
 }
 
 /**
- * Attempt to automatically inject the script into the console
- * Since we can't directly inject into browser console from VS Code extension,
- * we'll do the next best thing: open dev tools, copy script, and show prominent notification
+ * Copy auto-approval script to clipboard
+ * Simple, non-intrusive - just copy and optionally open dev tools
  */
 async function autoInjectScript() {
 	try {
 		const script = getAutoApprovalScript();
 		
-		// Step 1: Copy script to clipboard
+		// Copy script to clipboard
 		await vscode.env.clipboard.writeText(script);
 		log(LogLevel.INFO, '📋 Auto-approval script copied to clipboard');
 		
-		// Step 2: Try to open developer tools
+		// Optionally open developer tools
 		try {
 			await vscode.commands.executeCommand('workbench.action.toggleDevTools');
-			log(LogLevel.INFO, '🛠️ Developer Tools opened');
+			log(LogLevel.INFO, '🛠️ Developer Tools toggled');
 		} catch (error) {
-			log(LogLevel.WARN, 'Could not auto-open Developer Tools. Please open manually with Cmd+Option+I', error);
+			log(LogLevel.WARN, 'Could not toggle Developer Tools', error);
 		}
 		
-		// Step 3: Show a prominent ready-to-paste panel
-		const panel = vscode.window.createWebviewPanel(
-			'autoInject',
-			'🚀 Quick Setup - Ready to Paste!',
-			vscode.ViewColumn.Beside,
-			{
-				enableScripts: true,
-				retainContextWhenHidden: false
-			}
-		);
-
-		panel.webview.html = `
-			<!DOCTYPE html>
-			<html>
-			<head>
-				<meta charset="UTF-8">
-				<meta name="viewport" content="width=device-width, initial-scale=1.0">
-				<title>Quick Setup</title>
-				<style>
-					* { box-sizing: border-box; margin: 0; padding: 0; }
-					body { 
-						font-family: var(--vscode-font-family); 
-						padding: 30px; 
-						background: var(--vscode-editor-background);
-						color: var(--vscode-editor-foreground);
-						line-height: 1.6;
-						display: flex;
-						flex-direction: column;
-						align-items: center;
-						justify-content: center;
-						min-height: 100vh;
-					}
-					.hero {
-						text-align: center;
-						margin-bottom: 30px;
-					}
-					.hero h1 {
-						font-size: 32px;
-						color: var(--vscode-textLink-foreground);
-						margin-bottom: 15px;
-					}
-					.big-message {
-						background: linear-gradient(135deg, var(--vscode-button-background), var(--vscode-textLink-foreground));
-						color: white;
-						padding: 25px 40px;
-						border-radius: 12px;
-						font-size: 24px;
-						font-weight: bold;
-						margin: 20px 0;
-						box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-						animation: pulse 2s ease-in-out infinite;
-					}
-					@keyframes pulse {
-						0%, 100% { transform: scale(1); }
-						50% { transform: scale(1.05); }
-					}
-					.quick-steps {
-						background: var(--vscode-textCodeBlock-background);
-						padding: 25px;
-						border-radius: 8px;
-						max-width: 600px;
-						margin: 20px 0;
-					}
-					.quick-step {
-						display: flex;
-						gap: 15px;
-						margin: 15px 0;
-						align-items: center;
-						font-size: 16px;
-					}
-					.step-icon {
-						font-size: 28px;
-						min-width: 40px;
-						text-align: center;
-					}
-					.kbd {
-						background: var(--vscode-input-background);
-						border: 1px solid var(--vscode-input-border);
-						padding: 4px 8px;
-						border-radius: 4px;
-						font-family: monospace;
-						font-weight: bold;
-						font-size: 14px;
-						white-space: nowrap;
-					}
-					button { 
-						background: var(--vscode-button-background);
-						color: var(--vscode-button-foreground);
-						border: none;
-						padding: 12px 24px;
-						border-radius: 6px;
-						cursor: pointer;
-						margin: 8px;
-						font-size: 14px;
-						font-weight: 600;
-						font-family: var(--vscode-font-family);
-						transition: all 0.2s;
-					}
-					button:hover { 
-						background: var(--vscode-button-hoverBackground);
-						transform: translateY(-1px);
-					}
-					.actions {
-						margin-top: 30px;
-						text-align: center;
-					}
-					.success-msg {
-						background: rgba(0, 200, 0, 0.15);
-						border: 2px solid #0c0;
-						padding: 15px 20px;
-						margin: 20px 0;
-						border-radius: 6px;
-						font-size: 14px;
-						max-width: 600px;
-					}
-					details {
-						margin-top: 30px;
-						max-width: 600px;
-					}
-					summary {
-						cursor: pointer;
-						user-select: none;
-						padding: 10px;
-						background: var(--vscode-textCodeBlock-background);
-						border-radius: 4px;
-						font-weight: 600;
-					}
-					.code-box {
-						background: var(--vscode-editor-background);
-						border: 1px solid var(--vscode-panel-border);
-						padding: 15px;
-						border-radius: 4px;
-						margin-top: 10px;
-						max-height: 300px;
-						overflow-y: auto;
-						font-family: 'Monaco', 'Courier New', monospace;
-						font-size: 11px;
-						white-space: pre-wrap;
-						word-break: break-all;
-					}
-				</style>
-			</head>
-			<body>
-				<div class="hero">
-					<h1>🚀 Auto-Approval Setup</h1>
-				</div>
-
-				<div class="big-message">
-					✅ Script Copied! Ready to Paste
-				</div>
-
-				<div class="success-msg">
-					<strong>🎉 Everything is ready!</strong> The script is in your clipboard.<br>
-					Just paste it into the browser console and press Enter.
-				</div>
-
-				<div class="quick-steps">
-					<div class="quick-step">
-						<div class="step-icon">🛠️</div>
-						<div>Open browser DevTools: <span class="kbd">Cmd+Option+I</span> or <span class="kbd">F12</span></div>
-					</div>
-					
-					<div class="quick-step">
-						<div class="step-icon">📋</div>
-						<div>Click <strong>Console</strong> tab</div>
-					</div>
-					
-					<div class="quick-step">
-						<div class="step-icon">⌨️</div>
-						<div>Paste with <span class="kbd">Cmd+V</span> or <span class="kbd">Ctrl+V</span></div>
-					</div>
-					
-					<div class="quick-step">
-						<div class="step-icon">⏎</div>
-						<div>Press <span class="kbd">Enter</span> to run</div>
-					</div>
-					
-					<div class="quick-step">
-						<div class="step-icon">✅</div>
-						<div>Look for success message in console</div>
-					</div>
-				</div>
-
-				<div class="actions">
-					<button onclick="copyAgain()">📋 Copy Script Again</button>
-					<button onclick="openDevTools()">🛠️ Toggle DevTools</button>
-					<button onclick="done()" style="background: rgba(0, 200, 0, 0.3);">✅ Done - Close This</button>
-				</div>
-
-				<details>
-					<summary>📝 View Script Contents</summary>
-					<div class="code-box" id="scriptContent"></div>
-				</details>
-
-				<script>
-					const vscode = acquireVsCodeApi();
-					const script = ${JSON.stringify(script)};
-					document.getElementById('scriptContent').textContent = script;
-					
-					function copyAgain() {
-						navigator.clipboard.writeText(script).then(() => {
-							vscode.postMessage({ command: 'copied' });
-						});
-					}
-					
-					function openDevTools() {
-						vscode.postMessage({ command: 'openDevTools' });
-					}
-					
-					function done() {
-						vscode.postMessage({ command: 'close' });
-					}
-				</script>
-			</body>
-			</html>
-		`;
-
-		// Handle messages from webview
-		panel.webview.onDidReceiveMessage(async (message) => {
-			switch (message.command) {
-				case 'copied':
-					log(LogLevel.INFO, '📋 Script copied to clipboard again');
-					break;
-				case 'openDevTools':
-					try {
-						await vscode.commands.executeCommand('workbench.action.toggleDevTools');
-						log(LogLevel.INFO, '🛠️ Developer Tools toggled');
-					} catch (error) {
-						log(LogLevel.WARN, 'Could not toggle Developer Tools', error);
-					}
-					break;
-				case 'close':
-					panel.dispose();
-					log(LogLevel.INFO, '✅ Auto-inject setup completed');
-					break;
-			}
-		});
-		
 	} catch (error) {
-		log(LogLevel.ERROR, 'Failed to auto-inject script', error);
+		log(LogLevel.ERROR, 'Failed to copy script', error);
 	}
 }
 
