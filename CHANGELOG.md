@@ -7,6 +7,14 @@ All notable changes to the AI Feedback Bridge extension will be documented in th
 ### Fixed
 - **CRITICAL: Settings scope** - Changed all settings from `window` to `resource` (workspace-specific)
 - **CRITICAL: Auto-continue ignoring disabled state** - Now properly respects the "Enable reminders" toggle
+- **CRITICAL: Auto-approval script clicking status bar** - Extension status bar buttons now excluded from auto-approval
+  - Added exclude selectors for `.statusbar-item`, `.statusbar`, and related VS Code status bar elements
+  - Prevents auto-approval script from clicking "Start AI Dev", "Stop AI Dev", or "Inject" buttons
+  - Script now checks `btn.matches()` and `btn.closest()` against exclude patterns
+- **CRITICAL: Auto-approval script conflict** - Extension settings now protected from auto-approval script clicks
+  - Added `data-auto-approved="skip"` to all checkboxes and inputs in settings panel
+  - Updated auto-approval script to check for and skip elements marked with `data-auto-approved="skip"`
+  - Prevents auto-approval script from accidentally toggling extension settings
 - **Safety check** - Timer now re-checks if auto-continue is enabled before sending each message
 - **Configuration updates** - Now save to Workspace scope instead of Global scope
 
@@ -14,6 +22,7 @@ All notable changes to the AI Feedback Bridge extension will be documented in th
 - Settings are now properly workspace-specific (each workspace has independent settings)
 - Auto-continue timer includes continuous enable-state checking
 - Enhanced logging for configuration reads and updates
+- Auto-approval script now distinguishes between "skip" (permanent ignore) and "true" (already processed)
 
 ## [0.6.6] - 2025-10-31
 

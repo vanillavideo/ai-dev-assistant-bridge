@@ -254,12 +254,12 @@ function getSettingsHtml(config: vscode.WorkspaceConfiguration, actualPort: numb
 				<td class="cat-name">${cat.name}</td>
 				<td class="cat-interval">
 					<input type="number" value="${interval}" data-key="autoContinue.${cat.key}.interval" 
-					       min="60" step="60" style="width: 70px;" ${enabled ? '' : 'disabled'}>s
+					       min="60" step="60" style="width: 70px;" ${enabled ? '' : 'disabled'} data-auto-approved="skip">s
 				</td>
 				<td class="cat-toggle">
 					<input type="checkbox" data-key="autoContinue.${cat.key}.enabled" ${enabled ? 'checked' : ''} 
-					       class="toggle-cb" id="cb-${cat.key}">
-					<label for="cb-${cat.key}" class="toggle-label"></label>
+					       class="toggle-cb" id="cb-${cat.key}" data-auto-approved="skip">
+					<label for="cb-${cat.key}" class="toggle-label" data-auto-approved="skip"></label>
 				</td>
 			</tr>
 		`;
@@ -420,16 +420,16 @@ function getSettingsHtml(config: vscode.WorkspaceConfiguration, actualPort: numb
 			<label>Enable monitoring</label>
 			<div style="display: flex; align-items: center; gap: 8px;">
 				<input type="checkbox" data-key="autoApproval.enabled" ${autoApprovalEnabled ? 'checked' : ''} 
-				       class="toggle-cb" id="cb-approval">
-				<label for="cb-approval" class="toggle-label"></label>
+				       class="toggle-cb" id="cb-approval" data-auto-approved="skip">
+				<label for="cb-approval" class="toggle-label" data-auto-approved="skip"></label>
 			</div>
 		</div>
 		<div class="row">
 			<label>Auto-inject script on startup</label>
 			<div style="display: flex; align-items: center; gap: 8px;">
 				<input type="checkbox" data-key="autoApproval.autoInject" ${autoInjectEnabled ? 'checked' : ''} 
-				       class="toggle-cb" id="cb-autoinject" ${autoApprovalEnabled ? '' : 'disabled'}>
-				<label for="cb-autoinject" class="toggle-label"></label>
+				       class="toggle-cb" id="cb-autoinject" ${autoApprovalEnabled ? '' : 'disabled'} data-auto-approved="skip">
+				<label for="cb-autoinject" class="toggle-label" data-auto-approved="skip"></label>
 			</div>
 		</div>
 	</div>
@@ -440,8 +440,8 @@ function getSettingsHtml(config: vscode.WorkspaceConfiguration, actualPort: numb
 			<label>Enable reminders</label>
 			<div style="display: flex; align-items: center; gap: 8px;">
 				<input type="checkbox" data-key="autoContinue.enabled" ${autoContinueEnabled ? 'checked' : ''} 
-				       class="toggle-cb" id="cb-autocontinue">
-				<label for="cb-autocontinue" class="toggle-label"></label>
+				       class="toggle-cb" id="cb-autocontinue" data-auto-approved="skip">
+				<label for="cb-autocontinue" class="toggle-label" data-auto-approved="skip"></label>
 			</div>
 		</div>
 		<table>
@@ -525,6 +525,15 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	// Auto-select available port (or use configured port if valid)
 	const config = getConfig();
+	
+	// MIGRATION: Clear any old Global settings to force workspace scope
+	const globalConfig = vscode.workspace.getConfiguration('aiFeedbackBridge');
+	const globalEnabled = globalConfig.inspect<boolean>('autoContinue.enabled');
+	if (globalEnabled?.globalValue !== undefined) {
+		log(LogLevel.WARN, 'Detected old Global settings, clearing to use Workspace scope');
+		await globalConfig.update('autoContinue.enabled', undefined, vscode.ConfigurationTarget.Global);
+	}
+	
 	const configuredPort = config.get<number>('port');
 	
 	// Always use auto-selection to ensure each window gets unique port

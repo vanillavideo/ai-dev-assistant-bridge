@@ -13,6 +13,12 @@
 // TO STOP:
 // Run: clearInterval(window.__autoApproveInterval)
 // 
+// IMPORTANT:
+// This script is designed to SKIP:
+// - Extension settings (marked with data-auto-approved="skip")
+// - VS Code status bar buttons (to prevent toggling extension controls)
+// It will NOT accidentally toggle settings in the AI Feedback Bridge extension
+// 
 // ============================================================================
 
 (function() {
@@ -34,7 +40,16 @@
         '.chat-request-widget button',
         '.interactive-session button',
         '.quick-input-action button'
-      ].join(', ')
+      ].join(', '),
+      
+      // Elements to EXCLUDE (never click these)
+      excludeSelectors: [
+        '.statusbar-item',           // VS Code status bar items
+        '.statusbar',                // Status bar container
+        '[id*="status."]',          // Status bar item IDs
+        '.monaco-workbench .part.statusbar', // Status bar area
+        'div[id^="workbench.parts.statusbar"]' // Status bar part
+      ]
     },
     
     // Regex patterns for matching button text
@@ -65,8 +80,26 @@
     console.log('[auto-approve] 🔍 Checking', buttons.length, 'buttons...');
     
     buttons.forEach(btn => {
-      // Skip if already processed
-      if (btn.hasAttribute('data-auto-approved')) {
+      // Skip if marked to skip (extension settings, etc.)
+      if (btn.hasAttribute('data-auto-approved') && btn.getAttribute('data-auto-approved') === 'skip') {
+        return;
+      }
+      
+      // Skip if already processed (marked as "true")
+      if (btn.hasAttribute('data-auto-approved') && btn.getAttribute('data-auto-approved') === 'true') {
+        return;
+      }
+      
+      // Skip if element is in status bar or matches exclude selectors
+      const isExcluded = config.selectors.excludeSelectors.some(selector => {
+        try {
+          return btn.matches(selector) || btn.closest(selector);
+        } catch (e) {
+          return false;
+        }
+      });
+      
+      if (isExcluded) {
         return;
       }
       
