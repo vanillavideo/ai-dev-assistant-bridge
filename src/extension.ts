@@ -164,6 +164,276 @@ async function releasePort(context: vscode.ExtensionContext, port: number): Prom
 	log(LogLevel.INFO, `Released port ${port}`);
 }
 
+/**
+ * Show custom settings panel with organized UI
+ */
+function showSettingsPanel(context: vscode.ExtensionContext) {
+	const panel = vscode.window.createWebviewPanel(
+		'aiFeedbackBridgeSettings',
+		'AI Feedback Bridge Settings',
+		vscode.ViewColumn.One,
+		{
+			enableScripts: true,
+			retainContextWhenHidden: true
+		}
+	);
+
+	const config = getConfig();
+	
+	panel.webview.html = getSettingsHtml(config);
+	
+	// Handle messages from webview
+	panel.webview.onDidReceiveMessage(
+		async message => {
+			switch (message.command) {
+				case 'updateSetting':
+					await updateConfig(message.key, message.value);
+					log(LogLevel.INFO, `Setting updated: ${message.key} = ${message.value}`);
+					break;
+				case 'reload':
+					panel.webview.html = getSettingsHtml(getConfig());
+					break;
+			}
+		},
+		undefined,
+		context.subscriptions
+	);
+}
+
+/**
+ * Generate HTML for settings panel
+ */
+function getSettingsHtml(config: vscode.WorkspaceConfiguration): string {
+	const categories = [
+		{ key: 'tasks', icon: '📋', name: 'Tasks', desc: 'Continue with current tasks' },
+		{ key: 'improvements', icon: '✨', name: 'Improvements', desc: 'Code quality and optimizations' },
+		{ key: 'coverage', icon: '🧪', name: 'Coverage', desc: 'Testing and validation' },
+		{ key: 'robustness', icon: '🛡️', name: 'Robustness', desc: 'Error handling and stability' },
+		{ key: 'cleanup', icon: '🧹', name: 'Cleanup', desc: 'Remove unused code' },
+		{ key: 'commits', icon: '💾', name: 'Commits', desc: 'Save progress regularly' }
+	];
+
+	const autoContinueEnabled = config.get<boolean>('autoContinue.enabled', false);
+	const autoApprovalEnabled = config.get<boolean>('autoApproval.enabled', false);
+	const port = config.get<number>('port', 3737);
+	const autoStart = config.get<boolean>('autoStart', true);
+
+	let categoriesHtml = '';
+	for (const cat of categories) {
+		const enabled = config.get<boolean>(`autoContinue.${cat.key}.enabled`, true);
+		const interval = config.get<number>(`autoContinue.${cat.key}.interval`, 300);
+		const message = config.get<string>(`autoContinue.${cat.key}.message`, '');
+		
+		categoriesHtml += `
+			<div class="category ${enabled ? 'enabled' : 'disabled'}">
+				<div class="category-header">
+					<span class="icon">${cat.icon}</span>
+					<span class="name">${cat.name}</span>
+					<label class="toggle">
+						<input type="checkbox" data-key="autoContinue.${cat.key}.enabled" ${enabled ? 'checked' : ''}>
+						<span class="slider"></span>
+					</label>
+				</div>
+				<div class="category-body ${enabled ? '' : 'hidden'}">
+					<div class="field">
+						<label>Interval (seconds)</label>
+						<input type="number" value="${interval}" data-key="autoContinue.${cat.key}.interval" min="60" step="60">
+					</div>
+					<div class="field">
+						<label>Message</label>
+						<textarea data-key="autoContinue.${cat.key}.message" rows="2">${message}</textarea>
+					</div>
+				</div>
+			</div>
+		`;
+	}
+
+	return `<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>AI Feedback Bridge Settings</title>
+	<style>
+		* { box-sizing: border-box; margin: 0; padding: 0; }
+		body {
+			font-family: var(--vscode-font-family);
+			font-size: var(--vscode-font-size);
+			color: var(--vscode-foreground);
+			background: var(--vscode-editor-background);
+			padding: 20px;
+		}
+		h1 { margin-bottom: 20px; font-size: 24px; }
+		h2 { margin: 30px 0 15px; font-size: 18px; border-bottom: 1px solid var(--vscode-panel-border); padding-bottom: 8px; }
+		
+		.section { margin-bottom: 30px; }
+		.field { margin-bottom: 15px; }
+		.field label { display: block; margin-bottom: 5px; font-weight: 500; }
+		.field input[type="number"], .field input[type="text"] {
+			width: 200px;
+			padding: 6px 10px;
+			background: var(--vscode-input-background);
+			color: var(--vscode-input-foreground);
+			border: 1px solid var(--vscode-input-border);
+			border-radius: 3px;
+		}
+		.field textarea {
+			width: 100%;
+			max-width: 600px;
+			padding: 8px 10px;
+			background: var(--vscode-input-background);
+			color: var(--vscode-input-foreground);
+			border: 1px solid var(--vscode-input-border);
+			border-radius: 3px;
+			font-family: var(--vscode-font-family);
+			resize: vertical;
+		}
+		
+		.toggle { position: relative; display: inline-block; width: 42px; height: 24px; }
+		.toggle input { opacity: 0; width: 0; height: 0; }
+		.slider {
+			position: absolute; cursor: pointer; inset: 0;
+			background-color: var(--vscode-input-background);
+			border: 1px solid var(--vscode-input-border);
+			border-radius: 24px;
+			transition: .3s;
+		}
+		.slider:before {
+			position: absolute; content: ""; height: 16px; width: 16px;
+			left: 3px; bottom: 3px;
+			background-color: var(--vscode-input-foreground);
+			border-radius: 50%;
+			transition: .3s;
+		}
+		input:checked + .slider { background-color: var(--vscode-button-background); border-color: var(--vscode-button-background); }
+		input:checked + .slider:before { transform: translateX(18px); background-color: white; }
+		
+		.category {
+			border: 1px solid var(--vscode-panel-border);
+			border-radius: 6px;
+			margin-bottom: 12px;
+			background: var(--vscode-sideBar-background);
+		}
+		.category.disabled { opacity: 0.6; }
+		.category-header {
+			padding: 12px 15px;
+			display: flex;
+			align-items: center;
+			gap: 12px;
+			cursor: pointer;
+		}
+		.category-header .icon { font-size: 20px; }
+		.category-header .name { flex: 1; font-weight: 500; font-size: 15px; }
+		.category-body {
+			padding: 0 15px 15px;
+			border-top: 1px solid var(--vscode-panel-border);
+		}
+		.category-body.hidden { display: none; }
+		.category-body .field { margin-top: 12px; }
+		
+		.main-toggle {
+			display: flex;
+			align-items: center;
+			gap: 12px;
+			padding: 15px;
+			background: var(--vscode-editor-background);
+			border: 2px solid var(--vscode-panel-border);
+			border-radius: 6px;
+			margin-bottom: 20px;
+		}
+		.main-toggle .label { flex: 1; font-size: 16px; font-weight: 600; }
+	</style>
+</head>
+<body>
+	<h1>🌉 AI Feedback Bridge Settings</h1>
+	
+	<div class="section">
+		<h2>Server</h2>
+		<div class="field">
+			<label>Port (auto-assigned per window)</label>
+			<input type="number" value="${port}" data-key="port" min="1024" max="65535" readonly>
+			<p style="margin-top: 5px; font-size: 12px; opacity: 0.7;">Port is automatically selected for each window</p>
+		</div>
+		<div class="field">
+			<label class="toggle">
+				<input type="checkbox" data-key="autoStart" ${autoStart ? 'checked' : ''}>
+				<span class="slider"></span>
+			</label>
+			<label style="display: inline; margin-left: 10px;">Auto-start server on launch</label>
+		</div>
+	</div>
+	
+	<div class="section">
+		<h2>Auto-Approval</h2>
+		<div class="field">
+			<label class="toggle">
+				<input type="checkbox" data-key="autoApproval.enabled" ${autoApprovalEnabled ? 'checked' : ''}>
+				<span class="slider"></span>
+			</label>
+			<label style="display: inline; margin-left: 10px;">Enable auto-approval (requires manual console script)</label>
+		</div>
+	</div>
+	
+	<div class="section">
+		<h2>Auto-Continue</h2>
+		<div class="main-toggle">
+			<span class="label">Enable Auto-Continue</span>
+			<label class="toggle">
+				<input type="checkbox" data-key="autoContinue.enabled" ${autoContinueEnabled ? 'checked' : ''}>
+				<span class="slider"></span>
+			</label>
+		</div>
+		
+		<p style="margin-bottom: 15px; opacity: 0.8;">Configure which reminders to send and how often:</p>
+		${categoriesHtml}
+	</div>
+	
+	<script>
+		const vscode = acquireVsCodeApi();
+		
+		// Handle all input changes
+		document.querySelectorAll('input, textarea').forEach(el => {
+			el.addEventListener('change', (e) => {
+				const key = e.target.dataset.key;
+				let value = e.target.type === 'checkbox' ? e.target.checked : 
+				           e.target.type === 'number' ? parseInt(e.target.value) : 
+				           e.target.value;
+				
+				vscode.postMessage({
+					command: 'updateSetting',
+					key: key,
+					value: value
+				});
+				
+				// Toggle category body visibility
+				if (key.includes('.enabled')) {
+					const category = e.target.closest('.category');
+					if (category) {
+						const body = category.querySelector('.category-body');
+						if (body) {
+							body.classList.toggle('hidden', !value);
+						}
+						category.classList.toggle('enabled', value);
+						category.classList.toggle('disabled', !value);
+					}
+				}
+			});
+		});
+		
+		// Make category headers clickable
+		document.querySelectorAll('.category-header').forEach(header => {
+			header.addEventListener('click', (e) => {
+				if (e.target.type !== 'checkbox' && !e.target.classList.contains('slider')) {
+					const toggle = header.querySelector('input[type="checkbox"]');
+					toggle.click();
+				}
+			});
+		});
+	</script>
+</body>
+</html>`;
+}
+
 // This method is called when your extension is activated
 // Your extension is activated the very first time the command is executed
 export async function activate(context: vscode.ExtensionContext) {
@@ -198,27 +468,25 @@ export async function activate(context: vscode.ExtensionContext) {
 	const workspaceFolders = vscode.workspace.workspaceFolders?.length || 0;
 	log(LogLevel.INFO, `Window context: ${workspaceName} (${workspaceFolders} folders)`);
 
-	// Create 2 separate status bar buttons
-	// Button 1: Toggle Auto-Continue (Start/Stop)
-	statusBarToggle = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 101);
-	statusBarToggle.command = 'ai-feedback-bridge.toggleAutoContinue';
-	statusBarToggle.show();
-	context.subscriptions.push(statusBarToggle);
-	
-	// Button 2: Settings
+	// Create 2 separate status bar buttons (adjacent with same priority base)
+	// Button 1: Settings/Info - shows port and opens settings
 	statusBarSettings = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
-	statusBarSettings.text = '$(gear)';
-	statusBarSettings.tooltip = 'AI Feedback Bridge Settings';
 	statusBarSettings.command = 'ai-feedback-bridge.openSettings';
 	statusBarSettings.show();
 	context.subscriptions.push(statusBarSettings);
 	
-	// Update toggle button appearance
+	// Button 2: Toggle Auto-Continue (Start/Stop) - right next to settings
+	statusBarToggle = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 99);
+	statusBarToggle.command = 'ai-feedback-bridge.toggleAutoContinue';
+	statusBarToggle.show();
+	context.subscriptions.push(statusBarToggle);
+	
+	// Update both buttons with current state
 	updateStatusBar(config);
 
-	// Register open settings command
+	// Register open settings command with custom webview
 	const openSettingsCmd = vscode.commands.registerCommand('ai-feedback-bridge.openSettings', async () => {
-		await vscode.commands.executeCommand('workbench.action.openSettings', 'aiFeedbackBridge');
+		showSettingsPanel(context);
 	});
 	context.subscriptions.push(openSettingsCmd);
 
@@ -360,6 +628,10 @@ function updateStatusBar(config: vscode.WorkspaceConfiguration) {
 	}
 	
 	const autoEnabled = config.get<boolean>('autoContinue.enabled', false);
+	
+	// Settings button shows port and bridge name
+	statusBarSettings.text = `AI Bridge: ${currentPort}`;
+	statusBarSettings.tooltip = 'Click to configure AI Feedback Bridge';
 	
 	// Toggle button shows Start/Stop with spinning icon when active
 	if (autoEnabled) {
