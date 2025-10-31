@@ -320,14 +320,16 @@ async function getSmartAutoContinueMessage(context) {
   const lastSent = context.globalState.get(lastSentKey, {});
   const newLastSent = { ...lastSent };
   for (const category of categories) {
-    const categoryConfig = config.get(`autoContinue.messages.${category}`);
-    if (!categoryConfig || !categoryConfig.enabled) {
+    const enabled = config.get(`autoContinue.${category}.enabled`, true);
+    const interval = config.get(`autoContinue.${category}.interval`, 300);
+    const message = config.get(`autoContinue.${category}.message`, "");
+    if (!enabled || !message) {
       continue;
     }
     const lastSentTime = lastSent[category] || 0;
     const elapsed = (now - lastSentTime) / 1e3;
-    if (elapsed >= categoryConfig.interval) {
-      messages.push(categoryConfig.message);
+    if (elapsed >= interval) {
+      messages.push(message);
       newLastSent[category] = now;
     }
   }

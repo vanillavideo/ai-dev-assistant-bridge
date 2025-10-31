@@ -402,15 +402,6 @@ function updateStatusBar(config: vscode.WorkspaceConfiguration) {
 }
 
 /**
- * Message category configuration
- */
-interface MessageCategory {
-	enabled: boolean;
-	interval: number;
-	message: string;
-}
-
-/**
  * Get smart auto-continue message by rotating through enabled categories
  * based on elapsed time since last sent
  */
@@ -426,8 +417,11 @@ async function getSmartAutoContinueMessage(context: vscode.ExtensionContext): Pr
 	const newLastSent: Record<string, number> = { ...lastSent };
 	
 	for (const category of categories) {
-		const categoryConfig = config.get<MessageCategory>(`autoContinue.messages.${category}`);
-		if (!categoryConfig || !categoryConfig.enabled) {
+		const enabled = config.get<boolean>(`autoContinue.${category}.enabled`, true);
+		const interval = config.get<number>(`autoContinue.${category}.interval`, 300);
+		const message = config.get<string>(`autoContinue.${category}.message`, '');
+		
+		if (!enabled || !message) {
 			continue;
 		}
 		
@@ -435,8 +429,8 @@ async function getSmartAutoContinueMessage(context: vscode.ExtensionContext): Pr
 		const elapsed = (now - lastSentTime) / 1000; // seconds
 		
 		// Include message if enough time has elapsed
-		if (elapsed >= categoryConfig.interval) {
-			messages.push(categoryConfig.message);
+		if (elapsed >= interval) {
+			messages.push(message);
 			newLastSent[category] = now;
 		}
 	}
