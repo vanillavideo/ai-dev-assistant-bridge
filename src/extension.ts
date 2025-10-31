@@ -13,11 +13,9 @@ import { autoInjectScript } from './modules/autoApproval';
 import * as settingsPanelModule from './modules/settingsPanel';
 import * as chatIntegration from './modules/chatIntegration';
 import * as autoContinue from './modules/autoContinue';
+import * as statusBar from './modules/statusBar';
 
 let outputChannel: vscode.OutputChannel;
-let statusBarToggle: vscode.StatusBarItem | undefined;
-let statusBarSettings: vscode.StatusBarItem | undefined;
-let statusBarInject: vscode.StatusBarItem | undefined;
 let currentPort: number = 3737;
 let autoApprovalInterval: NodeJS.Timeout | undefined;
 let extensionContext: vscode.ExtensionContext | undefined;
@@ -84,29 +82,8 @@ export async function activate(context: vscode.ExtensionContext) {
 	const workspaceFolders = vscode.workspace.workspaceFolders?.length || 0;
 	log(LogLevel.INFO, `Window context: ${workspaceName} (${workspaceFolders} folders)`);
 
-	// Create 3 separate status bar buttons (adjacent with same priority base)
-	// Button 1: Settings/Info - shows port and opens settings
-	statusBarSettings = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
-	statusBarSettings.command = 'ai-feedback-bridge.openSettings';
-	statusBarSettings.show();
-	context.subscriptions.push(statusBarSettings);
-	
-	// Button 2: Toggle Auto-Continue (Start/Stop) - right next to settings
-	statusBarToggle = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 99);
-	statusBarToggle.command = 'ai-feedback-bridge.toggleAutoContinue';
-	statusBarToggle.show();
-	context.subscriptions.push(statusBarToggle);
-	
-	// Button 3: Inject Script - quick access to copy script
-	statusBarInject = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 98);
-	statusBarInject.command = 'ai-feedback-bridge.injectScript';
-	statusBarInject.text = '$(clippy) Inject';
-	statusBarInject.tooltip = 'Copy auto-approval script to clipboard';
-	statusBarInject.show();
-	context.subscriptions.push(statusBarInject);
-	
-	// Update buttons with current state
-	updateStatusBar(config);
+	// Initialize status bar items
+	statusBar.initializeStatusBar(context, currentPort, config);
 
 	// Register open settings command with custom webview
 	const openSettingsCmd = vscode.commands.registerCommand('ai-feedback-bridge.openSettings', async () => {
@@ -316,7 +293,7 @@ export async function activate(context: vscode.ExtensionContext) {
 				}
 				
 				// Update status bar buttons
-				updateStatusBar(cfg);
+				statusBar.updateStatusBar(cfg);
 				
 				if (e.affectsConfiguration('aiFeedbackBridge.autoContinue')) {
 					autoContinue.restartAutoContinue(context, getConfig, chatIntegration.sendToAgent);
@@ -349,30 +326,6 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	// Log server status (no popup notification)
 	log(LogLevel.INFO, `Feedback server started on http://localhost:${currentPort}`);
-}
-
-/**
- * Update status bar with current configuration
- */
-function updateStatusBar(config: vscode.WorkspaceConfiguration) {
-	if (!statusBarToggle || !statusBarSettings) {
-		return;
-	}
-	
-	const autoEnabled = config.get<boolean>('autoContinue.enabled', false);
-	
-	// Settings button shows port and bridge name
-	statusBarSettings.text = `AI Dev: ${currentPort}`;
-	statusBarSettings.tooltip = 'Click to configure AI Feedback Bridge';
-	
-	// Toggle button shows Start/Stop with spinning icon when active
-	if (autoEnabled) {
-		statusBarToggle.text = '$(sync~spin) Stop AI Dev';
-		statusBarToggle.tooltip = 'Auto-Continue active\nClick to stop';
-	} else {
-		statusBarToggle.text = '$(play) Start AI Dev';
-		statusBarToggle.tooltip = 'Auto-Continue inactive\nClick to start';
-	}
 }
 
 /**
