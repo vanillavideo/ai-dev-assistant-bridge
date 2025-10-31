@@ -182,7 +182,7 @@ function showSettingsPanel(context: vscode.ExtensionContext) {
 
 	const config = getConfig();
 	
-	panel.webview.html = getSettingsHtml(config);
+	panel.webview.html = getSettingsHtml(config, currentPort);
 	
 	// Handle messages from webview
 	panel.webview.onDidReceiveMessage(
@@ -193,7 +193,7 @@ function showSettingsPanel(context: vscode.ExtensionContext) {
 					log(LogLevel.INFO, `Setting updated: ${message.key} = ${message.value}`);
 					break;
 				case 'reload':
-					panel.webview.html = getSettingsHtml(getConfig());
+					panel.webview.html = getSettingsHtml(getConfig(), currentPort);
 					break;
 				case 'injectScript':
 					// Call the auto-inject function
@@ -209,7 +209,7 @@ function showSettingsPanel(context: vscode.ExtensionContext) {
 /**
  * Generate HTML for settings panel
  */
-function getSettingsHtml(config: vscode.WorkspaceConfiguration): string {
+function getSettingsHtml(config: vscode.WorkspaceConfiguration, actualPort: number): string {
 	const categories = [
 		{ key: 'tasks', icon: '📋', name: 'Tasks', interval: 300 },
 		{ key: 'improvements', icon: '✨', name: 'Improvements', interval: 600 },
@@ -222,7 +222,6 @@ function getSettingsHtml(config: vscode.WorkspaceConfiguration): string {
 	const autoContinueEnabled = config.get<boolean>('autoContinue.enabled', false);
 	const autoApprovalEnabled = config.get<boolean>('autoApproval.enabled', false);
 	const autoInjectEnabled = config.get<boolean>('autoApproval.autoInject', false);
-	const port = config.get<number>('port', 3737);
 
 	let categoriesRows = '';
 	for (const cat of categories) {
@@ -390,7 +389,7 @@ function getSettingsHtml(config: vscode.WorkspaceConfiguration): string {
 		<div class="section-title">Server</div>
 		<div class="row">
 			<label>Port (auto-assigned)</label>
-			<span class="port-display">${port}</span>
+			<span class="port-display">${actualPort}</span>
 		</div>
 	</div>
 	
