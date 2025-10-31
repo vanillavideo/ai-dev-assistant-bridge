@@ -1,0 +1,113 @@
+{
+  "name": "ai-feedback-bridge",
+  "displayName": "AI Agent Feedback Bridge",
+  "description": "Bridges feedback from AI Agent system to GitHub Copilot for recursive improvement",
+  "version": "0.4.0",
+  "publisher": "local",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/coreyolson/vscode-extension.git"
+  },
+  "engines": {
+    "vscode": "^1.96.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "ai-feedback-bridge.showStatus",
+        "title": "AI Feedback Bridge: Show Status"
+      },
+      {
+        "command": "ai-feedback-bridge.toggleAutoContinue",
+        "title": "AI Feedback Bridge: Toggle Auto-Continue"
+      },
+      {
+        "command": "ai-feedback-bridge.changePort",
+        "title": "AI Feedback Bridge: Change Port"
+      }
+    ],
+    "chatParticipants": [
+      {
+        "id": "ai-agent-feedback-bridge.agent",
+        "fullName": "AI Agent Bridge",
+        "name": "agent",
+        "description": "Processes feedback from external AI agent systems",
+        "isSticky": true
+      }
+    ],
+    "configuration": {
+      "title": "AI Feedback Bridge",
+      "properties": {
+        "aiFeedbackBridge.port": {
+          "type": "number",
+          "default": 3737,
+          "scope": "window",
+          "description": "HTTP server port for feedback bridge"
+        },
+        "aiFeedbackBridge.autoStart": {
+          "type": "boolean",
+          "default": true,
+          "scope": "window",
+          "description": "Automatically start the feedback server when VS Code launches"
+        },
+        "aiFeedbackBridge.autoContinue.enabled": {
+          "type": "boolean",
+          "default": false,
+          "scope": "window",
+          "description": "Enable auto-continue to send periodic reminders to Copilot Chat"
+        },
+        "aiFeedbackBridge.autoContinue.interval": {
+          "type": "number",
+          "default": 300,
+          "scope": "window",
+          "description": "Auto-continue interval in seconds"
+        },
+        "aiFeedbackBridge.autoContinue.message": {
+          "type": "string",
+          "default": "Continue with tasks, improvements, code coverage, please. Prioritize improvements, code robustness, maintainability. Cleanup unused files if you need to. Periodically commit.",
+          "scope": "window",
+          "description": "Message sent to Copilot Chat at each interval"
+        },
+        "aiFeedbackBridge.autoApproval.enabled": {
+          "type": "boolean",
+          "default": false,
+          "scope": "window",
+          "description": "Enable auto-approval monitoring (requires manual console script setup)"
+        },
+        "aiFeedbackBridge.autoApproval.intervalMs": {
+          "type": "number",
+          "default": 2000,
+          "scope": "window",
+          "description": "Auto-approval check interval in milliseconds"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run package",
+    "compile": "npm run check-types && npm run lint && node esbuild.js",
+    "watch": "node esbuild.js --watch",
+    "package": "npm run check-types && npm run lint && node esbuild.js --production",
+    "check-types": "tsc --noEmit",
+    "lint": "eslint src"
+  },
+  "devDependencies": {
+    "@types/node": "~22.x",
+    "@types/vscode": "^1.96.0",
+    "@typescript-eslint/eslint-plugin": "^8.25.0",
+    "@typescript-eslint/parser": "^8.25.0",
+    "esbuild": "^0.24.2",
+    "eslint": "^9.17.0",
+    "typescript": "^5.7.2"
+  },
+  "dependencies": {
+    "express": "^4.18.2"
+  }
+}
