@@ -303,6 +303,12 @@ function getSettingsHtml(config: vscode.WorkspaceConfiguration, actualPort: numb
 			<tr class="${enabled ? '' : 'disabled'}">
 				<td class="cat-icon">${cat.icon}</td>
 				<td class="cat-name">${cat.name}</td>
+				<td class="cat-message">
+					<input type="text" value="${message}" data-key="autoContinue.${cat.key}.message" 
+					       placeholder="Enter message..." 
+					       style="width: 100%; padding: 4px 8px; font-size: 13px; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border); border-radius: 2px;" 
+					       ${enabled ? '' : 'disabled'} data-auto-approved="skip">
+				</td>
 				<td class="cat-interval">
 					<input type="number" value="${interval}" data-key="autoContinue.${cat.key}.interval" 
 					       min="60" step="60" style="width: 70px;" ${enabled ? '' : 'disabled'} data-auto-approved="skip">s
@@ -311,14 +317,6 @@ function getSettingsHtml(config: vscode.WorkspaceConfiguration, actualPort: numb
 					<input type="checkbox" data-key="autoContinue.${cat.key}.enabled" ${enabled ? 'checked' : ''} 
 					       class="toggle-cb" id="cb-${cat.key}" data-auto-approved="skip">
 					<label for="cb-${cat.key}" class="toggle-label" data-auto-approved="skip"></label>
-				</td>
-			</tr>
-			<tr class="${enabled ? '' : 'disabled'} message-row">
-				<td colspan="4" style="padding-left: 38px;">
-					<input type="text" value="${message}" data-key="autoContinue.${cat.key}.message" 
-					       placeholder="Enter custom message..." 
-					       style="width: 100%; padding: 4px 6px; font-size: 13px; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border); border-radius: 2px;" 
-					       ${enabled ? '' : 'disabled'} data-auto-approved="skip">
 				</td>
 			</tr>
 		`;
@@ -390,10 +388,10 @@ function getSettingsHtml(config: vscode.WorkspaceConfiguration, actualPort: numb
 		}
 		tr.disabled { opacity: 0.5; }
 		.cat-icon { width: 28px; font-size: 16px; }
-		.cat-name { font-weight: 500; font-size: 14px; }
+		.cat-name { width: 120px; font-weight: 500; font-size: 14px; }
+		.cat-message { min-width: 250px; max-width: 400px; font-size: 14px; }
 		.cat-interval { width: 100px; font-size: 14px; }
 		.cat-toggle { width: 45px; text-align: right; }
-		.message-row td { padding-top: 2px; padding-bottom: 8px; }
 		
 		input[type="number"] {
 			padding: 3px 5px;
@@ -509,6 +507,7 @@ function getSettingsHtml(config: vscode.WorkspaceConfiguration, actualPort: numb
 				<tr>
 					<th></th>
 					<th>Category</th>
+					<th>Message</th>
 					<th>Interval</th>
 					<th></th>
 				</tr>
@@ -543,13 +542,9 @@ function getSettingsHtml(config: vscode.WorkspaceConfiguration, actualPort: numb
 					const row = e.target.closest('tr');
 					if (row) {
 						row.classList.toggle('disabled', !value);
-						// Also toggle the next row (message row)
-						const messageRow = row.nextElementSibling;
-						if (messageRow && messageRow.classList.contains('message-row')) {
-							messageRow.classList.toggle('disabled', !value);
-							const messageInput = messageRow.querySelector('input[type="text"]');
-							if (messageInput) messageInput.disabled = !value;
-						}
+						// Toggle message input in current row
+						const messageInput = row.querySelector('input[type="text"]');
+						if (messageInput) messageInput.disabled = !value;
 						// Toggle interval input in current row
 						const intervalInput = row.querySelector('input[type="number"]');
 						if (intervalInput) intervalInput.disabled = !value;
@@ -1278,7 +1273,17 @@ function initializeAutoApproval() {
 		
 		// Auto-inject if enabled
 		if (autoInjectEnabled) {
-			log(LogLevel.INFO, 'Auto-inject enabled. Launching quick setup...');
+			// Only auto-inject if the setting was explicitly enabled at workspace scope.
+			// This prevents user-level/global settings from causing auto-inject in brand-new windows.
+			const inspect = config.inspect<boolean>('autoApproval.autoInject');
+			const workspaceHasValue = !!(inspect && (inspect.workspaceValue || inspect.workspaceFolderValue));
+			if (!workspaceHasValue) {
+				log(LogLevel.INFO, 'Skipping auto-inject because autoApproval.autoInject is not set at workspace scope.');
+				log(LogLevel.INFO, 'To enable auto-inject for this workspace, set "aiFeedbackBridge.autoApproval.autoInject" in Workspace Settings.');
+				return;
+			}
+
+			log(LogLevel.INFO, 'Auto-inject enabled at workspace scope. Launching quick setup...');
 			// Minimal delay to ensure extension is fully initialized (1s is sufficient)
 			setTimeout(() => {
 				autoInjectScript().catch(err => {

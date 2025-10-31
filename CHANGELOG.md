@@ -2,6 +2,23 @@
 
 All notable changes to the AI Feedback Bridge extension will be documented in this file.
 
+## [0.7.0] - 2025-10-31
+
+### Changed
+- **Compact UI layout** - Message inputs now inline with categories
+  - Each row shows: icon, category name, message input, interval, toggle
+  - Removed separate message rows for cleaner, more compact layout
+  - Message input width: 250-400px (responsive)
+- **Auto-inject safety** - Only triggers when explicitly set at workspace scope
+  - Prevents user/global settings from auto-injecting in new workspaces
+  - Logs explanation when auto-inject is skipped
+  - Workspace must explicitly enable `autoApproval.autoInject` for it to run
+
+### Improved
+- **Better new workspace experience** - Auto-inject won't surprise users in new windows
+- **Cleaner settings panel** - All category controls on single rows
+- **Message field placement** - Easier to see and edit custom messages
+
 ## [0.6.9] - 2025-10-31
 
 ### Changed
