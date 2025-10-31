@@ -10,7 +10,6 @@ let outputChannel: vscode.OutputChannel;
 let chatParticipant: vscode.ChatParticipant | undefined;
 let statusBarToggle: vscode.StatusBarItem | undefined;
 let statusBarSettings: vscode.StatusBarItem | undefined;
-let statusBarRunNow: vscode.StatusBarItem | undefined;
 let statusBarInject: vscode.StatusBarItem | undefined;
 let autoContinueTimer: NodeJS.Timeout | undefined;
 let currentPort: number = 3737;
@@ -194,6 +193,25 @@ function showSettingsPanel(context: vscode.ExtensionContext) {
 					break;
 				case 'reload':
 					panel.webview.html = getSettingsHtml(getConfig(), currentPort);
+					break;
+				case 'runNow':
+					// Manually trigger reminder check, bypassing interval limits
+					try {
+						const message = await getSmartAutoContinueMessage(context, true); // force = true
+						if (message) {
+							await sendToAgent(message, { 
+							source: 'manual_trigger', 
+							timestamp: new Date().toISOString()
+						});
+							log(LogLevel.INFO, '[Run Now] Manually triggered all enabled reminders');
+							vscode.window.showInformationMessage('✅ Reminders sent!');
+						} else {
+							vscode.window.showInformationMessage('⚠️ No enabled categories (check settings)');
+						}
+					} catch (error) {
+						log(LogLevel.ERROR, '[Run Now] Failed to send message', { error });
+						vscode.window.showErrorMessage('❌ Failed to send reminders');
+					}
 					break;
 				case 'injectScript':
 					// Call the auto-inject function
@@ -382,6 +400,7 @@ function getSettingsHtml(config: vscode.WorkspaceConfiguration, actualPort: numb
 <body>
 	<div class="header">
 		<h1>🌉 AI Feedback Bridge</h1>
+		<button onclick="runNow()">▶️ Run Now</button>
 		<button onclick="injectScript()">📋 Inject Script</button>
 	</div>
 	
@@ -477,6 +496,10 @@ function getSettingsHtml(config: vscode.WorkspaceConfiguration, actualPort: numb
 			});
 		});
 		
+		function runNow() {
+			vscode.postMessage({ command: 'runNow' });
+		}
+		
 		function injectScript() {
 			vscode.postMessage({ command: 'injectScript' });
 		}
@@ -527,16 +550,8 @@ export async function activate(context: vscode.ExtensionContext) {
 	statusBarToggle.show();
 	context.subscriptions.push(statusBarToggle);
 	
-	// Button 3: Run Now - manually trigger reminder check
-	statusBarRunNow = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 98);
-	statusBarRunNow.command = 'ai-feedback-bridge.runNow';
-	statusBarRunNow.text = '$(run) Run Now';
-	statusBarRunNow.tooltip = 'Manually trigger reminder check';
-	statusBarRunNow.show();
-	context.subscriptions.push(statusBarRunNow);
-	
-	// Button 4: Inject Script - quick access to copy script
-	statusBarInject = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 97);
+	// Button 3: Inject Script - quick access to copy script
+	statusBarInject = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 98);
 	statusBarInject.command = 'ai-feedback-bridge.injectScript';
 	statusBarInject.text = '$(clippy) Inject';
 	statusBarInject.tooltip = 'Copy auto-approval script to clipboard';
@@ -730,10 +745,10 @@ function updateStatusBar(config: vscode.WorkspaceConfiguration) {
 	
 	// Toggle button shows Start/Stop with spinning icon when active
 	if (autoEnabled) {
-		statusBarToggle.text = '$(sync~spin) Stop';
+		statusBarToggle.text = '$(sync~spin) Stop AI Dev';
 		statusBarToggle.tooltip = 'Auto-Continue active\nClick to stop';
 	} else {
-		statusBarToggle.text = '$(play) Start';
+		statusBarToggle.text = '$(play) Start AI Dev';
 		statusBarToggle.tooltip = 'Auto-Continue inactive\nClick to start';
 	}
 }

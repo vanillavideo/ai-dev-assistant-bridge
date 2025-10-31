@@ -2,6 +2,16 @@
 
 All notable changes to the AI Feedback Bridge extension will be documented in this file.
 
+## [0.6.4] - 2025-01-31
+
+### Changed
+- **Status bar text** - Toggle button now says "Start AI Dev" / "Stop AI Dev" instead of just "Start" / "Stop"
+- **Run Now moved** - Run Now button moved from status bar to settings panel header (next to Inject Script)
+- Removed Run Now status bar button for cleaner UI
+
+### Removed
+- Status bar Run Now button (now in settings panel only)
+
 ## [0.6.3] - 2025-01-31
 
 ### Added
