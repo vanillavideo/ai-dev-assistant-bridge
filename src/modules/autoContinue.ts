@@ -145,3 +145,58 @@ export function restartAutoContinue(
 export function isAutoContinueActive(): boolean {
 	return autoContinueTimer !== undefined;
 }
+
+/**
+ * Get time until next reminder in seconds (for countdown display)
+ * Returns the shortest time until any enabled category triggers
+ */
+export function getTimeUntilNextReminder(
+	context: vscode.ExtensionContext,
+	getConfig: () => vscode.WorkspaceConfiguration
+): number | null {
+	const config = getConfig();
+	const categories = ['tasks', 'improvements', 'coverage', 'robustness', 'cleanup', 'commits'];
+	const now = Date.now();
+	let shortestTime: number | null = null;
+	
+	// Get last sent times from global state
+	const lastSentKey = 'autoContinue.lastSent';
+	const lastSent = context.globalState.get<Record<string, number>>(lastSentKey, {});
+	
+	for (const category of categories) {
+		const enabled = config.get<boolean>(`autoContinue.${category}.enabled`, true);
+		const interval = config.get<number>(`autoContinue.${category}.interval`, 300);
+		const message = config.get<string>(`autoContinue.${category}.message`, '');
+		
+		if (!enabled || !message) {
+			continue;
+		}
+		
+		const lastSentTime = lastSent[category] || 0;
+		const elapsed = (now - lastSentTime) / 1000; // seconds
+		const remaining = Math.max(0, interval - elapsed);
+		
+		if (shortestTime === null || remaining < shortestTime) {
+			shortestTime = remaining;
+		}
+	}
+	
+	return shortestTime;
+}
+
+/**
+ * Format countdown time as human-readable string
+ */
+export function formatCountdown(seconds: number): string {
+	if (seconds < 60) {
+		return `${Math.floor(seconds)}s`;
+	} else if (seconds < 3600) {
+		const minutes = Math.floor(seconds / 60);
+		const secs = Math.floor(seconds % 60);
+		return `${minutes}m ${secs}s`;
+	} else {
+		const hours = Math.floor(seconds / 3600);
+		const minutes = Math.floor((seconds % 3600) / 60);
+		return `${hours}h ${minutes}m`;
+	}
+}

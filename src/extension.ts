@@ -18,6 +18,7 @@ import * as statusBar from './modules/statusBar';
 let outputChannel: vscode.OutputChannel;
 let currentPort: number = 3737;
 let autoApprovalInterval: NodeJS.Timeout | undefined;
+let countdownUpdateTimer: NodeJS.Timeout | undefined;
 let extensionContext: vscode.ExtensionContext | undefined;
 
 /**
@@ -209,6 +210,13 @@ export async function activate(context: vscode.ExtensionContext) {
 		await updateConfig('autoContinue.enabled', !currentState);
 		log(LogLevel.INFO, `Auto-Continue ${!currentState ? 'enabled' : 'disabled'}`);
 		
+		// Start or stop countdown updates based on new state
+		if (!currentState) {
+			startCountdownUpdates(context);
+		} else {
+			stopCountdownUpdates();
+		}
+		
 		// Refresh settings panel if it's open
 		settingsPanelModule.refreshSettingsPanel(extensionContext!, getConfig, currentPort);
 	});
@@ -263,6 +271,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	
 	if (autoEnabled) {
 		autoContinue.startAutoContinue(context, getConfig, chatIntegration.sendToAgent);
+		startCountdownUpdates(context);
 	} else {
 		log(LogLevel.INFO, '[STARTUP] Auto-Continue is disabled, not starting');
 	}
@@ -297,6 +306,14 @@ export async function activate(context: vscode.ExtensionContext) {
 				
 				if (e.affectsConfiguration('aiFeedbackBridge.autoContinue')) {
 					autoContinue.restartAutoContinue(context, getConfig, chatIntegration.sendToAgent);
+					
+					// Restart countdown updates if auto-continue is enabled
+					const autoEnabled = cfg.get<boolean>('autoContinue.enabled', false);
+					if (autoEnabled) {
+						startCountdownUpdates(context);
+					} else {
+						stopCountdownUpdates();
+					}
 				}
 			}
 		})
@@ -333,6 +350,54 @@ export async function activate(context: vscode.ExtensionContext) {
  */
 function startFeedbackServer(context: vscode.ExtensionContext) {
 	server.startServer(context, currentPort, chatIntegration.sendToAgent);
+}
+
+/**
+ * Start countdown update timer to refresh status bar with time until next reminder
+ */
+function startCountdownUpdates(context: vscode.ExtensionContext) {
+	// Stop any existing timer
+	if (countdownUpdateTimer) {
+		clearInterval(countdownUpdateTimer);
+	}
+	
+	// Update every second
+	countdownUpdateTimer = setInterval(() => {
+		try {
+			const config = getConfig();
+			const autoEnabled = config.get<boolean>('autoContinue.enabled', false);
+			
+			if (!autoEnabled) {
+				// Stop updating if auto-continue is disabled
+				if (countdownUpdateTimer) {
+					clearInterval(countdownUpdateTimer);
+					countdownUpdateTimer = undefined;
+				}
+				statusBar.updateStatusBar(config);
+				return;
+			}
+			
+			const timeUntilNext = autoContinue.getTimeUntilNextReminder(context, getConfig);
+			if (timeUntilNext !== null && timeUntilNext > 0) {
+				const countdown = autoContinue.formatCountdown(timeUntilNext);
+				statusBar.updateStatusBar(config, countdown);
+			} else {
+				statusBar.updateStatusBar(config);
+			}
+		} catch (error) {
+			log(LogLevel.ERROR, 'Error updating countdown', { error: getErrorMessage(error) });
+		}
+	}, 1000);
+}
+
+/**
+ * Stop countdown update timer
+ */
+function stopCountdownUpdates() {
+	if (countdownUpdateTimer) {
+		clearInterval(countdownUpdateTimer);
+		countdownUpdateTimer = undefined;
+	}
 }
 
 /**
@@ -583,6 +648,9 @@ export async function deactivate() {
 		autoApprovalInterval = undefined;
 		log(LogLevel.INFO, 'Auto-approval interval cleared');
 	}
+	
+	// Clean up countdown update timer
+	stopCountdownUpdates();
 	
 	// Dispose chat integration
 	chatIntegration.disposeChat();

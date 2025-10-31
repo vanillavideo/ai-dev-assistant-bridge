@@ -54,7 +54,7 @@ export function initializeStatusBar(
 /**
  * Update status bar items with current configuration
  */
-export function updateStatusBar(config: vscode.WorkspaceConfiguration): void {
+export function updateStatusBar(config: vscode.WorkspaceConfiguration, countdown?: string): void {
 	if (!statusBarToggle || !statusBarSettings) {
 		return;
 	}
@@ -67,8 +67,11 @@ export function updateStatusBar(config: vscode.WorkspaceConfiguration): void {
 	
 	// Toggle button shows Start/Stop with spinning icon when active
 	if (autoEnabled) {
-		statusBarToggle.text = '$(sync~spin) Stop AI Dev';
-		statusBarToggle.tooltip = 'Auto-Continue active\nClick to stop';
+		const countdownText = countdown ? ` (${countdown})` : '';
+		statusBarToggle.text = `$(sync~spin) Stop AI Dev${countdownText}`;
+		statusBarToggle.tooltip = countdown 
+			? `Auto-Continue active\nNext reminder: ${countdown}\nClick to stop`
+			: 'Auto-Continue active\nClick to stop';
 	} else {
 		statusBarToggle.text = '$(play) Start AI Dev';
 		statusBarToggle.tooltip = 'Auto-Continue inactive\nClick to start';
