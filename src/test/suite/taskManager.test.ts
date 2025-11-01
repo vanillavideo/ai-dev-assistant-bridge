@@ -142,6 +142,12 @@ suite('TaskManager Module Tests', () => {
 			
 			assert.notStrictEqual(task1.id, task2.id);
 		});
+
+		test('saveTasks should throw when provided non-array', async () => {
+			await assert.rejects(async () => {
+				await (taskManager as any).saveTasks(context, {} as any);
+			}, /Tasks must be an array/);
+		});
 	});
 
 	suite('updateTaskStatus', () => {

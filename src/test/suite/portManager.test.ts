@@ -62,6 +62,21 @@ suite('PortManager Module Tests', () => {
 			
 			assert.strictEqual(port1, port2, 'Should reuse port for same workspace');
 		});
+
+		test('should skip ports that are already bound (EADDRINUSE)', async () => {
+			// Occupy BASE_PORT to force isPortAvailable to report EADDRINUSE
+			const server = require('http').createServer();
+			await new Promise<void>((resolve) => server.listen(3737, resolve));
+
+			try {
+				const testContext = createMockContext();
+				const port = await portManager.findAvailablePort(testContext);
+				// Since 3737 is occupied, the returned port should not be 3737
+				assert.notStrictEqual(port, 3737);
+			} finally {
+				await new Promise<void>((resolve) => server.close(() => resolve()));
+			}
+		});
 	});
 
 	suite('releasePort', () => {
