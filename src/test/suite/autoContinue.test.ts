@@ -320,4 +320,37 @@ suite('Auto-Continue Module Tests', () => {
 		// Message should always end with a period
 		assert.ok(message.endsWith('.'), 'Combined message should end with period');
 	});
+
+	test('getSmartAutoContinueMessage should handle empty guiding documents', async () => {
+		// Test the branch where getGuidingDocumentsContext() returns empty string
+		// This happens when no guiding documents are configured
+		const mockConfig = {
+			get: (key: string, defaultValue: any) => {
+				if (key === 'autoContinue.tasks.enabled') {
+					return true;
+				}
+				if (key === 'autoContinue.tasks.message') {
+					return 'Check tasks.';
+				}
+				if (key.includes('enabled')) {
+					return false;
+				}
+				// No guiding documents configured
+				if (key === 'guidingDocuments.files') {
+					return [];
+				}
+				return defaultValue;
+			}
+		} as any;
+
+		const message = await getSmartAutoContinueMessage(
+			context,
+			() => mockConfig,
+			true // Force send
+		);
+
+		// Should have the task message but no guiding documents section
+		assert.ok(message.includes('Check tasks'), 'Should include task message');
+		assert.ok(!message.includes('# Guiding Documents'), 'Should not include guiding documents header when empty');
+	});
 });

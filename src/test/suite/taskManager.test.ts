@@ -46,6 +46,24 @@ suite('TaskManager Module Tests', () => {
 			assert.strictEqual(tasks.length, 0);
 		});
 
+		test('should handle storage read errors gracefully', async () => {
+			// Create a context that throws an error on get
+			const errorContext = {
+				...context,
+				workspaceState: {
+					get: () => {
+						throw new Error('Storage read error');
+					},
+					update: async () => {},
+					keys: () => []
+				}
+			} as any;
+
+			const tasks = await taskManager.getTasks(errorContext);
+			assert.strictEqual(Array.isArray(tasks), true);
+			assert.strictEqual(tasks.length, 0);
+		});
+
 		test('should return all added tasks', async () => {
 			await taskManager.addTask(context, 'Task 1', 'Description 1', 'bug');
 			await taskManager.addTask(context, 'Task 2', 'Description 2', 'feature');

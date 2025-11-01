@@ -11,6 +11,58 @@ import * as server from '../../modules/server';
 import * as aiQueue from '../../modules/aiQueue';
 import * as taskManager from '../../modules/taskManager';
 
+suite('Server Validation Tests', () => {
+	let mockContext: vscode.ExtensionContext;
+	let mockSendToAgent: (message: string, context?: unknown) => Promise<boolean>;
+
+	setup(() => {
+		// Mock extension context
+		mockContext = {
+			subscriptions: [],
+			globalState: {
+				get: () => undefined,
+				update: async () => {},
+				keys: () => [],
+				setKeysForSync: () => {}
+			},
+			workspaceState: {
+				get: () => undefined,
+				update: async () => {},
+				keys: () => []
+			}
+		} as any;
+
+		// Mock send to agent function
+		mockSendToAgent = async (message: string) => {
+			return true;
+		};
+	});
+
+	test('startServer should reject invalid port number (too low)', () => {
+		assert.throws(
+			() => server.startServer(mockContext, 500, mockSendToAgent),
+			/Invalid port number.*Must be between 1024 and 65535/,
+			'Should throw error for port < 1024'
+		);
+	});
+
+	test('startServer should reject invalid port number (too high)', () => {
+		assert.throws(
+			() => server.startServer(mockContext, 70000, mockSendToAgent),
+			/Invalid port number.*Must be between 1024 and 65535/,
+			'Should throw error for port > 65535'
+		);
+	});
+
+	test('startServer should reject invalid port number (negative)', () => {
+		assert.throws(
+			() => server.startServer(mockContext, -1, mockSendToAgent),
+			/Invalid port number.*Must be between 1024 and 65535/,
+			'Should throw error for negative port'
+		);
+	});
+});
+
 suite('Server HTTP Endpoints Test Suite', () => {
 	let testServer: http.Server;
 	let testPort: number;
