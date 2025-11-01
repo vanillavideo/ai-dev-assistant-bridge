@@ -124,6 +124,16 @@
                     return;
                 }
                 
+                // Skip chat UI elements that shouldn't be clicked
+                if (element.closest('.chat-codeblock-pill-widget') ||
+                    element.closest('.chat-attachment') ||
+                    element.closest('.chat-used-context') ||
+                    element.closest('.chat-inline-anchor-widget') ||
+                    element.closest('.monaco-toolbar') ||
+                    element.closest('.chat-footer-toolbar')) {
+                    return;
+                }
+                
                 const text = (element.textContent || '').toLowerCase().trim();
                 const title = (element.title || '').toLowerCase();
                 const ariaLabel = (element.getAttribute('aria-label') || '').toLowerCase();
