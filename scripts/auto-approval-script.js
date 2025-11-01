@@ -4,7 +4,6 @@
 // 
 // PURPOSE:
 // Automatically click "Allow" and "Keep" buttons in VS Code Chat/Agent interface
-// ONLY within the Chat panel (auxiliarybar) - will NOT affect other VS Code areas
 // 
 // USAGE:
 // 1. Open VS Code Developer Tools: Help → Toggle Developer Tools
@@ -16,209 +15,206 @@
 // 
 // IMPORTANT:
 // This script is SCOPED to the Chat panel only (.part.auxiliarybar.basepanel.right)
-// It will NOT click buttons in:
-// - Extension settings (marked with data-auto-approved="skip")
-// - VS Code status bar
-// - Other panels or editors
-// - The main workspace area
-// It will NOT accidentally toggle settings in the AI Feedback Bridge extension
+// It uses a WHITELIST approach - only clicks buttons with explicit approval text
+// 
+// ============================================================================
 
 (function() {
-    'use strict';
+    console.log('[auto-approve] 🚀 Starting auto-approval script...');
     
     // Check if already running
     if (window.__autoApproveInterval) {
-        console.log('🔄 Auto-approval already running!');
-        console.log('📛 To stop: clearInterval(window.__autoApproveInterval)');
+        console.log('[auto-approve] ⚠️  Already running! Use clearInterval(window.__autoApproveInterval) to stop.');
         return;
     }
-
-    console.log('🚀 Starting VS Code Chat Auto-Approval System...');
     
     // Configuration
-    const CONFIG = {
-        interval: 2000,           // Check every 2 seconds
-        safeMode: true,           // Skip dangerous operations
-        logClicks: true,          // Log button clicks
-        skipSelectors: [
-            '[data-auto-approved="skip"]',
-            '.setting-item *',
-            '.settings-editor *',
-            '.status-bar *',
-            '.extension-editor *',
-            'input[type="checkbox"]',
-            '.monaco-checkbox *',
-            '.toggle-container *',
-            'label *'
-        ]
+    const config = {
+        interval: 1500, // Check every 1.5 seconds for faster response
+        
+        // CSS selectors for buttons (WHITELIST approach - only look for actual buttons)
+        selectors: {
+            allButtons: [
+                '.chat-buttons a',
+                'a.monaco-button',
+                'a.monaco-text-button',
+                'button.monaco-button',
+                '.action-label',
+                '[role="button"]',
+                '.chat-request-widget button',
+                '.interactive-session button',
+                '.quick-input-action button'
+            ].join(', ')
+        },
+        
+        // Regex patterns for matching button text (WHITELIST)
+        patterns: {
+            allow: /Allow|Keep|Proceed|Accept|Confirm|Continue|Yes|OK/i,
+            dangerous: /delete|remove|rm\s|destroy|drop|uninstall/i // Safety: skip dangerous operations
+        },
+        
+        // Track statistics
+        stats: {
+            totalClicks: 0,
+            clicksByLabel: {},
+            startTime: new Date(),
+            lastCheck: new Date()
+        }
     };
 
-    // Safety patterns to avoid
-    const DANGER_PATTERNS = [
-        /delete|remove|uninstall|rm\s/i,
-        /disable|turn\s+off/i,
-        /clear\s+all|reset/i
-    ];
-    
-    // Patterns that indicate extension control buttons (check if in status bar)
-    const EXTENSION_CONTROL_PATTERNS = [
-        /ai\s+dev/i,
-        /start.*auto/i,
-        /stop.*auto/i
-    ];
-
-    function isElementSafe(element) {
-        // Check if element should be skipped
-        for (const selector of CONFIG.skipSelectors) {
-            if (element.matches(selector) || element.closest(selector.replace(' *', ''))) {
-                return false;
-            }
-        }
+    /**
+     * Main auto-approval function
+     */
+    const autoApprove = () => {
+        let clickedThisRound = 0;
+        config.stats.lastCheck = new Date();
         
-        // Check text content for dangerous operations
-        const text = element.textContent || element.title || element.getAttribute('aria-label') || '';
-        if (CONFIG.safeMode && DANGER_PATTERNS.some(pattern => pattern.test(text))) {
-            console.log('⚠️ Skipping potentially dangerous button:', text);
-            return false;
-        }
-        
-        // Check for extension control buttons (especially in status bar)
-        if (element.closest('.status-bar-item') || element.closest('.statusbar-item')) {
-            if (EXTENSION_CONTROL_PATTERNS.some(pattern => pattern.test(text))) {
-                console.log('⚠️ Skipping extension control button:', text);
-                return false;
-            }
-        }
-        
-        return true;
-    }
-
-    function findAndClickButtons() {
-        // Only target the Chat panel in the auxiliarybar
+        // IMPROVEMENT: Only target the Chat panel (scoped to avoid clicking elsewhere)
         const chatPanel = document.querySelector('.part.auxiliarybar.basepanel.right');
         if (!chatPanel) {
-            // No chat panel found, skip this iteration
-            return 0;
+            return; // No chat panel, skip this check
         }
         
-        const targetTexts = ['allow', 'keep', 'accept', 'continue', 'yes', 'ok'];
-        const selectors = [
-            'button:not([type="checkbox"])',
-            '.monaco-button',
-            '[role="button"]:not([role="checkbox"])',
-            '.action-item:not(.toggle-container)',
-            '.quick-pick-item'
-        ];
+        // Find all potential buttons WITHIN chat panel only
+        const buttons = chatPanel.querySelectorAll(config.selectors.allButtons);
         
-        let clickCount = 0;
-        
-        selectors.forEach(selector => {
-            // IMPORTANT: Only search within the chat panel, not the entire document
-            chatPanel.querySelectorAll(selector).forEach(element => {
-                // Skip if it's a checkbox or inside a checkbox container
-                if (element.type === 'checkbox' || 
-                    element.getAttribute('role') === 'checkbox' ||
-                    element.closest('input[type="checkbox"]') ||
-                    element.closest('.monaco-checkbox') ||
-                    element.closest('.toggle-container')) {
-                    return;
+        buttons.forEach(btn => {
+            // Skip if marked to skip (extension settings, etc.)
+            if (btn.hasAttribute('data-auto-approved') && btn.getAttribute('data-auto-approved') === 'skip') {
+                return;
+            }
+            
+            // Skip if already processed (marked as "true")
+            if (btn.hasAttribute('data-auto-approved') && btn.getAttribute('data-auto-approved') === 'true') {
+                return;
+            }
+            
+            // Get button label from aria-label, title, or text content
+            const ariaLabel = btn.getAttribute('aria-label') || '';
+            const title = btn.getAttribute('title') || '';
+            const textContent = btn.textContent || '';
+            const innerText = btn.innerText || '';
+            const label = (ariaLabel + ' ' + title + ' ' + textContent + ' ' + innerText).trim();
+            
+            // Skip if no label
+            if (!label) {
+                return;
+            }
+            
+            // Safety check: skip dangerous operations
+            if (config.patterns.dangerous.test(label)) {
+                console.log('[auto-approve] ⚠️  Skipping dangerous operation:', label);
+                return;
+            }
+            
+            // Check if button matches approval pattern (WHITELIST)
+            if (config.patterns.allow.test(label)) {
+                try {
+                    // Click the button using multiple methods for better compatibility
+                    btn.click();
+                    
+                    // Alternative: dispatch click event
+                    const clickEvent = new MouseEvent('click', {
+                        view: window,
+                        bubbles: true,
+                        cancelable: true
+                    });
+                    btn.dispatchEvent(clickEvent);
+                    
+                    // Mark as processed
+                    btn.setAttribute('data-auto-approved', 'true');
+                    
+                    // Update statistics
+                    config.stats.totalClicks++;
+                    config.stats.clicksByLabel[label] = (config.stats.clicksByLabel[label] || 0) + 1;
+                    clickedThisRound++;
+                    
+                    console.log(
+                        `✅ [auto-approve] Clicked: "${label}" (total: ${config.stats.totalClicks})`
+                    );
+                } catch (error) {
+                    console.error('[auto-approve] ❌ Error clicking button:', error);
                 }
-                
-                // Skip chat UI elements that shouldn't be clicked
-                // Check both if element IS one of these, or is inside one
-                if (element.matches('.chat-codeblock-pill-widget, .chat-attachment, .chat-used-context, .chat-inline-anchor-widget, .chat-request-codemark, .chat-resource-widget') ||
-                    element.closest('.chat-codeblock-pill-widget') ||
-                    element.closest('.chat-attachment') ||
-                    element.closest('.chat-used-context') ||
-                    element.closest('.chat-inline-anchor-widget') ||
-                    element.closest('.chat-request-codemark') ||
-                    element.closest('.chat-resource-widget') ||
-                    element.closest('.monaco-toolbar') ||
-                    element.closest('.chat-footer-toolbar')) {
-                    return;
-                }
-                
-                const text = (element.textContent || '').toLowerCase().trim();
-                const title = (element.title || '').toLowerCase();
-                const ariaLabel = (element.getAttribute('aria-label') || '').toLowerCase();
-                
-                // Skip if text looks like a file name or search result
-                const skipPatterns = [
-                    /\.(ts|js|tsx|jsx|json|md|html|css|py|java|cpp|c|h)(\+\d+-\d+)?$/i, // File extensions with optional +N-N
-                    /\+\d+-\d+$/, // Ends with +7-6 pattern (git diff)
-                    /searched text for/i, // Search result indicators
-                    /\d+\s+results?$/i, // "2 results"
-                    /edited\s+\w+\.\w+/i // "Edited filename.ext"
-                ];
-                
-                const fullText = `${text} ${title} ${ariaLabel}`;
-                if (skipPatterns.some(pattern => pattern.test(fullText))) {
-                    return; // Skip file/search UI elements
-                }
-                
-                // Check if this looks like a button we want to click
-                const isTarget = targetTexts.some(target => 
-                    text.includes(target) || title.includes(target) || ariaLabel.includes(target)
-                );
-                
-                if (isTarget && isElementSafe(element) && element.offsetParent !== null) {
-                    try {
-                        element.click();
-                        clickCount++;
-                        
-                        if (CONFIG.logClicks) {
-                            console.log(`✅ Auto-clicked: "${text || title || ariaLabel}"`);
-                        }
-                    } catch (error) {
-                        console.log('⚠️ Click failed:', error.message);
-                    }
-                }
-            });
+            }
         });
         
-        return clickCount;
-    }
-
-    // Start the auto-approval system
-    let totalClicks = 0;
-    const startTime = Date.now();
-    let chatPanelFound = false;
-    
-    window.__autoApproveInterval = setInterval(() => {
-        const clicks = findAndClickButtons();
-        totalClicks += clicks;
-        
-        // Log once when chat panel is found
-        const panel = document.querySelector('.part.auxiliarybar.basepanel.right');
-        if (panel && !chatPanelFound) {
-            chatPanelFound = true;
-            console.log('✅ Chat panel detected - monitoring for approval buttons');
+        // Log summary if any buttons were clicked this round
+        if (clickedThisRound > 0) {
+            console.log(`[auto-approve] 📊 Round complete: ${clickedThisRound} click(s)`);
         }
-    }, CONFIG.interval);
-    
-    // Status logging
-    console.log(`🎯 Auto-approval active (checking every ${CONFIG.interval}ms)`);
-    console.log('🔍 Scoped to Chat panel only (.part.auxiliarybar.basepanel.right)');
-    console.log('📛 To stop: clearInterval(window.__autoApproveInterval)');
-    console.log('📊 To see stats: window.__autoApproveStats()');
-    
-    // Stats function
-    window.__autoApproveStats = function() {
-        const runtime = Math.round((Date.now() - startTime) / 1000);
-        console.log(`📊 Auto-Approval Stats:`);
-        console.log(`   Runtime: ${runtime} seconds`);
-        console.log(`   Total clicks: ${totalClicks}`);
-        console.log(`   Rate: ${(totalClicks / Math.max(runtime, 1)).toFixed(2)} clicks/sec`);
     };
+
+    /**
+     * Show statistics
+     */
+    window.__autoApproveStats = () => {
+        const runtime = Math.floor((new Date() - config.stats.startTime) / 1000);
+        console.log('═══════════════════════════════════════════════════');
+        console.log('📊 Auto-Approval Statistics');
+        console.log('═══════════════════════════════════════════════════');
+        console.log(`Total Clicks: ${config.stats.totalClicks}`);
+        console.log(`Runtime: ${runtime}s`);
+        console.log('Clicks by Label:');
+        Object.entries(config.stats.clicksByLabel).forEach(([label, count]) => {
+            console.log(`  • ${label}: ${count}`);
+        });
+        console.log('═══════════════════════════════════════════════════');
+    };
+
+    /**
+     * Update configuration
+     */
+    window.__autoApproveConfig = (key, value) => {
+        if (key === 'interval') {
+            // Restart with new interval
+            clearInterval(window.__autoApproveInterval);
+            config.interval = value;
+            window.__autoApproveInterval = setInterval(autoApprove, config.interval);
+            console.log(`[auto-approve] ⚙️  Interval updated to ${value}ms`);
+        } else if (key in config) {
+            config[key] = value;
+            console.log(`[auto-approve] ⚙️  ${key} updated to`, value);
+        } else {
+            console.log('[auto-approve] ❌ Unknown config key:', key);
+        }
+    };
+
+    // Run immediately on first load
+    autoApprove();
     
-    // Cleanup function
-    window.__autoApproveStop = function() {
+    // Set up interval
+    const intervalId = setInterval(autoApprove, config.interval);
+    
+    // Store interval ID globally for easy stopping
+    window.__autoApproveInterval = intervalId;
+    
+    // Success message
+    console.log('═══════════════════════════════════════════════════');
+    console.log('✅ Auto-Approval Script Active!');
+    console.log('═══════════════════════════════════════════════════');
+    console.log('🎯 Scope: Chat panel only (.part.auxiliarybar.basepanel.right)');
+    console.log('🛡️  Approach: WHITELIST (only clicks Allow/Keep/Accept/etc)');
+    console.log(`📡 Checking every ${config.interval}ms`);
+    console.log('═══════════════════════════════════════════════════');
+    console.log('Commands:');
+    console.log('  • Stop:   clearInterval(window.__autoApproveInterval)');
+    console.log('  • Stats:  __autoApproveStats()');
+    console.log('  • Config: __autoApproveConfig("interval", 3000)');
+    console.log('═══════════════════════════════════════════════════');
+    
+    return intervalId;
+})();
+
+// Optional: Add keyboard shortcut to toggle on/off
+// Press Ctrl+Shift+A to toggle auto-approval
+document.addEventListener('keydown', (e) => {
+    if (e.ctrlKey && e.shiftKey && e.key === 'A') {
         if (window.__autoApproveInterval) {
             clearInterval(window.__autoApproveInterval);
-            window.__autoApproveInterval = undefined;
-            window.__autoApproveStats();
-            console.log('🛑 Auto-approval stopped');
+            window.__autoApproveInterval = null;
+            console.log('[auto-approve] ⏸️  Paused (press Ctrl+Shift+A to resume or reload page)');
+        } else {
+            console.log('[auto-approve] ▶️  Resuming... (please reload page or paste script again)');
         }
-    };
-
-})();
+    }
+});
