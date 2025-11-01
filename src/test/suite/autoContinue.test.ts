@@ -688,6 +688,58 @@ suite('Auto-Continue Module Tests', () => {
 		// but we're testing the branch where docsContext is truthy
 	});
 
+	test('getSmartAutoContinueMessage should append docsContext when file exists (line 107-108)', async () => {
+		const fs = await import('fs');
+		const path = await import('path');
+		const os = await import('os');
+		
+		// Create a temporary file
+		const tmpDir = os.tmpdir();
+		const testFile = path.join(tmpDir, 'test-guiding-doc.md');
+		fs.writeFileSync(testFile, '# Test Doc\n\nSome content');
+		
+		try {
+			// Actually set the VS Code configuration (guidingDocuments module reads from real config)
+			const config = vscode.workspace.getConfiguration('aiFeedbackBridge');
+			await config.update('guidingDocuments', [testFile], vscode.ConfigurationTarget.Global);
+			
+			// Also enable tasks category
+			const mockConfig = {
+				get: (key: string, defaultValue: any) => {
+					if (key === 'autoContinue.tasks.enabled') {
+						return true;
+					}
+					if (key === 'autoContinue.tasks.message') {
+						return 'Check tasks';
+					}
+					if (key.includes('enabled')) {
+						return false;
+					}
+					return defaultValue;
+				}
+			} as any;
+
+			const message = await getSmartAutoContinueMessage(
+				context,
+				() => mockConfig,
+				true
+			);
+
+			// Should include task message AND guiding documents section
+			assert.ok(message.includes('Check tasks'), 'Should include task message');
+			assert.ok(message.includes('Guiding Documents'), 'Should include guiding documents section');
+		} finally {
+			// Cleanup configuration
+			const config = vscode.workspace.getConfiguration('aiFeedbackBridge');
+			await config.update('guidingDocuments', [], vscode.ConfigurationTarget.Global);
+			
+			// Cleanup file
+			if (fs.existsSync(testFile)) {
+				fs.unlinkSync(testFile);
+			}
+		}
+	});
+
 	test('startAutoContinue timer should continue when message is empty', async function() {
 		this.timeout(2000);
 

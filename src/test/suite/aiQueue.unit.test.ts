@@ -54,6 +54,39 @@ suite('AI Queue Unit Tests (Fast)', () => {
 			assert.strictEqual(queue[3].priority, 'low');
 		});
 
+		test('sorts pending status before completed status', async () => {
+			// Create multiple items and process some to create a mix
+			aiQueue.enqueueInstruction('first', 'src', 'urgent');
+			aiQueue.enqueueInstruction('second', 'src', 'high');
+			aiQueue.enqueueInstruction('third', 'src', 'normal');
+			
+			// Process first two to mark them as completed
+			await aiQueue.processNextInstruction(async () => true);
+			await aiQueue.processNextInstruction(async () => true);
+			
+			// Now we have: [pending-normal, completed-urgent, completed-high]
+			// Add more pending items to force sorting comparisons
+			aiQueue.enqueueInstruction('fourth', 'src', 'low');
+			aiQueue.enqueueInstruction('fifth', 'src', 'urgent');
+			
+			const queue = aiQueue.getQueue();
+			
+			// All pending items should come before all completed items
+			const pendingCount = queue.filter(i => i.status === 'pending').length;
+			const completedCount = queue.filter(i => i.status === 'completed').length;
+			
+			assert.strictEqual(pendingCount, 3, 'Should have 3 pending items');
+			assert.strictEqual(completedCount, 2, 'Should have 2 completed items');
+			
+			// Check that all pending come before all completed
+			for (let i = 0; i < pendingCount; i++) {
+				assert.strictEqual(queue[i].status, 'pending', `Item ${i} should be pending`);
+			}
+			for (let i = pendingCount; i < queue.length; i++) {
+				assert.strictEqual(queue[i].status, 'completed', `Item ${i} should be completed`);
+			}
+		});
+
 		test('defaults to normal priority', () => {
 			const inst = aiQueue.enqueueInstruction('test', 'src');
 			assert.strictEqual(inst.priority, 'normal');

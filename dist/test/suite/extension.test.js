@@ -3158,6 +3158,45 @@ suite("Auto-Continue Module Tests", () => {
     );
     assert5.ok(message.includes("Check tasks"), "Should include task message");
   });
+  test("getSmartAutoContinueMessage should append docsContext when file exists (line 107-108)", async () => {
+    const fs2 = await import("fs");
+    const path3 = await import("path");
+    const os = await import("os");
+    const tmpDir = os.tmpdir();
+    const testFile = path3.join(tmpDir, "test-guiding-doc.md");
+    fs2.writeFileSync(testFile, "# Test Doc\n\nSome content");
+    try {
+      const config = vscode7.workspace.getConfiguration("aiFeedbackBridge");
+      await config.update("guidingDocuments", [testFile], vscode7.ConfigurationTarget.Global);
+      const mockConfig = {
+        get: (key, defaultValue) => {
+          if (key === "autoContinue.tasks.enabled") {
+            return true;
+          }
+          if (key === "autoContinue.tasks.message") {
+            return "Check tasks";
+          }
+          if (key.includes("enabled")) {
+            return false;
+          }
+          return defaultValue;
+        }
+      };
+      const message = await getSmartAutoContinueMessage(
+        context,
+        () => mockConfig,
+        true
+      );
+      assert5.ok(message.includes("Check tasks"), "Should include task message");
+      assert5.ok(message.includes("Guiding Documents"), "Should include guiding documents section");
+    } finally {
+      const config = vscode7.workspace.getConfiguration("aiFeedbackBridge");
+      await config.update("guidingDocuments", [], vscode7.ConfigurationTarget.Global);
+      if (fs2.existsSync(testFile)) {
+        fs2.unlinkSync(testFile);
+      }
+    }
+  });
   test("startAutoContinue timer should continue when message is empty", async function() {
     this.timeout(2e3);
     let sendCalled = false;
