@@ -77,6 +77,18 @@ suite('AI Queue Unit Tests (Fast)', () => {
 			assert.strictEqual(item?.status, 'failed');
 		});
 
+		test('processNextInstruction handles non-Error thrown values', async () => {
+			const inst = aiQueue.enqueueInstruction('test with string error', 'src');
+			await aiQueue.processNextInstruction(async () => {
+				// eslint-disable-next-line no-throw-literal
+				throw 'String error instead of Error object'; // Non-Error throw
+			});
+			
+			const item = aiQueue.getInstruction(inst.id);
+			assert.strictEqual(item?.status, 'failed');
+			assert.ok(item?.error?.includes('String error'), 'Should convert non-Error to string');
+		});
+
 		test('processNextInstruction returns false when empty', async () => {
 			const result = await aiQueue.processNextInstruction(async () => true);
 			assert.strictEqual(result, false);
