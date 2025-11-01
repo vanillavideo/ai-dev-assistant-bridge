@@ -1,6 +1,11 @@
 import * as assert from 'assert';
 import * as vscode from 'vscode';
 
+// Include additional unit tests so they are bundled into the test runner
+import './aiQueue.test';
+import './guidingDocuments.test';
+import './server.test';
+
 suite('AI Feedback Bridge Extension Test Suite', () => {
 	vscode.window.showInformationMessage('Start all tests.');
 

@@ -48,8 +48,12 @@ async function main() {
 	const testCtx = await esbuild.context({
 		entryPoints: [
 			'src/test/runTest.ts',
+			'src/test/runUnitTests.js',
 			'src/test/suite/index.ts',
-			'src/test/suite/extension.test.ts'
+			'src/test/suite/runUnitTests.ts',
+			'src/test/suite/extension.test.ts',
+			'src/test/suite/aiQueue.unit.test.ts',
+			'src/test/suite/logging.unit.test.ts'
 		],
 		bundle: true,
 		format: 'cjs',

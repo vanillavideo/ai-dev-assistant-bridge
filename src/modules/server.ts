@@ -15,6 +15,7 @@ import * as http from 'http';
 import { log, getErrorMessage } from './logging';
 import { LogLevel } from './types';
 import * as taskManager from './taskManager';
+import * as aiQueue from './aiQueue';
 
 let server: http.Server | undefined;
 
@@ -250,6 +251,18 @@ async function handleRequest(
 		await handleFeedback(req, res, sendToAgent);
 	} else if (url === '/restart-app' || url.startsWith('/restart-app?')) {
 		await handleRestartApp(req, res);
+	} else if (url === '/ai/queue' && method === 'GET') {
+		handleGetQueue(res);
+	} else if (url === '/ai/queue' && method === 'POST') {
+		await handleEnqueueInstruction(req, res);
+	} else if (url === '/ai/queue/process' && method === 'POST') {
+		await handleProcessQueue(res, sendToAgent);
+	} else if (url === '/ai/queue/stats' && method === 'GET') {
+		handleGetQueueStats(res);
+	} else if (url.startsWith('/ai/queue/') && method === 'DELETE') {
+		handleDeleteFromQueue(res, url);
+	} else if (url === '/ai/queue/clear' && method === 'POST') {
+		handleClearQueue(res);
 	} else {
 		res.writeHead(404, { 'Content-Type': 'application/json' });
 		res.end(JSON.stringify({ error: 'Not found', message: `Unknown endpoint: ${method} ${url}` }));
@@ -310,6 +323,36 @@ POST /restart-app?delay=30
     Query params: delay (seconds, default 30)
     Response: { success: true, message: "App restart initiated" }
 
+GET /ai/queue
+    Get all instructions in the AI communication queue
+    Response: { queue: [...], count: number }
+
+POST /ai/queue
+    Add instruction to the AI communication queue
+    Body: {
+        "instruction": "Instruction text for AI",
+        "source": "external-app (optional)",
+        "priority": "low|normal|high|urgent (optional, default: normal)",
+        "metadata": { ... optional context ... }
+    }
+    Response: { success: true, queueItem: {...} }
+
+POST /ai/queue/process
+    Process the next pending instruction in queue
+    Response: { success: true|false, message: string }
+
+GET /ai/queue/stats
+    Get queue statistics
+    Response: { total, pending, processing, completed, failed, autoProcessEnabled }
+
+DELETE /ai/queue/:id
+    Remove instruction from queue by ID
+    Response: { success: true, message: "Instruction removed" }
+
+POST /ai/queue/clear
+    Clear all processed (completed and failed) instructions
+    Response: { success: true, message: "Cleared N instructions" }
+
 Examples:
 ---------
 
@@ -330,6 +373,17 @@ curl -X PUT http://localhost:${port}/tasks/12345 \\
 curl -X POST http://localhost:${port}/feedback \\
   -H "Content-Type: application/json" \\
   -d '{"message": "Please review this code"}'
+
+# Enqueue AI instruction
+curl -X POST http://localhost:${port}/ai/queue \\
+  -H "Content-Type: application/json" \\
+  -d '{"instruction": "Analyze the codebase for performance issues", "priority": "high"}'
+
+# Process queue
+curl -X POST http://localhost:${port}/ai/queue/process
+
+# Get queue stats
+curl http://localhost:${port}/ai/queue/stats
 `;
 
 	res.writeHead(200, { 'Content-Type': 'text/plain' });
@@ -612,4 +666,137 @@ async function readRequestBody(req: http.IncomingMessage, maxSize: number = 10 *
 			reject(error);
 		});
 	});
+}
+
+/**
+ * Handle GET /ai/queue - Get all instructions in queue
+ */
+function handleGetQueue(res: http.ServerResponse): void {
+	try {
+		const queue = aiQueue.getQueue();
+		res.writeHead(200, { 'Content-Type': 'application/json' });
+		res.end(JSON.stringify({ queue, count: queue.length }));
+	} catch (error) {
+		res.writeHead(500, { 'Content-Type': 'application/json' });
+		res.end(JSON.stringify({ error: 'Internal server error', message: getErrorMessage(error) }));
+	}
+}
+
+/**
+ * Handle POST /ai/queue - Enqueue a new instruction
+ */
+async function handleEnqueueInstruction(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
+	try {
+		const body = await readRequestBody(req);
+		const data = JSON.parse(body);
+		
+		if (!data.instruction || typeof data.instruction !== 'string') {
+			res.writeHead(400, { 'Content-Type': 'application/json' });
+			res.end(JSON.stringify({ error: 'Bad request', message: 'Missing or invalid instruction field' }));
+			return;
+		}
+		
+		const source = data.source || 'external-api';
+		const priority = data.priority || 'normal';
+		const metadata = data.metadata || {};
+		
+		const queueItem = aiQueue.enqueueInstruction(data.instruction, source, priority, metadata);
+		
+		res.writeHead(201, { 'Content-Type': 'application/json' });
+		res.end(JSON.stringify({ 
+			success: true, 
+			message: 'Instruction enqueued',
+			queueItem 
+		}));
+	} catch (error) {
+		res.writeHead(500, { 'Content-Type': 'application/json' });
+		res.end(JSON.stringify({ error: 'Internal server error', message: getErrorMessage(error) }));
+	}
+}
+
+/**
+ * Handle POST /ai/queue/process - Process next instruction in queue
+ */
+async function handleProcessQueue(
+	res: http.ServerResponse,
+	sendToAgent: (message: string, context?: unknown) => Promise<boolean>
+): Promise<void> {
+	try {
+		const processed = await aiQueue.processNextInstruction(sendToAgent);
+		
+		if (processed) {
+			res.writeHead(200, { 'Content-Type': 'application/json' });
+			res.end(JSON.stringify({ 
+				success: true, 
+				message: 'Instruction processed' 
+			}));
+		} else {
+			res.writeHead(200, { 'Content-Type': 'application/json' });
+			res.end(JSON.stringify({ 
+				success: false, 
+				message: 'No pending instructions in queue' 
+			}));
+		}
+	} catch (error) {
+		res.writeHead(500, { 'Content-Type': 'application/json' });
+		res.end(JSON.stringify({ error: 'Internal server error', message: getErrorMessage(error) }));
+	}
+}
+
+/**
+ * Handle GET /ai/queue/stats - Get queue statistics
+ */
+function handleGetQueueStats(res: http.ServerResponse): void {
+	try {
+		const stats = aiQueue.getQueueStats();
+		res.writeHead(200, { 'Content-Type': 'application/json' });
+		res.end(JSON.stringify(stats));
+	} catch (error) {
+		res.writeHead(500, { 'Content-Type': 'application/json' });
+		res.end(JSON.stringify({ error: 'Internal server error', message: getErrorMessage(error) }));
+	}
+}
+
+/**
+ * Handle DELETE /ai/queue/:id - Remove instruction from queue
+ */
+function handleDeleteFromQueue(res: http.ServerResponse, url: string): void {
+	try {
+		const id = url.split('/').pop();
+		if (!id) {
+			res.writeHead(400, { 'Content-Type': 'application/json' });
+			res.end(JSON.stringify({ error: 'Bad request', message: 'Missing instruction ID' }));
+			return;
+		}
+		
+		const removed = aiQueue.removeInstruction(id);
+		
+		if (removed) {
+			res.writeHead(200, { 'Content-Type': 'application/json' });
+			res.end(JSON.stringify({ success: true, message: 'Instruction removed' }));
+		} else {
+			res.writeHead(404, { 'Content-Type': 'application/json' });
+			res.end(JSON.stringify({ error: 'Not found', message: 'Instruction ID not found in queue' }));
+		}
+	} catch (error) {
+		res.writeHead(500, { 'Content-Type': 'application/json' });
+		res.end(JSON.stringify({ error: 'Internal server error', message: getErrorMessage(error) }));
+	}
+}
+
+/**
+ * Handle POST /ai/queue/clear - Clear all processed instructions
+ */
+function handleClearQueue(res: http.ServerResponse): void {
+	try {
+		const cleared = aiQueue.clearProcessed();
+		res.writeHead(200, { 'Content-Type': 'application/json' });
+		res.end(JSON.stringify({ 
+			success: true, 
+			message: `Cleared ${cleared} processed instructions` 
+		}));
+	} catch (error) {
+		res.writeHead(500, { 'Content-Type': 'application/json' });
+		res.end(JSON.stringify({ error: 'Internal server error', message: getErrorMessage(error) }));
+	}
 }

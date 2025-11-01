@@ -5,6 +5,7 @@ import * as vscode from 'vscode';
 import { Task, LogLevel } from './types';
 import { log, getErrorMessage } from './logging';
 import * as taskManager from './taskManager';
+import * as guidingDocuments from './guidingDocuments';
 import { autoInjectScript } from './autoApproval';
 
 let settingsPanel: vscode.WebviewPanel | undefined;
@@ -25,7 +26,8 @@ export async function showSettingsPanel(
 		settingsPanel.reveal(vscode.ViewColumn.One);
 		// Refresh with current config and tasks
 		const tasks = await taskManager.getTasks(context);
-		settingsPanel.webview.html = await getSettingsHtml(getConfig(), currentPort, tasks);
+		const docs = guidingDocuments.getGuidingDocuments();
+		settingsPanel.webview.html = await getSettingsHtml(getConfig(), currentPort, tasks, docs);
 		return;
 	}
 	
@@ -49,8 +51,9 @@ export async function showSettingsPanel(
 
 	const config = getConfig();
 	const tasks = await taskManager.getTasks(context);
+	const docs = guidingDocuments.getGuidingDocuments();
 	
-	panel.webview.html = await getSettingsHtml(config, currentPort, tasks);
+	panel.webview.html = await getSettingsHtml(config, currentPort, tasks, docs);
 	
 	// Handle messages from webview
 	panel.webview.onDidReceiveMessage(
@@ -92,7 +95,8 @@ async function handleWebviewMessage(
 			
 		case 'reload':
 			const reloadTasks = await taskManager.getTasks(context);
-			panel.webview.html = await getSettingsHtml(getConfig(), currentPort, reloadTasks);
+			const reloadDocs = guidingDocuments.getGuidingDocuments();
+			panel.webview.html = await getSettingsHtml(getConfig(), currentPort, reloadTasks, reloadDocs);
 			break;
 			
 		case 'runNow':
@@ -129,6 +133,26 @@ async function handleWebviewMessage(
 			
 		case 'clearCompleted':
 			await handleClearCompleted(panel, context, currentPort, getConfig);
+			break;
+			
+		case 'addGuidingDocument':
+			await vscode.commands.executeCommand('ai-feedback-bridge.addGuidingDocument');
+			// Refresh panel after adding
+			const addedDocs = guidingDocuments.getGuidingDocuments();
+			const addedTasks = await taskManager.getTasks(context);
+			panel.webview.html = await getSettingsHtml(getConfig(), currentPort, addedTasks, addedDocs);
+			break;
+			
+		case 'removeGuidingDocument':
+			await guidingDocuments.removeGuidingDocument(message.filePath);
+			// Refresh panel after removing
+			const removedDocs = guidingDocuments.getGuidingDocuments();
+			const removedTasks = await taskManager.getTasks(context);
+			panel.webview.html = await getSettingsHtml(getConfig(), currentPort, removedTasks, removedDocs);
+			break;
+			
+		case 'manageGuidingDocuments':
+			await vscode.commands.executeCommand('ai-feedback-bridge.listGuidingDocuments');
 			break;
 	}
 }
@@ -179,13 +203,23 @@ async function handleSendInstructions(
 			'   - Configure categories: tasks, improvements, coverage, robustness, cleanup, commits\\n' +
 			'   - Customize messages and intervals\\n' +
 			'   - "Run Now" button triggers all reminders immediately\\n\\n' +
-			'3. **External API** - HTTP endpoints for automation\\n' +
+			'3. **Guiding Documents** - Project context for AI\\n' +
+			'   - Add ARCHITECTURE.md, CONVENTIONS.md, etc.\\n' +
+			'   - Documents automatically included in AI prompts\\n' +
+			'   - Manage in settings panel below\\n\\n' +
+			'4. **AI Communication Queue** - External AI coordination\\n' +
+			'   - POST /ai/queue - Send instructions from external apps\\n' +
+			'   - GET /ai/queue - View queued instructions\\n' +
+			'   - POST /ai/queue/process - Process next instruction\\n' +
+			'   - Priorities: urgent > high > normal > low\\n' +
+			'   - Perfect for multi-agent systems\\n\\n' +
+			'5. **External API** - HTTP endpoints for automation\\n' +
 			'   - GET /tasks - List all workspace tasks\\n' +
 			'   - POST /tasks - Create new task\\n' +
 			'   - PUT /tasks/:id - Update task status\\n' +
 			'   - GET /help - Full API documentation\\n' +
 			'   - Server auto-starts on port ' + currentPort + '\\n\\n' +
-			'4. **Auto-Approval Script** - Browser dev tools automation\\n' +
+			'6. **Auto-Approval Script** - Browser dev tools automation\\n' +
 			'   - "Inject Script" copies script to clipboard\\n' +
 			'   - Paste in VS Code Developer Tools console\\n' +
 			'   - Auto-clicks "Allow" and "Keep" buttons\\n\\n' +
@@ -218,7 +252,8 @@ async function handleSaveNewTask(
 	try {
 		await taskManager.addTask(context, message.title, message.description, message.category);
 		const createdTasks = await taskManager.getTasks(context);
-		panel.webview.html = await getSettingsHtml(getConfig(), currentPort, createdTasks);
+		const createdDocs = guidingDocuments.getGuidingDocuments();
+		panel.webview.html = await getSettingsHtml(getConfig(), currentPort, createdTasks, createdDocs);
 	} catch (error) {
 		vscode.window.showErrorMessage(`Failed to create task: ${getErrorMessage(error)}`);
 	}
@@ -246,7 +281,8 @@ async function handleUpdateTaskField(
 			task.updatedAt = new Date().toISOString();
 			await taskManager.saveTasks(context, allTasks);
 			const updatedTasks = await taskManager.getTasks(context);
-			panel.webview.html = await getSettingsHtml(getConfig(), currentPort, updatedTasks);
+			const updatedDocs = guidingDocuments.getGuidingDocuments();
+			panel.webview.html = await getSettingsHtml(getConfig(), currentPort, updatedTasks, updatedDocs);
 		}
 	} catch (error) {
 		vscode.window.showErrorMessage(`Failed to update task: ${getErrorMessage(error)}`);
@@ -266,7 +302,8 @@ async function handleUpdateTaskStatus(
 	try {
 		await taskManager.updateTaskStatus(context, message.taskId, message.status);
 		const statusTasks = await taskManager.getTasks(context);
-		panel.webview.html = await getSettingsHtml(getConfig(), currentPort, statusTasks);
+		const statusDocs = guidingDocuments.getGuidingDocuments();
+		panel.webview.html = await getSettingsHtml(getConfig(), currentPort, statusTasks, statusDocs);
 	} catch (error) {
 		vscode.window.showErrorMessage(`Failed to update status: ${getErrorMessage(error)}`);
 	}
@@ -283,7 +320,8 @@ async function handleCreateTask(
 ): Promise<void> {
 	await vscode.commands.executeCommand('ai-feedback-bridge.addTask');
 	const taskListAfterCreate = await taskManager.getTasks(context);
-	panel.webview.html = await getSettingsHtml(getConfig(), currentPort, taskListAfterCreate);
+	const docsAfterCreate = guidingDocuments.getGuidingDocuments();
+	panel.webview.html = await getSettingsHtml(getConfig(), currentPort, taskListAfterCreate, docsAfterCreate);
 }
 
 /**
@@ -298,7 +336,8 @@ async function handleClearCompleted(
 	try {
 		const clearedCount = await taskManager.clearCompletedTasks(context);
 		const remainingTasks = await taskManager.getTasks(context);
-		panel.webview.html = await getSettingsHtml(getConfig(), currentPort, remainingTasks);
+		const remainingDocs = guidingDocuments.getGuidingDocuments();
+		panel.webview.html = await getSettingsHtml(getConfig(), currentPort, remainingTasks, remainingDocs);
 		log(LogLevel.DEBUG, `Cleared ${clearedCount} completed tasks`);
 	} catch (error) {
 		vscode.window.showErrorMessage(`Failed to clear completed tasks: ${getErrorMessage(error)}`);
@@ -308,7 +347,7 @@ async function handleClearCompleted(
 /**
  * Generate HTML for settings panel
  */
-async function getSettingsHtml(config: vscode.WorkspaceConfiguration, actualPort: number, tasks: Task[]): Promise<string> {
+async function getSettingsHtml(config: vscode.WorkspaceConfiguration, actualPort: number, tasks: Task[], docs: string[]): Promise<string> {
 	const categories = [
 		{ key: 'tasks', icon: '📋', name: 'Tasks', interval: 300 },
 		{ key: 'improvements', icon: '✨', name: 'Improvements', interval: 600 },
@@ -400,6 +439,40 @@ async function getSettingsHtml(config: vscode.WorkspaceConfiguration, actualPort
 		</div>
 	`;
 
+	// Generate guiding documents section HTML
+	const guidingDocsHtml = docs.length === 0 ? `
+		<div class="row">
+			<label style="color: var(--vscode-descriptionForeground); font-style: italic;">No guiding documents configured</label>
+			<button onclick="addGuidingDocument()">Add Document</button>
+		</div>
+	` : `
+		<table>
+			<thead>
+				<tr>
+					<th style="width: 40px;">📄</th>
+					<th>Document</th>
+					<th style="width: 100px;">Actions</th>
+				</tr>
+			</thead>
+			<tbody>
+				${docs.map(doc => {
+					const fileName = doc.split('/').pop() || doc.split('\\').pop() || doc;
+					return `
+					<tr>
+						<td style="font-size: 16px;">📄</td>
+						<td style="font-size: 13px; font-family: monospace; opacity: 0.9;">${doc}</td>
+						<td>
+							<button onclick="removeGuidingDoc('${doc.replace(/'/g, "\\'")}')">Remove</button>
+						</td>
+					</tr>
+				`;}).join('')}
+			</tbody>
+		</table>
+		<div class="row" style="margin-top: 8px;">
+			<button onclick="addGuidingDocument()">Add Document</button>
+		</div>
+	`;
+
 	return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -475,6 +548,16 @@ async function getSettingsHtml(config: vscode.WorkspaceConfiguration, actualPort
 	<div class="section">
 		<div class="section-title">Task Management (Workspace)</div>
 		${taskSectionHtml}
+	</div>
+	
+	<div class="section">
+		<div class="section-title">Guiding Documents (AI Context)</div>
+		<div class="row" style="margin-bottom: 8px;">
+			<label style="color: var(--vscode-descriptionForeground); font-size: 13px;">
+				Project documents included as context in AI prompts
+			</label>
+		</div>
+		${guidingDocsHtml}
 	</div>
 	
 	<script>
@@ -784,6 +867,18 @@ function getSettingsScript(): string {
 		function sendInstructions() {
 			vscode.postMessage({ command: 'sendInstructions' });
 		}
+		
+		function addGuidingDocument() {
+			vscode.postMessage({ command: 'addGuidingDocument' });
+		}
+		
+		function removeGuidingDoc(filePath) {
+			vscode.postMessage({ command: 'removeGuidingDocument', filePath });
+		}
+		
+		function manageGuidingDocuments() {
+			vscode.postMessage({ command: 'manageGuidingDocuments' });
+		}
 	`;
 }
 
@@ -797,7 +892,8 @@ export async function refreshSettingsPanel(
 ): Promise<void> {
 	if (settingsPanel) {
 		const tasks = await taskManager.getTasks(context);
-		settingsPanel.webview.html = await getSettingsHtml(getConfig(), currentPort, tasks);
+		const docs = guidingDocuments.getGuidingDocuments();
+		settingsPanel.webview.html = await getSettingsHtml(getConfig(), currentPort, tasks, docs);
 		log(LogLevel.DEBUG, 'Settings panel refreshed');
 	}
 }

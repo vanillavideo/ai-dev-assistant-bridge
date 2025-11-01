@@ -16,6 +16,7 @@
 import * as vscode from 'vscode';
 import { LogLevel } from './types';
 import { log, getErrorMessage } from './logging';
+import * as guidingDocuments from './guidingDocuments';
 
 let autoContinueTimer: NodeJS.Timeout | undefined;
 
@@ -97,7 +98,15 @@ export async function getSmartAutoContinueMessage(
 	}
 	
 	// Combine messages with proper formatting
-	return messages.join('. ') + '.';
+	let combinedMessage = messages.join('. ') + '.';
+	
+	// Append guiding documents context if configured
+	const docsContext = await guidingDocuments.getGuidingDocumentsContext();
+	if (docsContext) {
+		combinedMessage += docsContext;
+	}
+	
+	return combinedMessage;
 }
 
 /**

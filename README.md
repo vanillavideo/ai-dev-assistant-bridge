@@ -1,6 +1,6 @@
 # 🌉 AI Feedback Bridge
 
-[![Version](https://img.shields.io/badge/version-0.7.2-blue.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.9.1-blue.svg)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 A powerful VS Code extension that creates a seamless bridge between your development environment and AI agents, featuring comprehensive task management and external API integration.
@@ -10,6 +10,8 @@ A powerful VS Code extension that creates a seamless bridge between your develop
 ### 🤖 AI Agent Integration
 - **Auto-Continue System**: Intelligent periodic reminders with live countdown (HH:MM:SS)
 - **Smart Categorization**: Tasks, improvements, coverage, robustness, cleanup, commits
+- **Guiding Documents**: Include project docs (ARCHITECTURE.md, etc.) in AI context automatically
+- **AI Communication Queue**: Async instruction queue for external AI systems to send commands
 - **Feedback Bridge**: HTTP server for external app feedback integration
 - **Chat Participant**: Dedicated `@ai-feedback-bridge` participant for AI interactions
 - **Auto-Approval**: Browser script auto-clicks "Allow"/"Keep" buttons (Chat panel scoped)
@@ -107,6 +109,51 @@ curl -X POST http://localhost:3737/tasks \
 
 **📖 Complete API Documentation**: Visit `http://localhost:3737/help` when the extension is running for full API documentation.
 
+## 🤖 AI Communication Queue
+
+The extension provides an asynchronous queue system for external AI systems to send instructions to the VS Code AI agent.
+
+### Queue API Endpoints
+
+```bash
+# Enqueue an instruction for the AI agent
+POST http://localhost:3737/ai/queue
+Content-Type: application/json
+{
+  "instruction": "Analyze the codebase for performance issues",
+  "source": "external-ai-agent",
+  "priority": "high",
+  "metadata": { "project": "main-app" }
+}
+
+# Get all queued instructions
+GET http://localhost:3737/ai/queue
+
+# Process next instruction
+POST http://localhost:3737/ai/queue/process
+
+# Get queue statistics
+GET http://localhost:3737/ai/queue/stats
+
+# Remove instruction by ID
+DELETE http://localhost:3737/ai/queue/{id}
+
+# Clear processed instructions
+POST http://localhost:3737/ai/queue/clear
+```
+
+### Priority Levels
+- **`urgent`**: Immediate processing
+- **`high`**: Next in line after urgent
+- **`normal`**: Standard priority (default)
+- **`low`**: Background processing
+
+### Use Cases
+- **Multi-Agent Systems**: Coordinate multiple AI agents
+- **External Automation**: CI/CD pipelines trigger AI analysis
+- **Cross-Application**: Other apps send instructions to VS Code AI
+- **Workflow Orchestration**: Queue sequential AI tasks
+
 ## 🎯 Use Cases
 
 ### Development Workflow
@@ -140,6 +187,12 @@ Configure in VS Code Settings (`aiFeedbackBridge.*`):
 - **Cleanup** (1200s): Code cleanup and refactoring
 - **Commits** (900s): Commit suggestions and documentation
 
+### Guiding Documents
+- **Project Context**: Add documents (ARCHITECTURE.md, CONVENTIONS.md, etc.)
+- **Automatic Inclusion**: Documents included in AI prompts for context-aware responses
+- **File Picker**: Easy document management through VS Code UI
+- **Configurable Size**: Limit document size to prevent context overflow
+
 ### Auto-Approval
 - **Monitor Chat**: Auto-approve AI agent suggestions
 - **Safety First**: Prevents dangerous operations
@@ -150,18 +203,20 @@ Configure in VS Code Settings (`aiFeedbackBridge.*`):
 ```
 ├── src/
 │   ├── extension.ts (495 lines)        # Activation, coordination, lifecycle
-│   ├── modules/                         # Modular architecture (11 modules)
+│   ├── modules/                         # Modular architecture (13 modules)
 │   │   ├── types.ts (50)               # Shared interfaces, enums
 │   │   ├── logging.ts (46)             # Centralized logging
 │   │   ├── taskManager.ts (255)        # Task CRUD + validation
 │   │   ├── autoApproval.ts (47)        # Script injection
 │   │   ├── portManager.ts (201)        # Port allocation (1024-65535)
-│   │   ├── server.ts (615)             # HTTP API + security
-│   │   ├── settingsPanel.ts (803)      # Settings webview UI
+│   │   ├── server.ts (762)             # HTTP API + security + AI queue endpoints
+│   │   ├── settingsPanel.ts (878)      # Settings webview UI
 │   │   ├── chatIntegration.ts (303)    # Copilot Chat agent
-│   │   ├── autoContinue.ts (354)       # Reminders + countdown
+│   │   ├── autoContinue.ts (358)       # Reminders + countdown
 │   │   ├── statusBar.ts (108)          # Status bar UI
-│   │   └── commands.ts (353)           # Command registration (13 commands)
+│   │   ├── commands.ts (380)           # Command registration (16 commands)
+│   │   ├── guidingDocuments.ts (258)   # Project context documents
+│   │   └── aiQueue.ts (281)            # AI communication queue
 │   └── test/
 │       └── suite/
 │           ├── taskManager.test.ts (218)  # 11 test cases
@@ -177,27 +232,41 @@ Configure in VS Code Settings (`aiFeedbackBridge.*`):
 
 ### Architecture Highlights
 
-- **89% Modularized**: 3,135 lines across 11 focused modules (avg 285 lines)
+- **89% Modularized**: 3,974 lines across 13 focused modules (avg 306 lines)
 - **74% Reduction**: Main file reduced from 1936 → 495 lines
 - **Comprehensive Testing**: 389 lines of unit tests (23 scenarios)
 - **Production Security**: Input validation, request limits, timeouts
 - **Complete Documentation**: JSDoc on 20+ public APIs
 
-## 🔧 Development
+## �️ Development
 
 ```bash
-# Clone and install
-git clone <repository>
-cd ai-feedback-bridge
+# Install dependencies
 npm install
 
-# Compile and test
+# Compile TypeScript
 npm run compile
-npm run test
+
+# Run tests (opens VS Code window - integration tests)
+npm test
+
+# Run tests with coverage report
+npm run test:coverage
+
+# Analyze coverage without re-running tests
+npm run coverage:analyze
+
+# Find quick wins (files near 100% coverage)
+npm run coverage:quick-wins
+
+# View detailed testing guide
+See TESTING.md for comprehensive testing documentation
 
 # Package extension
 npx vsce package
 ```
+
+For detailed testing instructions, coverage analysis tools, and best practices, see **[TESTING.md](TESTING.md)**.
 
 ## 📈 Roadmap
 

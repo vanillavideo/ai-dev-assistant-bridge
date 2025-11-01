@@ -34,6 +34,7 @@ import * as taskManager from './taskManager';
 import * as autoContinue from './autoContinue';
 import * as chatIntegration from './chatIntegration';
 import * as statusBar from './statusBar';
+import * as guidingDocuments from './guidingDocuments';
 import { Task } from './types';
 
 /**
@@ -346,6 +347,28 @@ export function registerCommands(deps: CommandDependencies): void {
 		vscode.commands.registerCommand(
 			'ai-agent-feedback-bridge.injectAutoApprovalScript',
 			() => deps.injectAutoApprovalScript()
+		)
+	);
+
+	// Guiding documents commands
+	context.subscriptions.push(
+		vscode.commands.registerCommand(
+			'ai-feedback-bridge.addGuidingDocument',
+			() => guidingDocuments.showAddDocumentPicker()
+		)
+	);
+
+	context.subscriptions.push(
+		vscode.commands.registerCommand(
+			'ai-feedback-bridge.removeGuidingDocument',
+			() => guidingDocuments.showRemoveDocumentPicker()
+		)
+	);
+
+	context.subscriptions.push(
+		vscode.commands.registerCommand(
+			'ai-feedback-bridge.listGuidingDocuments',
+			() => guidingDocuments.showGuidingDocumentsList()
 		)
 	);
 

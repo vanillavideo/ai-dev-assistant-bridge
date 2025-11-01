@@ -120,7 +120,7 @@ __export(extension_exports, {
   deactivate: () => deactivate
 });
 module.exports = __toCommonJS(extension_exports);
-var vscode9 = __toESM(require("vscode"));
+var vscode10 = __toESM(require("vscode"));
 init_types();
 init_logging();
 
@@ -280,6 +280,125 @@ async function clearCompletedTasks(context) {
   return clearedCount;
 }
 
+// src/modules/aiQueue.ts
+init_logging();
+init_types();
+var instructionQueue = [];
+var processingActive = false;
+var autoProcessEnabled = false;
+function enqueueInstruction(instruction, source, priority = "normal", metadata) {
+  const queueItem = {
+    id: generateId(),
+    instruction,
+    priority,
+    source,
+    timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+    status: "pending",
+    metadata
+  };
+  instructionQueue.push(queueItem);
+  sortQueueByPriority();
+  log("INFO" /* INFO */, `Enqueued instruction from ${source}`, { id: queueItem.id, priority });
+  if (autoProcessEnabled) {
+    void processNextInstruction();
+  }
+  return queueItem;
+}
+function getQueue(status) {
+  if (status) {
+    return instructionQueue.filter((item) => item.status === status);
+  }
+  return [...instructionQueue];
+}
+function removeInstruction(id) {
+  const index = instructionQueue.findIndex((item) => item.id === id);
+  if (index !== -1) {
+    instructionQueue.splice(index, 1);
+    log("INFO" /* INFO */, `Removed instruction from queue: ${id}`);
+    return true;
+  }
+  return false;
+}
+function clearProcessed() {
+  const beforeLength = instructionQueue.length;
+  instructionQueue = instructionQueue.filter(
+    (item) => item.status === "pending" || item.status === "processing"
+  );
+  const cleared = beforeLength - instructionQueue.length;
+  log("INFO" /* INFO */, `Cleared ${cleared} processed instructions`);
+  return cleared;
+}
+async function processNextInstruction(sendToAgent2) {
+  if (processingActive) {
+    log("WARN" /* WARN */, "Already processing an instruction");
+    return false;
+  }
+  const pending = instructionQueue.find((item) => item.status === "pending");
+  if (!pending) {
+    return false;
+  }
+  processingActive = true;
+  pending.status = "processing";
+  try {
+    log("INFO" /* INFO */, `Processing instruction: ${pending.id}`);
+    if (sendToAgent2) {
+      const success = await sendToAgent2(pending.instruction, {
+        source: pending.source,
+        queueId: pending.id,
+        priority: pending.priority,
+        metadata: pending.metadata
+      });
+      if (success) {
+        pending.status = "completed";
+        pending.result = "Sent to AI agent successfully";
+      } else {
+        pending.status = "failed";
+        pending.error = "Failed to send to AI agent";
+      }
+    } else {
+      pending.status = "completed";
+      pending.result = "Marked as processed (no agent function provided)";
+    }
+    log("INFO" /* INFO */, `Instruction ${pending.status}: ${pending.id}`);
+  } catch (error) {
+    pending.status = "failed";
+    pending.error = error instanceof Error ? error.message : String(error);
+    log("ERROR" /* ERROR */, `Error processing instruction ${pending.id}`, { error: pending.error });
+  } finally {
+    processingActive = false;
+  }
+  return true;
+}
+function getQueueStats() {
+  return {
+    total: instructionQueue.length,
+    pending: instructionQueue.filter((i) => i.status === "pending").length,
+    processing: instructionQueue.filter((i) => i.status === "processing").length,
+    completed: instructionQueue.filter((i) => i.status === "completed").length,
+    failed: instructionQueue.filter((i) => i.status === "failed").length,
+    autoProcessEnabled
+  };
+}
+function sortQueueByPriority() {
+  const priorityOrder = { urgent: 0, high: 1, normal: 2, low: 3 };
+  instructionQueue.sort((a, b) => {
+    if (a.status === "pending" && b.status !== "pending") {
+      return -1;
+    }
+    if (a.status !== "pending" && b.status === "pending") {
+      return 1;
+    }
+    const priorityDiff = priorityOrder[a.priority] - priorityOrder[b.priority];
+    if (priorityDiff !== 0) {
+      return priorityDiff;
+    }
+    return new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime();
+  });
+}
+function generateId() {
+  return `ai-queue-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+}
+
 // src/modules/server.ts
 var server;
 var MAX_REQUEST_SIZE = 1024 * 1024;
@@ -364,6 +483,18 @@ async function handleRequest(req, res, context, port, sendToAgent2) {
     await handleFeedback(req, res, sendToAgent2);
   } else if (url === "/restart-app" || url.startsWith("/restart-app?")) {
     await handleRestartApp(req, res);
+  } else if (url === "/ai/queue" && method === "GET") {
+    handleGetQueue(res);
+  } else if (url === "/ai/queue" && method === "POST") {
+    await handleEnqueueInstruction(req, res);
+  } else if (url === "/ai/queue/process" && method === "POST") {
+    await handleProcessQueue(res, sendToAgent2);
+  } else if (url === "/ai/queue/stats" && method === "GET") {
+    handleGetQueueStats(res);
+  } else if (url.startsWith("/ai/queue/") && method === "DELETE") {
+    handleDeleteFromQueue(res, url);
+  } else if (url === "/ai/queue/clear" && method === "POST") {
+    handleClearQueue(res);
   } else {
     res.writeHead(404, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ error: "Not found", message: `Unknown endpoint: ${method} ${url}` }));
@@ -420,6 +551,36 @@ POST /restart-app?delay=30
     Query params: delay (seconds, default 30)
     Response: { success: true, message: "App restart initiated" }
 
+GET /ai/queue
+    Get all instructions in the AI communication queue
+    Response: { queue: [...], count: number }
+
+POST /ai/queue
+    Add instruction to the AI communication queue
+    Body: {
+        "instruction": "Instruction text for AI",
+        "source": "external-app (optional)",
+        "priority": "low|normal|high|urgent (optional, default: normal)",
+        "metadata": { ... optional context ... }
+    }
+    Response: { success: true, queueItem: {...} }
+
+POST /ai/queue/process
+    Process the next pending instruction in queue
+    Response: { success: true|false, message: string }
+
+GET /ai/queue/stats
+    Get queue statistics
+    Response: { total, pending, processing, completed, failed, autoProcessEnabled }
+
+DELETE /ai/queue/:id
+    Remove instruction from queue by ID
+    Response: { success: true, message: "Instruction removed" }
+
+POST /ai/queue/clear
+    Clear all processed (completed and failed) instructions
+    Response: { success: true, message: "Cleared N instructions" }
+
 Examples:
 ---------
 
@@ -440,6 +601,17 @@ curl -X PUT http://localhost:${port}/tasks/12345 \\
 curl -X POST http://localhost:${port}/feedback \\
   -H "Content-Type: application/json" \\
   -d '{"message": "Please review this code"}'
+
+# Enqueue AI instruction
+curl -X POST http://localhost:${port}/ai/queue \\
+  -H "Content-Type: application/json" \\
+  -d '{"instruction": "Analyze the codebase for performance issues", "priority": "high"}'
+
+# Process queue
+curl -X POST http://localhost:${port}/ai/queue/process
+
+# Get queue stats
+curl http://localhost:${port}/ai/queue/stats
 `;
   res.writeHead(200, { "Content-Type": "text/plain" });
   res.end(helpText);
@@ -639,6 +811,105 @@ async function readRequestBody(req, maxSize = 10 * 1024) {
     });
   });
 }
+function handleGetQueue(res) {
+  try {
+    const queue = getQueue();
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ queue, count: queue.length }));
+  } catch (error) {
+    res.writeHead(500, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ error: "Internal server error", message: getErrorMessage(error) }));
+  }
+}
+async function handleEnqueueInstruction(req, res) {
+  try {
+    const body = await readRequestBody(req);
+    const data = JSON.parse(body);
+    if (!data.instruction || typeof data.instruction !== "string") {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Bad request", message: "Missing or invalid instruction field" }));
+      return;
+    }
+    const source = data.source || "external-api";
+    const priority = data.priority || "normal";
+    const metadata = data.metadata || {};
+    const queueItem = enqueueInstruction(data.instruction, source, priority, metadata);
+    res.writeHead(201, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({
+      success: true,
+      message: "Instruction enqueued",
+      queueItem
+    }));
+  } catch (error) {
+    res.writeHead(500, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ error: "Internal server error", message: getErrorMessage(error) }));
+  }
+}
+async function handleProcessQueue(res, sendToAgent2) {
+  try {
+    const processed = await processNextInstruction(sendToAgent2);
+    if (processed) {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({
+        success: true,
+        message: "Instruction processed"
+      }));
+    } else {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({
+        success: false,
+        message: "No pending instructions in queue"
+      }));
+    }
+  } catch (error) {
+    res.writeHead(500, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ error: "Internal server error", message: getErrorMessage(error) }));
+  }
+}
+function handleGetQueueStats(res) {
+  try {
+    const stats = getQueueStats();
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify(stats));
+  } catch (error) {
+    res.writeHead(500, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ error: "Internal server error", message: getErrorMessage(error) }));
+  }
+}
+function handleDeleteFromQueue(res, url) {
+  try {
+    const id = url.split("/").pop();
+    if (!id) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Bad request", message: "Missing instruction ID" }));
+      return;
+    }
+    const removed = removeInstruction(id);
+    if (removed) {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ success: true, message: "Instruction removed" }));
+    } else {
+      res.writeHead(404, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Not found", message: "Instruction ID not found in queue" }));
+    }
+  } catch (error) {
+    res.writeHead(500, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ error: "Internal server error", message: getErrorMessage(error) }));
+  }
+}
+function handleClearQueue(res) {
+  try {
+    const cleared = clearProcessed();
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({
+      success: true,
+      message: `Cleared ${cleared} processed instructions`
+    }));
+  } catch (error) {
+    res.writeHead(500, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ error: "Internal server error", message: getErrorMessage(error) }));
+  }
+}
 
 // src/extension.ts
 init_autoApproval();
@@ -779,9 +1050,197 @@ function disposeChat() {
 }
 
 // src/modules/autoContinue.ts
-var vscode5 = __toESM(require("vscode"));
+var vscode6 = __toESM(require("vscode"));
 init_types();
 init_logging();
+
+// src/modules/guidingDocuments.ts
+var vscode5 = __toESM(require("vscode"));
+var fs2 = __toESM(require("fs"));
+var path2 = __toESM(require("path"));
+init_logging();
+init_types();
+function getGuidingDocuments() {
+  const config = vscode5.workspace.getConfiguration("aiFeedbackBridge");
+  const docs = config.get("guidingDocuments", []);
+  return docs;
+}
+async function addGuidingDocument(filePath) {
+  const config = vscode5.workspace.getConfiguration("aiFeedbackBridge");
+  const docs = config.get("guidingDocuments", []);
+  if (!filePath || filePath.trim().length === 0) {
+    log("WARN" /* WARN */, `Attempted to add invalid guiding document path: '${filePath}'`);
+    throw new Error("Invalid file path");
+  }
+  const relativePath = getRelativePath(filePath);
+  if (docs.includes(relativePath)) {
+    log("INFO" /* INFO */, `Document already added: ${relativePath}`);
+    return;
+  }
+  docs.push(relativePath);
+  const target = vscode5.workspace.workspaceFolders ? vscode5.ConfigurationTarget.Workspace : vscode5.ConfigurationTarget.Global;
+  await config.update("guidingDocuments", docs, target);
+  log("INFO" /* INFO */, `Added guiding document: ${relativePath} (target=${target})`);
+}
+async function removeGuidingDocument(filePath) {
+  const config = vscode5.workspace.getConfiguration("aiFeedbackBridge");
+  const docs = config.get("guidingDocuments", []);
+  const targetRelative = getRelativePath(filePath);
+  const targetAbsolute = getAbsolutePath(filePath);
+  const filtered = docs.filter((doc) => {
+    const storedAbsolute = getAbsolutePath(doc);
+    return doc !== targetRelative && doc !== filePath && storedAbsolute !== targetAbsolute;
+  });
+  if (filtered.length === docs.length) {
+    log("WARN" /* WARN */, `Document not found: ${filePath}`);
+    return;
+  }
+  const target = vscode5.workspace.workspaceFolders ? vscode5.ConfigurationTarget.Workspace : vscode5.ConfigurationTarget.Global;
+  await config.update("guidingDocuments", filtered, target);
+  log("INFO" /* INFO */, `Removed guiding document: ${filePath} (target=${target})`);
+}
+async function getGuidingDocumentsContext() {
+  const docs = getGuidingDocuments();
+  if (docs.length === 0) {
+    return "";
+  }
+  const config = vscode5.workspace.getConfiguration("aiFeedbackBridge");
+  const maxSize = config.get("guidingDocuments.maxSize", 5e4);
+  const contents = [];
+  for (const docPath of docs) {
+    try {
+      const absolutePath = getAbsolutePath(docPath);
+      if (!fs2.existsSync(absolutePath)) {
+        log("WARN" /* WARN */, `Guiding document not found: ${docPath}`);
+        continue;
+      }
+      const content = fs2.readFileSync(absolutePath, "utf-8");
+      const truncated = content.length > maxSize ? content.substring(0, maxSize) + "\n\n[... truncated ...]" : content;
+      const fileName = path2.basename(absolutePath);
+      contents.push(`
+--- ${fileName} ---
+${truncated}`);
+    } catch (error) {
+      log("ERROR" /* ERROR */, `Error reading guiding document ${docPath}: ${error}`);
+    }
+  }
+  if (contents.length === 0) {
+    return "";
+  }
+  return "# Guiding Documents\n\n" + contents.join("\n");
+}
+function getRelativePath(absolutePath) {
+  const workspaceFolder = vscode5.workspace.workspaceFolders?.[0];
+  if (!workspaceFolder) {
+    return absolutePath;
+  }
+  const workspacePath = workspaceFolder.uri.fsPath;
+  if (absolutePath.startsWith(workspacePath)) {
+    return path2.relative(workspacePath, absolutePath);
+  }
+  return absolutePath;
+}
+function getAbsolutePath(relativePath) {
+  if (path2.isAbsolute(relativePath)) {
+    return relativePath;
+  }
+  const workspaceFolder = vscode5.workspace.workspaceFolders?.[0];
+  if (!workspaceFolder) {
+    return relativePath;
+  }
+  return path2.join(workspaceFolder.uri.fsPath, relativePath);
+}
+async function showAddDocumentPicker() {
+  const workspaceFolder = vscode5.workspace.workspaceFolders?.[0];
+  const fileUri = await vscode5.window.showOpenDialog({
+    canSelectFiles: true,
+    canSelectFolders: false,
+    canSelectMany: false,
+    openLabel: "Add Guiding Document",
+    defaultUri: workspaceFolder?.uri,
+    filters: {
+      "Markdown": ["md", "markdown"],
+      "Text": ["txt"],
+      "All Files": ["*"]
+    }
+  });
+  if (fileUri && fileUri[0]) {
+    await addGuidingDocument(fileUri[0].fsPath);
+  }
+}
+async function showRemoveDocumentPicker() {
+  const docs = getGuidingDocuments();
+  if (docs.length === 0) {
+    log("INFO" /* INFO */, "showRemoveDocumentPicker called but no guiding documents configured");
+    return;
+  }
+  const items = docs.map((doc) => ({
+    label: path2.basename(doc),
+    description: doc,
+    detail: getAbsolutePath(doc)
+  }));
+  const selected = await vscode5.window.showQuickPick(items, {
+    placeHolder: "Select a document to remove",
+    matchOnDescription: true,
+    matchOnDetail: true
+  });
+  if (selected) {
+    await removeGuidingDocument(selected.description);
+  }
+}
+async function showGuidingDocumentsList() {
+  const docs = getGuidingDocuments();
+  if (docs.length === 0) {
+    const action = await vscode5.window.showInformationMessage(
+      "No guiding documents configured. Would you like to add one?",
+      "Add Document",
+      "Cancel"
+    );
+    if (action === "Add Document") {
+      await showAddDocumentPicker();
+    }
+    return;
+  }
+  const items = docs.map((doc, index) => {
+    const absolutePath = getAbsolutePath(doc);
+    const exists = fs2.existsSync(absolutePath);
+    return {
+      label: `$(file) ${path2.basename(doc)}`,
+      description: doc,
+      detail: exists ? absolutePath : `\u26A0\uFE0F File not found: ${absolutePath}`,
+      filePath: doc
+    };
+  });
+  items.push({
+    label: "$(add) Add Document",
+    description: "",
+    detail: "Add a new guiding document",
+    filePath: "__add__"
+  });
+  items.push({
+    label: "$(trash) Remove Document",
+    description: "",
+    detail: "Remove a guiding document",
+    filePath: "__remove__"
+  });
+  const selected = await vscode5.window.showQuickPick(items, {
+    placeHolder: "Guiding Documents - Project context for AI",
+    matchOnDescription: true,
+    matchOnDetail: true
+  });
+  if (selected) {
+    if (selected.filePath === "__add__") {
+      await showAddDocumentPicker();
+    } else if (selected.filePath === "__remove__") {
+      await showRemoveDocumentPicker();
+    } else {
+      const uri = vscode5.Uri.file(getAbsolutePath(selected.filePath));
+      await vscode5.window.showTextDocument(uri);
+    }
+  }
+}
+
+// src/modules/autoContinue.ts
 var autoContinueTimer;
 async function getSmartAutoContinueMessage(context, getConfig2, force = false) {
   const config = getConfig2();
@@ -809,14 +1268,19 @@ async function getSmartAutoContinueMessage(context, getConfig2, force = false) {
   if (messages.length === 0) {
     return "";
   }
-  return messages.join(". ") + ".";
+  let combinedMessage = messages.join(". ") + ".";
+  const docsContext = await getGuidingDocumentsContext();
+  if (docsContext) {
+    combinedMessage += docsContext;
+  }
+  return combinedMessage;
 }
 function startAutoContinue(context, getConfig2, sendToAgent2) {
   const config = getConfig2();
   const enabled = config.get("autoContinue.enabled", false);
   if (enabled) {
     const checkInterval = 500;
-    const workspaceName = vscode5.workspace.name || "No Workspace";
+    const workspaceName = vscode6.workspace.name || "No Workspace";
     log("INFO" /* INFO */, `\u2705 Auto-Continue enabled for window: ${workspaceName}`);
     autoContinueTimer = setInterval(async () => {
       try {
@@ -897,7 +1361,7 @@ function formatCountdown(seconds) {
 }
 
 // src/modules/statusBar.ts
-var vscode6 = __toESM(require("vscode"));
+var vscode7 = __toESM(require("vscode"));
 init_types();
 init_logging();
 var statusBarToggle;
@@ -906,15 +1370,15 @@ var statusBarInject;
 var currentPortRef = 3737;
 function initializeStatusBar(context, currentPort2, config) {
   currentPortRef = currentPort2;
-  statusBarSettings = vscode6.window.createStatusBarItem(vscode6.StatusBarAlignment.Right, 100);
+  statusBarSettings = vscode7.window.createStatusBarItem(vscode7.StatusBarAlignment.Right, 100);
   statusBarSettings.command = "ai-feedback-bridge.openSettings";
   statusBarSettings.show();
   context.subscriptions.push(statusBarSettings);
-  statusBarToggle = vscode6.window.createStatusBarItem(vscode6.StatusBarAlignment.Right, 99);
+  statusBarToggle = vscode7.window.createStatusBarItem(vscode7.StatusBarAlignment.Right, 99);
   statusBarToggle.command = "ai-feedback-bridge.toggleAutoContinue";
   statusBarToggle.show();
   context.subscriptions.push(statusBarToggle);
-  statusBarInject = vscode6.window.createStatusBarItem(vscode6.StatusBarAlignment.Right, 98);
+  statusBarInject = vscode7.window.createStatusBarItem(vscode7.StatusBarAlignment.Right, 98);
   statusBarInject.command = "ai-feedback-bridge.injectScript";
   statusBarInject.text = "$(clippy) Inject";
   statusBarInject.tooltip = "Copy auto-approval script to clipboard";
@@ -943,27 +1407,28 @@ Click to stop` : "Auto-Continue active\nClick to stop";
 }
 
 // src/modules/commands.ts
-var vscode8 = __toESM(require("vscode"));
+var vscode9 = __toESM(require("vscode"));
 init_logging();
 init_types();
 
 // src/modules/settingsPanel.ts
-var vscode7 = __toESM(require("vscode"));
+var vscode8 = __toESM(require("vscode"));
 init_types();
 init_logging();
 init_autoApproval();
 var settingsPanel;
 async function showSettingsPanel(context, currentPort2, getConfig2, updateConfig2, sendToAgent2, getSmartAutoContinueMessage2) {
   if (settingsPanel) {
-    settingsPanel.reveal(vscode7.ViewColumn.One);
+    settingsPanel.reveal(vscode8.ViewColumn.One);
     const tasks2 = await getTasks(context);
-    settingsPanel.webview.html = await getSettingsHtml(getConfig2(), currentPort2, tasks2);
+    const docs2 = getGuidingDocuments();
+    settingsPanel.webview.html = await getSettingsHtml(getConfig2(), currentPort2, tasks2, docs2);
     return;
   }
-  const panel = vscode7.window.createWebviewPanel(
+  const panel = vscode8.window.createWebviewPanel(
     "aiFeedbackBridgeSettings",
     "AI Feedback Bridge Settings",
-    vscode7.ViewColumn.One,
+    vscode8.ViewColumn.One,
     {
       enableScripts: true,
       retainContextWhenHidden: true
@@ -975,7 +1440,8 @@ async function showSettingsPanel(context, currentPort2, getConfig2, updateConfig
   }, null, context.subscriptions);
   const config = getConfig2();
   const tasks = await getTasks(context);
-  panel.webview.html = await getSettingsHtml(config, currentPort2, tasks);
+  const docs = getGuidingDocuments();
+  panel.webview.html = await getSettingsHtml(config, currentPort2, tasks, docs);
   panel.webview.onDidReceiveMessage(
     async (message) => {
       await handleWebviewMessage(
@@ -1001,7 +1467,8 @@ async function handleWebviewMessage(message, panel, context, currentPort2, getCo
       break;
     case "reload":
       const reloadTasks = await getTasks(context);
-      panel.webview.html = await getSettingsHtml(getConfig2(), currentPort2, reloadTasks);
+      const reloadDocs = getGuidingDocuments();
+      panel.webview.html = await getSettingsHtml(getConfig2(), currentPort2, reloadTasks, reloadDocs);
       break;
     case "runNow":
       await handleRunNow(context, sendToAgent2, getSmartAutoContinueMessage2);
@@ -1025,10 +1492,25 @@ async function handleWebviewMessage(message, panel, context, currentPort2, getCo
       await handleCreateTask2(panel, context, currentPort2, getConfig2);
       break;
     case "openTaskManager":
-      await vscode7.commands.executeCommand("ai-feedback-bridge.listTasks");
+      await vscode8.commands.executeCommand("ai-feedback-bridge.listTasks");
       break;
     case "clearCompleted":
       await handleClearCompleted(panel, context, currentPort2, getConfig2);
+      break;
+    case "addGuidingDocument":
+      await vscode8.commands.executeCommand("ai-feedback-bridge.addGuidingDocument");
+      const addedDocs = getGuidingDocuments();
+      const addedTasks = await getTasks(context);
+      panel.webview.html = await getSettingsHtml(getConfig2(), currentPort2, addedTasks, addedDocs);
+      break;
+    case "removeGuidingDocument":
+      await removeGuidingDocument(message.filePath);
+      const removedDocs = getGuidingDocuments();
+      const removedTasks = await getTasks(context);
+      panel.webview.html = await getSettingsHtml(getConfig2(), currentPort2, removedTasks, removedDocs);
+      break;
+    case "manageGuidingDocuments":
+      await vscode8.commands.executeCommand("ai-feedback-bridge.listGuidingDocuments");
       break;
   }
 }
@@ -1042,33 +1524,34 @@ async function handleRunNow(context, sendToAgent2, getSmartAutoContinueMessage2)
       });
       log("INFO" /* INFO */, "[Run Now] Manually triggered all enabled reminders");
     } else {
-      vscode7.window.showInformationMessage("No enabled categories (check settings)");
+      vscode8.window.showInformationMessage("No enabled categories (check settings)");
     }
   } catch (error) {
     log("ERROR" /* ERROR */, "[Run Now] Failed to send message", {
       error: getErrorMessage(error)
     });
-    vscode7.window.showErrorMessage("Failed to send reminders");
+    vscode8.window.showErrorMessage("Failed to send reminders");
   }
 }
 async function handleSendInstructions(currentPort2, sendToAgent2) {
   try {
-    const instructions = "\u{1F4CB} AI Feedback Bridge - Usage Instructions\\n\\nThis extension helps coordinate between external apps and AI agents in VS Code.\\n\\n\u{1F3AF} Key Features:\\n1. **Task Management** - Create and track workspace-specific tasks\\n   - Click any title/description to edit inline\\n   - Click status icon (\u23F3/\u{1F504}) to cycle status\\n   - Tasks auto-sync with external API at http://localhost:" + currentPort2 + '/tasks\\n\\n2. **Auto-Continue System** - Periodic AI reminders\\n   - Configure categories: tasks, improvements, coverage, robustness, cleanup, commits\\n   - Customize messages and intervals\\n   - "Run Now" button triggers all reminders immediately\\n\\n3. **External API** - HTTP endpoints for automation\\n   - GET /tasks - List all workspace tasks\\n   - POST /tasks - Create new task\\n   - PUT /tasks/:id - Update task status\\n   - GET /help - Full API documentation\\n   - Server auto-starts on port ' + currentPort2 + '\\n\\n4. **Auto-Approval Script** - Browser dev tools automation\\n   - "Inject Script" copies script to clipboard\\n   - Paste in VS Code Developer Tools console\\n   - Auto-clicks "Allow" and "Keep" buttons\\n\\n\u{1F4A1} Quick Start:\\n- Add tasks inline by clicking "Add Task"\\n- Configure auto-continue in settings below\\n- External apps can POST to http://localhost:' + currentPort2 + '/tasks\\n- Check Command Palette for "AI Feedback Bridge" commands\\n\\n\u{1F4D6} For full API docs, visit: http://localhost:' + currentPort2 + "/help";
+    const instructions = "\u{1F4CB} AI Feedback Bridge - Usage Instructions\\n\\nThis extension helps coordinate between external apps and AI agents in VS Code.\\n\\n\u{1F3AF} Key Features:\\n1. **Task Management** - Create and track workspace-specific tasks\\n   - Click any title/description to edit inline\\n   - Click status icon (\u23F3/\u{1F504}) to cycle status\\n   - Tasks auto-sync with external API at http://localhost:" + currentPort2 + '/tasks\\n\\n2. **Auto-Continue System** - Periodic AI reminders\\n   - Configure categories: tasks, improvements, coverage, robustness, cleanup, commits\\n   - Customize messages and intervals\\n   - "Run Now" button triggers all reminders immediately\\n\\n3. **Guiding Documents** - Project context for AI\\n   - Add ARCHITECTURE.md, CONVENTIONS.md, etc.\\n   - Documents automatically included in AI prompts\\n   - Manage in settings panel below\\n\\n4. **AI Communication Queue** - External AI coordination\\n   - POST /ai/queue - Send instructions from external apps\\n   - GET /ai/queue - View queued instructions\\n   - POST /ai/queue/process - Process next instruction\\n   - Priorities: urgent > high > normal > low\\n   - Perfect for multi-agent systems\\n\\n5. **External API** - HTTP endpoints for automation\\n   - GET /tasks - List all workspace tasks\\n   - POST /tasks - Create new task\\n   - PUT /tasks/:id - Update task status\\n   - GET /help - Full API documentation\\n   - Server auto-starts on port ' + currentPort2 + '\\n\\n6. **Auto-Approval Script** - Browser dev tools automation\\n   - "Inject Script" copies script to clipboard\\n   - Paste in VS Code Developer Tools console\\n   - Auto-clicks "Allow" and "Keep" buttons\\n\\n\u{1F4A1} Quick Start:\\n- Add tasks inline by clicking "Add Task"\\n- Configure auto-continue in settings below\\n- External apps can POST to http://localhost:' + currentPort2 + '/tasks\\n- Check Command Palette for "AI Feedback Bridge" commands\\n\\n\u{1F4D6} For full API docs, visit: http://localhost:' + currentPort2 + "/help";
     await sendToAgent2(instructions, {
       source: "instructions",
       timestamp: (/* @__PURE__ */ new Date()).toISOString()
     });
   } catch (error) {
-    vscode7.window.showErrorMessage("Failed to send instructions");
+    vscode8.window.showErrorMessage("Failed to send instructions");
   }
 }
 async function handleSaveNewTask(message, panel, context, currentPort2, getConfig2) {
   try {
     await addTask(context, message.title, message.description, message.category);
     const createdTasks = await getTasks(context);
-    panel.webview.html = await getSettingsHtml(getConfig2(), currentPort2, createdTasks);
+    const createdDocs = getGuidingDocuments();
+    panel.webview.html = await getSettingsHtml(getConfig2(), currentPort2, createdTasks, createdDocs);
   } catch (error) {
-    vscode7.window.showErrorMessage(`Failed to create task: ${getErrorMessage(error)}`);
+    vscode8.window.showErrorMessage(`Failed to create task: ${getErrorMessage(error)}`);
   }
 }
 async function handleUpdateTaskField(message, panel, context, currentPort2, getConfig2) {
@@ -1084,37 +1567,41 @@ async function handleUpdateTaskField(message, panel, context, currentPort2, getC
       task.updatedAt = (/* @__PURE__ */ new Date()).toISOString();
       await saveTasks(context, allTasks);
       const updatedTasks = await getTasks(context);
-      panel.webview.html = await getSettingsHtml(getConfig2(), currentPort2, updatedTasks);
+      const updatedDocs = getGuidingDocuments();
+      panel.webview.html = await getSettingsHtml(getConfig2(), currentPort2, updatedTasks, updatedDocs);
     }
   } catch (error) {
-    vscode7.window.showErrorMessage(`Failed to update task: ${getErrorMessage(error)}`);
+    vscode8.window.showErrorMessage(`Failed to update task: ${getErrorMessage(error)}`);
   }
 }
 async function handleUpdateTaskStatus(message, panel, context, currentPort2, getConfig2) {
   try {
     await updateTaskStatus(context, message.taskId, message.status);
     const statusTasks = await getTasks(context);
-    panel.webview.html = await getSettingsHtml(getConfig2(), currentPort2, statusTasks);
+    const statusDocs = getGuidingDocuments();
+    panel.webview.html = await getSettingsHtml(getConfig2(), currentPort2, statusTasks, statusDocs);
   } catch (error) {
-    vscode7.window.showErrorMessage(`Failed to update status: ${getErrorMessage(error)}`);
+    vscode8.window.showErrorMessage(`Failed to update status: ${getErrorMessage(error)}`);
   }
 }
 async function handleCreateTask2(panel, context, currentPort2, getConfig2) {
-  await vscode7.commands.executeCommand("ai-feedback-bridge.addTask");
+  await vscode8.commands.executeCommand("ai-feedback-bridge.addTask");
   const taskListAfterCreate = await getTasks(context);
-  panel.webview.html = await getSettingsHtml(getConfig2(), currentPort2, taskListAfterCreate);
+  const docsAfterCreate = getGuidingDocuments();
+  panel.webview.html = await getSettingsHtml(getConfig2(), currentPort2, taskListAfterCreate, docsAfterCreate);
 }
 async function handleClearCompleted(panel, context, currentPort2, getConfig2) {
   try {
     const clearedCount = await clearCompletedTasks(context);
     const remainingTasks = await getTasks(context);
-    panel.webview.html = await getSettingsHtml(getConfig2(), currentPort2, remainingTasks);
+    const remainingDocs = getGuidingDocuments();
+    panel.webview.html = await getSettingsHtml(getConfig2(), currentPort2, remainingTasks, remainingDocs);
     log("DEBUG" /* DEBUG */, `Cleared ${clearedCount} completed tasks`);
   } catch (error) {
-    vscode7.window.showErrorMessage(`Failed to clear completed tasks: ${getErrorMessage(error)}`);
+    vscode8.window.showErrorMessage(`Failed to clear completed tasks: ${getErrorMessage(error)}`);
   }
 }
-async function getSettingsHtml(config, actualPort, tasks) {
+async function getSettingsHtml(config, actualPort, tasks, docs) {
   const categories = [
     { key: "tasks", icon: "\u{1F4CB}", name: "Tasks", interval: 300 },
     { key: "improvements", icon: "\u2728", name: "Improvements", interval: 600 },
@@ -1200,6 +1687,39 @@ async function getSettingsHtml(config, actualPort, tasks) {
 			${completedCount > 0 ? `<button onclick="clearCompleted()">Clear Completed (${completedCount})</button>` : ""}
 		</div>
 	`;
+  const guidingDocsHtml = docs.length === 0 ? `
+		<div class="row">
+			<label style="color: var(--vscode-descriptionForeground); font-style: italic;">No guiding documents configured</label>
+			<button onclick="addGuidingDocument()">Add Document</button>
+		</div>
+	` : `
+		<table>
+			<thead>
+				<tr>
+					<th style="width: 40px;">\u{1F4C4}</th>
+					<th>Document</th>
+					<th style="width: 100px;">Actions</th>
+				</tr>
+			</thead>
+			<tbody>
+				${docs.map((doc) => {
+    const fileName = doc.split("/").pop() || doc.split("\\").pop() || doc;
+    return `
+					<tr>
+						<td style="font-size: 16px;">\u{1F4C4}</td>
+						<td style="font-size: 13px; font-family: monospace; opacity: 0.9;">${doc}</td>
+						<td>
+							<button onclick="removeGuidingDoc('${doc.replace(/'/g, "\\'")}')">Remove</button>
+						</td>
+					</tr>
+				`;
+  }).join("")}
+			</tbody>
+		</table>
+		<div class="row" style="margin-top: 8px;">
+			<button onclick="addGuidingDocument()">Add Document</button>
+		</div>
+	`;
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1275,6 +1795,16 @@ async function getSettingsHtml(config, actualPort, tasks) {
 	<div class="section">
 		<div class="section-title">Task Management (Workspace)</div>
 		${taskSectionHtml}
+	</div>
+	
+	<div class="section">
+		<div class="section-title">Guiding Documents (AI Context)</div>
+		<div class="row" style="margin-bottom: 8px;">
+			<label style="color: var(--vscode-descriptionForeground); font-size: 13px;">
+				Project documents included as context in AI prompts
+			</label>
+		</div>
+		${guidingDocsHtml}
 	</div>
 	
 	<script>
@@ -1576,12 +2106,25 @@ function getSettingsScript() {
 		function sendInstructions() {
 			vscode.postMessage({ command: 'sendInstructions' });
 		}
+		
+		function addGuidingDocument() {
+			vscode.postMessage({ command: 'addGuidingDocument' });
+		}
+		
+		function removeGuidingDoc(filePath) {
+			vscode.postMessage({ command: 'removeGuidingDocument', filePath });
+		}
+		
+		function manageGuidingDocuments() {
+			vscode.postMessage({ command: 'manageGuidingDocuments' });
+		}
 	`;
 }
 async function refreshSettingsPanel(context, getConfig2, currentPort2) {
   if (settingsPanel) {
     const tasks = await getTasks(context);
-    settingsPanel.webview.html = await getSettingsHtml(getConfig2(), currentPort2, tasks);
+    const docs = getGuidingDocuments();
+    settingsPanel.webview.html = await getSettingsHtml(getConfig2(), currentPort2, tasks, docs);
     log("DEBUG" /* DEBUG */, "Settings panel refreshed");
   }
 }
@@ -1590,7 +2133,7 @@ async function refreshSettingsPanel(context, getConfig2, currentPort2) {
 function registerCommands(deps) {
   const { context } = deps;
   context.subscriptions.push(
-    vscode8.commands.registerCommand("ai-feedback-bridge.openSettings", async () => {
+    vscode9.commands.registerCommand("ai-feedback-bridge.openSettings", async () => {
       showSettingsPanel(
         deps.context,
         deps.currentPort,
@@ -1602,7 +2145,7 @@ function registerCommands(deps) {
     })
   );
   context.subscriptions.push(
-    vscode8.commands.registerCommand("ai-feedback-bridge.runNow", async () => {
+    vscode9.commands.registerCommand("ai-feedback-bridge.runNow", async () => {
       try {
         const message = await getSmartAutoContinueMessage(
           deps.context,
@@ -1617,34 +2160,34 @@ function registerCommands(deps) {
             timestamp: (/* @__PURE__ */ new Date()).toISOString()
           });
         } else {
-          vscode8.window.showInformationMessage("No enabled categories (check settings)");
+          vscode9.window.showInformationMessage("No enabled categories (check settings)");
         }
       } catch (error) {
         log("ERROR" /* ERROR */, "[Run Now] Failed to send message", { error });
-        vscode8.window.showErrorMessage("Failed to send reminders");
+        vscode9.window.showErrorMessage("Failed to send reminders");
       }
     })
   );
   context.subscriptions.push(
-    vscode8.commands.registerCommand("ai-feedback-bridge.injectScript", async () => {
+    vscode9.commands.registerCommand("ai-feedback-bridge.injectScript", async () => {
       deps.autoInjectScript(deps.context);
     })
   );
   context.subscriptions.push(
-    vscode8.commands.registerCommand("ai-feedback-bridge.getPort", () => {
+    vscode9.commands.registerCommand("ai-feedback-bridge.getPort", () => {
       return deps.currentPort;
     })
   );
   context.subscriptions.push(
-    vscode8.commands.registerCommand("ai-feedback-bridge.addTask", async () => {
-      const title = await vscode8.window.showInputBox({ prompt: "Task title" });
+    vscode9.commands.registerCommand("ai-feedback-bridge.addTask", async () => {
+      const title = await vscode9.window.showInputBox({ prompt: "Task title" });
       if (!title) {
         return;
       }
-      const description = await vscode8.window.showInputBox({
+      const description = await vscode9.window.showInputBox({
         prompt: "Task description (optional)"
       });
-      const category = await vscode8.window.showQuickPick(
+      const category = await vscode9.window.showQuickPick(
         ["bug", "feature", "improvement", "documentation", "testing", "other"],
         { placeHolder: "Select category" }
       );
@@ -1662,10 +2205,10 @@ function registerCommands(deps) {
     })
   );
   context.subscriptions.push(
-    vscode8.commands.registerCommand("ai-feedback-bridge.listTasks", async () => {
+    vscode9.commands.registerCommand("ai-feedback-bridge.listTasks", async () => {
       const tasks = await getTasks(deps.context);
       if (tasks.length === 0) {
-        vscode8.window.showInformationMessage("No tasks found");
+        vscode9.window.showInformationMessage("No tasks found");
         return;
       }
       const items = tasks.map((t) => ({
@@ -1673,11 +2216,11 @@ function registerCommands(deps) {
         description: t.description,
         task: t
       }));
-      const selected = await vscode8.window.showQuickPick(items, {
+      const selected = await vscode9.window.showQuickPick(items, {
         placeHolder: "Select a task to update"
       });
       if (selected) {
-        const action = await vscode8.window.showQuickPick(
+        const action = await vscode9.window.showQuickPick(
           ["Mark as In Progress", "Mark as Completed", "Mark as Pending", "Delete"],
           { placeHolder: "What do you want to do?" }
         );
@@ -1699,11 +2242,11 @@ function registerCommands(deps) {
     })
   );
   context.subscriptions.push(
-    vscode8.commands.registerCommand(
+    vscode9.commands.registerCommand(
       "ai-agent-feedback-bridge.sendToCopilotChat",
       async (feedbackText) => {
         if (!feedbackText) {
-          feedbackText = await vscode8.window.showInputBox({
+          feedbackText = await vscode9.window.showInputBox({
             prompt: "Enter feedback to send to Copilot Chat",
             placeHolder: "Describe the issue or request..."
           });
@@ -1718,7 +2261,7 @@ function registerCommands(deps) {
     )
   );
   context.subscriptions.push(
-    vscode8.commands.registerCommand("ai-feedback-bridge.toggleAutoContinue", async () => {
+    vscode9.commands.registerCommand("ai-feedback-bridge.toggleAutoContinue", async () => {
       const cfg = deps.getConfig();
       const currentState = cfg.get("autoContinue.enabled", false);
       await deps.updateConfig("autoContinue.enabled", !currentState);
@@ -1736,8 +2279,8 @@ function registerCommands(deps) {
     })
   );
   context.subscriptions.push(
-    vscode8.commands.registerCommand("ai-feedback-bridge.changePort", async () => {
-      const newPort = await vscode8.window.showInputBox({
+    vscode9.commands.registerCommand("ai-feedback-bridge.changePort", async () => {
+      const newPort = await vscode9.window.showInputBox({
         prompt: "Enter new port number",
         value: deps.currentPort.toString(),
         validateInput: (value) => {
@@ -1748,16 +2291,16 @@ function registerCommands(deps) {
       if (newPort) {
         await deps.updateConfig("port", parseInt(newPort));
         log("INFO" /* INFO */, `Port changed to ${newPort}. Reloading VS Code...`);
-        vscode8.commands.executeCommand("workbench.action.reloadWindow");
+        vscode9.commands.executeCommand("workbench.action.reloadWindow");
       }
     })
   );
   context.subscriptions.push(
-    vscode8.commands.registerCommand("ai-feedback-bridge.showStatus", () => {
+    vscode9.commands.registerCommand("ai-feedback-bridge.showStatus", () => {
       const cfg = deps.getConfig();
       const autoInterval = cfg.get("autoContinue.interval", 300);
       const autoEnabled = cfg.get("autoContinue.enabled", false);
-      const workspaceName = vscode8.workspace.name || "No Workspace";
+      const workspaceName = vscode9.workspace.name || "No Workspace";
       const msg = `\u{1F309} AI Feedback Bridge Status
 
 Window: ${workspaceName}
@@ -1770,21 +2313,39 @@ Endpoint: http://localhost:${deps.currentPort}`;
     })
   );
   context.subscriptions.push(
-    vscode8.commands.registerCommand(
+    vscode9.commands.registerCommand(
       "ai-agent-feedback-bridge.enableAutoApproval",
       () => deps.enableAutoApproval(deps.context)
     )
   );
   context.subscriptions.push(
-    vscode8.commands.registerCommand(
+    vscode9.commands.registerCommand(
       "ai-agent-feedback-bridge.disableAutoApproval",
       () => deps.disableAutoApproval()
     )
   );
   context.subscriptions.push(
-    vscode8.commands.registerCommand(
+    vscode9.commands.registerCommand(
       "ai-agent-feedback-bridge.injectAutoApprovalScript",
       () => deps.injectAutoApprovalScript()
+    )
+  );
+  context.subscriptions.push(
+    vscode9.commands.registerCommand(
+      "ai-feedback-bridge.addGuidingDocument",
+      () => showAddDocumentPicker()
+    )
+  );
+  context.subscriptions.push(
+    vscode9.commands.registerCommand(
+      "ai-feedback-bridge.removeGuidingDocument",
+      () => showRemoveDocumentPicker()
+    )
+  );
+  context.subscriptions.push(
+    vscode9.commands.registerCommand(
+      "ai-feedback-bridge.listGuidingDocuments",
+      () => showGuidingDocumentsList()
     )
   );
   log("INFO" /* INFO */, "All commands registered successfully");
@@ -1797,11 +2358,11 @@ var autoApprovalInterval;
 var countdownUpdateTimer;
 var extensionContext;
 function getConfig() {
-  return vscode9.workspace.getConfiguration("aiFeedbackBridge");
+  return vscode10.workspace.getConfiguration("aiFeedbackBridge");
 }
 async function updateConfig(key, value) {
   const config = getConfig();
-  await config.update(key, value, vscode9.ConfigurationTarget.Workspace);
+  await config.update(key, value, vscode10.ConfigurationTarget.Workspace);
   log("DEBUG" /* DEBUG */, `Config updated: ${key} = ${value}`, {
     scope: "Workspace",
     newValue: config.get(key)
@@ -1809,23 +2370,23 @@ async function updateConfig(key, value) {
 }
 async function activate(context) {
   extensionContext = context;
-  outputChannel3 = vscode9.window.createOutputChannel("AI Agent Feedback");
+  outputChannel3 = vscode10.window.createOutputChannel("AI Agent Feedback");
   context.subscriptions.push(outputChannel3);
   initLogging(outputChannel3);
   initChat(outputChannel3);
   log("INFO" /* INFO */, "\u{1F680} AI Agent Feedback Bridge activated");
   const config = getConfig();
-  const globalConfig = vscode9.workspace.getConfiguration("aiFeedbackBridge");
+  const globalConfig = vscode10.workspace.getConfiguration("aiFeedbackBridge");
   const globalEnabled = globalConfig.inspect("autoContinue.enabled");
   if (globalEnabled?.globalValue !== void 0) {
     log("WARN" /* WARN */, "Detected old Global settings, clearing to use Workspace scope");
-    await globalConfig.update("autoContinue.enabled", void 0, vscode9.ConfigurationTarget.Global);
+    await globalConfig.update("autoContinue.enabled", void 0, vscode10.ConfigurationTarget.Global);
   }
   const configuredPort = config.get("port");
   currentPort = await findAvailablePort(context);
   log("INFO" /* INFO */, `Auto-selected port: ${currentPort} for this window`);
-  const workspaceName = vscode9.workspace.name || "No Workspace";
-  const workspaceFolders = vscode9.workspace.workspaceFolders?.length || 0;
+  const workspaceName = vscode10.workspace.name || "No Workspace";
+  const workspaceFolders = vscode10.workspace.workspaceFolders?.length || 0;
   log("INFO" /* INFO */, `Window context: ${workspaceName} (${workspaceFolders} folders)`);
   initializeStatusBar(context, currentPort, config);
   registerCommands({
@@ -1861,11 +2422,11 @@ async function activate(context) {
   }
   initializeAutoApproval();
   context.subscriptions.push(
-    vscode9.workspace.onDidChangeConfiguration((e) => {
+    vscode10.workspace.onDidChangeConfiguration((e) => {
       if (e.affectsConfiguration("aiFeedbackBridge")) {
         const cfg = getConfig();
         log("DEBUG" /* DEBUG */, "Configuration changed", {
-          workspace: vscode9.workspace.name,
+          workspace: vscode10.workspace.name,
           affectedKeys: ["port", "autoContinue"].filter(
             (k) => e.affectsConfiguration(`aiFeedbackBridge.${k}`)
           )
@@ -1874,7 +2435,7 @@ async function activate(context) {
           const newPort = cfg.get("port", 3737);
           if (newPort !== currentPort) {
             log("INFO" /* INFO */, `Port change detected: ${currentPort} \u2192 ${newPort}. Reloading window...`);
-            vscode9.commands.executeCommand("workbench.action.reloadWindow");
+            vscode10.commands.executeCommand("workbench.action.reloadWindow");
           }
         }
         updateStatusBar(cfg);
@@ -1963,7 +2524,7 @@ function enableAutoApproval(context) {
   log("INFO" /* INFO */, `Enabling auto-approval with ${intervalMs}ms interval`);
   autoApprovalInterval = setInterval(async () => {
     try {
-      await vscode9.commands.executeCommand("workbench.action.acceptSelectedQuickOpenItem");
+      await vscode10.commands.executeCommand("workbench.action.acceptSelectedQuickOpenItem");
     } catch (error) {
     }
   }, intervalMs);
@@ -1990,16 +2551,16 @@ function disableAutoApproval() {
 function injectAutoApprovalScript() {
   const { getAutoApprovalScript: getAutoApprovalScript2 } = (init_autoApproval(), __toCommonJS(autoApproval_exports));
   const script = getAutoApprovalScript2(extensionContext);
-  const panel = vscode9.window.createWebviewPanel(
+  const panel = vscode10.window.createWebviewPanel(
     "autoApprovalScript",
     "Auto-Approval Script",
-    vscode9.ViewColumn.One,
+    vscode10.ViewColumn.One,
     {
       enableScripts: true
     }
   );
   panel.webview.html = getAutoApprovalInstructionsHtml(script);
-  vscode9.env.clipboard.writeText(script);
+  vscode10.env.clipboard.writeText(script);
   log("INFO" /* INFO */, "Auto-approval script copied to clipboard");
 }
 function getAutoApprovalInstructionsHtml(script) {
