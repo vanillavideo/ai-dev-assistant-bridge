@@ -23,9 +23,9 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">21.45% </span>
+                <span class="strong">22.58% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>62/289</span>
+                <span class='fraction'>63/279</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">21.45% </span>
+                <span class="strong">22.58% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>62/289</span>
+                <span class='fraction'>63/279</span>
             </div>
         
             
@@ -342,17 +342,7 @@
 <a name='L277'></a><a href='#L277'>277</a>
 <a name='L278'></a><a href='#L278'>278</a>
 <a name='L279'></a><a href='#L279'>279</a>
-<a name='L280'></a><a href='#L280'>280</a>
-<a name='L281'></a><a href='#L281'>281</a>
-<a name='L282'></a><a href='#L282'>282</a>
-<a name='L283'></a><a href='#L283'>283</a>
-<a name='L284'></a><a href='#L284'>284</a>
-<a name='L285'></a><a href='#L285'>285</a>
-<a name='L286'></a><a href='#L286'>286</a>
-<a name='L287'></a><a href='#L287'>287</a>
-<a name='L288'></a><a href='#L288'>288</a>
-<a name='L289'></a><a href='#L289'>289</a>
-<a name='L290'></a><a href='#L290'>290</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">1x</span>
+<a name='L280'></a><a href='#L280'>280</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
@@ -441,17 +431,7 @@
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -728,7 +708,8 @@ export function getGuidingDocuments(): string[] {
 &nbsp;
 /**
  * Read and format all guiding documents for inclusion in AI context
- * @returns Formatted string with all document contents
+ * Returns concise references instead of full content to reduce token usage
+ * @returns Formatted string with document references
  */
 <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >export async function getGuidingDocumentsContext(): Promise&lt;string&gt; {</span></span>
 <span class="cstat-no" title="statement not covered" >	const docs = getGuidingDocuments();</span>
@@ -737,10 +718,7 @@ export function getGuidingDocuments(): string[] {
 <span class="cstat-no" title="statement not covered" >		return '';</span>
 <span class="cstat-no" title="statement not covered" >	}</span>
 <span class="cstat-no" title="statement not covered" >	</span>
-<span class="cstat-no" title="statement not covered" >	const config = vscode.workspace.getConfiguration('aiFeedbackBridge');</span>
-<span class="cstat-no" title="statement not covered" >	const maxSize = config.get&lt;number&gt;('guidingDocuments.maxSize', 50000);</span>
-<span class="cstat-no" title="statement not covered" >	</span>
-<span class="cstat-no" title="statement not covered" >	const contents: string[] = [];</span>
+<span class="cstat-no" title="statement not covered" >	const references: string[] = [];</span>
 <span class="cstat-no" title="statement not covered" >	</span>
 <span class="cstat-no" title="statement not covered" >	for (const docPath of docs) {</span>
 <span class="cstat-no" title="statement not covered" >		try {</span>
@@ -752,28 +730,20 @@ export function getGuidingDocuments(): string[] {
 <span class="cstat-no" title="statement not covered" >				continue;</span>
 <span class="cstat-no" title="statement not covered" >			}</span>
 <span class="cstat-no" title="statement not covered" >			</span>
-<span class="cstat-no" title="statement not covered" >			// Read file</span>
-<span class="cstat-no" title="statement not covered" >			const content = fs.readFileSync(absolutePath, 'utf-8');</span>
-<span class="cstat-no" title="statement not covered" >			</span>
-<span class="cstat-no" title="statement not covered" >			// Truncate if too large</span>
-<span class="cstat-no" title="statement not covered" >			const truncated = content.length &gt; maxSize </span>
-<span class="cstat-no" title="statement not covered" >				? content.substring(0, maxSize) + '\n\n[... truncated ...]'</span>
-<span class="cstat-no" title="statement not covered" >				: content;</span>
-<span class="cstat-no" title="statement not covered" >			</span>
-<span class="cstat-no" title="statement not covered" >			const fileName = path.basename(absolutePath);</span>
-<span class="cstat-no" title="statement not covered" >			contents.push(`\n--- ${fileName} ---\n${truncated}`);</span>
+<span class="cstat-no" title="statement not covered" >			// Use relative path for cleaner reference</span>
+<span class="cstat-no" title="statement not covered" >			references.push(`- ${docPath}`);</span>
 <span class="cstat-no" title="statement not covered" >			</span>
 <span class="cstat-no" title="statement not covered" >		} catch (error) {</span>
-<span class="cstat-no" title="statement not covered" >			log(LogLevel.ERROR, `Error reading guiding document ${docPath}: ${error}`);</span>
+<span class="cstat-no" title="statement not covered" >			log(LogLevel.ERROR, `Error processing guiding document ${docPath}: ${error}`);</span>
 <span class="cstat-no" title="statement not covered" >		}</span>
 <span class="cstat-no" title="statement not covered" >	}</span>
 <span class="cstat-no" title="statement not covered" >	</span>
-<span class="cstat-no" title="statement not covered" >	if (contents.length === 0) {</span>
+<span class="cstat-no" title="statement not covered" >	if (references.length === 0) {</span>
 <span class="cstat-no" title="statement not covered" >		return '';</span>
 <span class="cstat-no" title="statement not covered" >	}</span>
 <span class="cstat-no" title="statement not covered" ></span>
-<span class="cstat-no" title="statement not covered" >	// Return a markdown-friendly header without emoji (UI uses no-emojis)</span>
-<span class="cstat-no" title="statement not covered" >	return '# Guiding Documents\n\n' + contents.join('\n');</span>
+<span class="cstat-no" title="statement not covered" >	// Return concise reference format</span>
+<span class="cstat-no" title="statement not covered" >	return '\n\n# Guiding Documents\n\nRefer to these documents for context:\n' + references.join('\n');</span>
 <span class="cstat-no" title="statement not covered" >}</span>
 &nbsp;
 /**
@@ -937,7 +907,7 @@ export function getGuidingDocuments(): string[] {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-11-01T02:43:29.114Z
+                at 2025-11-01T04:59:22.593Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>

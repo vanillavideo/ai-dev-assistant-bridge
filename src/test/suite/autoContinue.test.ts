@@ -11,7 +11,9 @@ import {
 	getTimeUntilNextReminder, 
 	formatCountdown,
 	startAutoContinue,
-	stopAutoContinue
+	stopAutoContinue,
+	restartAutoContinue,
+	isAutoContinueActive
 } from '../../modules/autoContinue';
 
 suite('Auto-Continue Module Tests', () => {
@@ -365,5 +367,283 @@ suite('Auto-Continue Module Tests', () => {
 		assert.doesNotThrow(() => {
 			stopAutoContinue();
 		}, 'Should not throw when stopping already stopped timer');
+	});
+
+	test('formatCountdown should handle exact minute boundaries without seconds', () => {
+		// Test branch: when secs = 0 in the "< 3600" branch
+		assert.strictEqual(formatCountdown(120), '2m', 'Exactly 2 minutes');
+		assert.strictEqual(formatCountdown(180), '3m', 'Exactly 3 minutes');
+	});
+
+	test('formatCountdown should handle hours with no remaining minutes', () => {
+		// Test branch: when minutes = 0 in the ">= 3600" branch
+		assert.strictEqual(formatCountdown(7200), '2h', 'Exactly 2 hours, no minutes');
+		assert.strictEqual(formatCountdown(10800), '3h', 'Exactly 3 hours, no minutes');
+	});
+
+	test('startAutoContinue should do nothing when disabled', () => {
+		// Test branch: when enabled = false in startAutoContinue
+		const mockConfig = {
+			get: (key: string, defaultValue: any) => {
+				if (key === 'autoContinue.enabled') {
+					return false; // Disabled
+				}
+				return defaultValue;
+			}
+		} as any;
+
+		const mockSendToAgent = async () => true;
+
+		startAutoContinue(context, () => mockConfig, mockSendToAgent);
+
+		// Verify no timer was started
+		const { isAutoContinueActive } = require('../../modules/autoContinue');
+		assert.strictEqual(isAutoContinueActive(), false, 'Timer should not be active when disabled');
+	});
+
+	test('startAutoContinue should start timer when enabled', () => {
+		// Test branch: when enabled = true in startAutoContinue
+		const mockConfig = {
+			get: (key: string, defaultValue: any) => {
+				if (key === 'autoContinue.enabled') {
+					return true; // Enabled
+				}
+				if (key.includes('enabled')) {
+					return false; // No categories enabled
+				}
+				return defaultValue;
+			}
+		} as any;
+
+		const mockSendToAgent = async () => true;
+
+		startAutoContinue(context, () => mockConfig, mockSendToAgent);
+
+		// Verify timer was started
+		const { isAutoContinueActive } = require('../../modules/autoContinue');
+		assert.strictEqual(isAutoContinueActive(), true, 'Timer should be active when enabled');
+
+		// Cleanup
+		stopAutoContinue();
+	});
+
+	test('restartAutoContinue should stop and restart timer', () => {
+		const { restartAutoContinue, isAutoContinueActive } = require('../../modules/autoContinue');
+
+		const mockConfig = {
+			get: (key: string, defaultValue: any) => {
+				if (key === 'autoContinue.enabled') {
+					return true;
+				}
+				if (key.includes('enabled')) {
+					return false;
+				}
+				return defaultValue;
+			}
+		} as any;
+
+		const mockSendToAgent = async () => true;
+
+		// Start initially
+		startAutoContinue(context, () => mockConfig, mockSendToAgent);
+		assert.strictEqual(isAutoContinueActive(), true, 'Timer should be active initially');
+
+		// Restart
+		restartAutoContinue(context, () => mockConfig, mockSendToAgent);
+		assert.strictEqual(isAutoContinueActive(), true, 'Timer should still be active after restart');
+
+		// Cleanup
+		stopAutoContinue();
+	});
+
+	test('isAutoContinueActive should return correct state', () => {
+		const { isAutoContinueActive } = require('../../modules/autoContinue');
+
+		// Initially should be false
+		stopAutoContinue();
+		assert.strictEqual(isAutoContinueActive(), false, 'Should be inactive initially');
+
+		// Start timer
+		const mockConfig = {
+			get: (key: string, defaultValue: any) => {
+				if (key === 'autoContinue.enabled') {
+					return true;
+				}
+				if (key.includes('enabled')) {
+					return false;
+				}
+				return defaultValue;
+			}
+		} as any;
+
+		startAutoContinue(context, () => mockConfig, async () => true);
+		assert.strictEqual(isAutoContinueActive(), true, 'Should be active after start');
+
+		// Stop timer
+		stopAutoContinue();
+		assert.strictEqual(isAutoContinueActive(), false, 'Should be inactive after stop');
+	});
+
+	test('getSmartAutoContinueMessage should handle category with message but not enabled', async () => {
+		// Test branch: when enabled is false even though message exists
+		const mockConfig = {
+			get: (key: string, defaultValue: any) => {
+				if (key === 'autoContinue.tasks.enabled') {
+					return false; // Explicitly disabled
+				}
+				if (key === 'autoContinue.tasks.message') {
+					return 'This message should not be included';
+				}
+				if (key.includes('enabled')) {
+					return false;
+				}
+				return defaultValue;
+			}
+		} as any;
+
+		const message = await getSmartAutoContinueMessage(
+			context,
+			() => mockConfig,
+			true
+		);
+
+		assert.strictEqual(message, '', 'Should not include message from disabled category');
+	});
+
+	test('getTimeUntilNextReminder should calculate shortest time across multiple categories', () => {
+		// Mock state with different last-sent times for different categories
+		const mockContext = {
+			...context,
+			globalState: {
+				get: (key: string, defaultValue: any) => {
+					if (key === 'autoContinue.lastSent') {
+						const now = Date.now();
+						return {
+							'tasks': now - 100000, // 100 seconds ago
+							'improvements': now - 200000, // 200 seconds ago
+						};
+					}
+					return defaultValue;
+				},
+				update: async () => {},
+				keys: () => []
+			}
+		} as any;
+
+		const mockConfig = {
+			get: (key: string, defaultValue: any) => {
+				if (key === 'autoContinue.tasks.enabled') {
+					return true;
+				}
+				if (key === 'autoContinue.tasks.interval') {
+					return 300; // 5 minutes
+				}
+				if (key === 'autoContinue.tasks.message') {
+					return 'Check tasks';
+				}
+				if (key === 'autoContinue.improvements.enabled') {
+					return true;
+				}
+				if (key === 'autoContinue.improvements.interval') {
+					return 250; // 4m 10s
+				}
+				if (key === 'autoContinue.improvements.message') {
+					return 'Check improvements';
+				}
+				if (key.includes('enabled')) {
+					return false;
+				}
+				return defaultValue;
+			}
+		} as any;
+
+		const seconds = getTimeUntilNextReminder(mockContext, () => mockConfig);
+
+		assert.ok(seconds !== null, 'Should return a value');
+		assert.ok(seconds! >= 0, 'Should be non-negative');
+		// Should return the shorter remaining time (improvements category)
+		assert.ok(seconds! <= 250, 'Should not exceed shortest interval');
+	});
+
+	test('startAutoContinue timer should handle errors gracefully', async function() {
+		this.timeout(3000);
+
+		let errorThrown = false;
+		const mockSendToAgent = async () => {
+			errorThrown = true;
+			throw new Error('Test error in sendToAgent');
+		};
+
+		const mockConfig = {
+			get: (key: string, defaultValue: any) => {
+				if (key === 'autoContinue.enabled') {
+					return true;
+				}
+				if (key === 'autoContinue.tasks.enabled') {
+					return true;
+				}
+				if (key === 'autoContinue.tasks.message') {
+					return 'Test message';
+				}
+				if (key === 'autoContinue.tasks.interval') {
+					return 0.1; // Very short interval to trigger quickly
+				}
+				if (key.includes('enabled')) {
+					return false;
+				}
+				return defaultValue;
+			}
+		} as any;
+
+		// Force a message to be ready by setting last sent to far in past
+		await context.globalState.update('autoContinue.lastSent', {
+			'tasks': 0
+		});
+
+		startAutoContinue(context, () => mockConfig, mockSendToAgent);
+
+		// Wait for timer to tick and trigger the error
+		await new Promise(resolve => setTimeout(resolve, 1000));
+
+		stopAutoContinue();
+
+		// Verify error was caught and logged (timer continues despite error)
+		assert.strictEqual(errorThrown, true, 'Error should have been thrown and caught');
+	});
+
+	test('startAutoContinue timer should stop itself when disabled during execution', async function() {
+		this.timeout(3000);
+
+		let callCount = 0;
+		let configEnabled = true;
+
+		const mockSendToAgent = async () => {
+			callCount++;
+			return true;
+		};
+
+		const mockConfig = {
+			get: (key: string, defaultValue: any) => {
+				if (key === 'autoContinue.enabled') {
+					return configEnabled; // Will be toggled to false
+				}
+				if (key.includes('enabled')) {
+					return false;
+				}
+				return defaultValue;
+			}
+		} as any;
+
+		startAutoContinue(context, () => mockConfig, mockSendToAgent);
+
+		// Wait a moment, then disable
+		await new Promise(resolve => setTimeout(resolve, 600));
+		configEnabled = false;
+
+		// Wait for timer to detect disabled state
+		await new Promise(resolve => setTimeout(resolve, 600));
+
+		// Timer should have stopped itself
+		assert.strictEqual(isAutoContinueActive(), false, 'Timer should stop when disabled');
 	});
 });

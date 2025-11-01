@@ -53,7 +53,8 @@ async function main() {
 			'src/test/suite/runUnitTests.ts',
 			'src/test/suite/extension.test.ts',
 			'src/test/suite/aiQueue.unit.test.ts',
-			'src/test/suite/logging.unit.test.ts'
+			'src/test/suite/logging.unit.test.ts',
+			'src/test/suite/autoContinue.test.ts'
 		],
 		bundle: true,
 		format: 'cjs',

@@ -7,7 +7,8 @@ suite('Commands Integration Tests', () => {
 		const config = vscode.workspace.getConfiguration('aiFeedbackBridge');
 
 		// Ensure autoContinue.enabled is false to start
-		await config.update('autoContinue.enabled', false, vscode.ConfigurationTarget.Workspace);
+		// Use Global configuration target since workspace may not be open during tests
+		await config.update('autoContinue.enabled', false, vscode.ConfigurationTarget.Global);
 		await vscode.commands.executeCommand('ai-feedback-bridge.toggleAutoContinue');
 
 		// Allow settings update to propagate
@@ -22,7 +23,8 @@ suite('Commands Integration Tests', () => {
 		const config = vscode.workspace.getConfiguration('aiFeedbackBridge');
 
 		// Ensure autoContinue.enabled is true to start
-		await config.update('autoContinue.enabled', true, vscode.ConfigurationTarget.Workspace);
+		// Use Global configuration target since workspace may not be open during tests
+		await config.update('autoContinue.enabled', true, vscode.ConfigurationTarget.Global);
 		await vscode.commands.executeCommand('ai-feedback-bridge.toggleAutoContinue');
 
 		// Allow settings update to propagate

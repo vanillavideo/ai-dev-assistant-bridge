@@ -1104,9 +1104,7 @@ async function getGuidingDocumentsContext() {
   if (docs.length === 0) {
     return "";
   }
-  const config = vscode5.workspace.getConfiguration("aiFeedbackBridge");
-  const maxSize = config.get("guidingDocuments.maxSize", 5e4);
-  const contents = [];
+  const references = [];
   for (const docPath of docs) {
     try {
       const absolutePath = getAbsolutePath(docPath);
@@ -1114,20 +1112,15 @@ async function getGuidingDocumentsContext() {
         log("WARN" /* WARN */, `Guiding document not found: ${docPath}`);
         continue;
       }
-      const content = fs2.readFileSync(absolutePath, "utf-8");
-      const truncated = content.length > maxSize ? content.substring(0, maxSize) + "\n\n[... truncated ...]" : content;
-      const fileName = path2.basename(absolutePath);
-      contents.push(`
---- ${fileName} ---
-${truncated}`);
+      references.push(`- ${docPath}`);
     } catch (error) {
-      log("ERROR" /* ERROR */, `Error reading guiding document ${docPath}: ${error}`);
+      log("ERROR" /* ERROR */, `Error processing guiding document ${docPath}: ${error}`);
     }
   }
-  if (contents.length === 0) {
+  if (references.length === 0) {
     return "";
   }
-  return "# Guiding Documents\n\n" + contents.join("\n");
+  return "\n\n# Guiding Documents\n\nRefer to these documents for context:\n" + references.join("\n");
 }
 function getRelativePath(absolutePath) {
   const workspaceFolder = vscode5.workspace.workspaceFolders?.[0];

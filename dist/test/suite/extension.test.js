@@ -5,6 +5,13 @@ var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
 var __getOwnPropNames = Object.getOwnPropertyNames;
 var __getProtoOf = Object.getPrototypeOf;
 var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __esm = (fn, res) => function __init() {
+  return fn && (res = (0, fn[__getOwnPropNames(fn)[0]])(fn = 0)), res;
+};
+var __export = (target, all) => {
+  for (var name in all)
+    __defProp(target, name, { get: all[name], enumerable: true });
+};
 var __copyProps = (to, from, except, desc) => {
   if (from && typeof from === "object" || typeof from === "function") {
     for (let key of __getOwnPropNames(from))
@@ -21,16 +28,16 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
   isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
   mod
 ));
+var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 
-// src/test/suite/extension.test.ts
-var assert4 = __toESM(require("assert"));
-var vscode4 = __toESM(require("vscode"));
-
-// src/test/suite/aiQueue.test.ts
-var assert = __toESM(require("assert"));
+// src/modules/types.ts
+var init_types = __esm({
+  "src/modules/types.ts"() {
+    "use strict";
+  }
+});
 
 // src/modules/logging.ts
-var outputChannel;
 function log(level, message, data) {
   const timestamp = (/* @__PURE__ */ new Date()).toISOString();
   const prefix = `[${timestamp}] [${level}]`;
@@ -52,8 +59,262 @@ function getErrorMessage(error) {
   }
   return String(error);
 }
+var outputChannel;
+var init_logging = __esm({
+  "src/modules/logging.ts"() {
+    "use strict";
+    init_types();
+  }
+});
+
+// src/modules/guidingDocuments.ts
+function getGuidingDocuments() {
+  const config = vscode.workspace.getConfiguration("aiFeedbackBridge");
+  const docs = config.get("guidingDocuments", []);
+  return docs;
+}
+async function addGuidingDocument(filePath) {
+  const config = vscode.workspace.getConfiguration("aiFeedbackBridge");
+  const docs = config.get("guidingDocuments", []);
+  if (!filePath || filePath.trim().length === 0) {
+    log("WARN" /* WARN */, `Attempted to add invalid guiding document path: '${filePath}'`);
+    throw new Error("Invalid file path");
+  }
+  const relativePath = getRelativePath(filePath);
+  if (docs.includes(relativePath)) {
+    log("INFO" /* INFO */, `Document already added: ${relativePath}`);
+    return;
+  }
+  docs.push(relativePath);
+  const target = vscode.workspace.workspaceFolders ? vscode.ConfigurationTarget.Workspace : vscode.ConfigurationTarget.Global;
+  await config.update("guidingDocuments", docs, target);
+  log("INFO" /* INFO */, `Added guiding document: ${relativePath} (target=${target})`);
+}
+async function removeGuidingDocument(filePath) {
+  const config = vscode.workspace.getConfiguration("aiFeedbackBridge");
+  const docs = config.get("guidingDocuments", []);
+  const targetRelative = getRelativePath(filePath);
+  const targetAbsolute = getAbsolutePath(filePath);
+  const filtered = docs.filter((doc) => {
+    const storedAbsolute = getAbsolutePath(doc);
+    return doc !== targetRelative && doc !== filePath && storedAbsolute !== targetAbsolute;
+  });
+  if (filtered.length === docs.length) {
+    log("WARN" /* WARN */, `Document not found: ${filePath}`);
+    return;
+  }
+  const target = vscode.workspace.workspaceFolders ? vscode.ConfigurationTarget.Workspace : vscode.ConfigurationTarget.Global;
+  await config.update("guidingDocuments", filtered, target);
+  log("INFO" /* INFO */, `Removed guiding document: ${filePath} (target=${target})`);
+}
+async function getGuidingDocumentsContext() {
+  const docs = getGuidingDocuments();
+  if (docs.length === 0) {
+    return "";
+  }
+  const references = [];
+  for (const docPath of docs) {
+    try {
+      const absolutePath = getAbsolutePath(docPath);
+      if (!fs.existsSync(absolutePath)) {
+        log("WARN" /* WARN */, `Guiding document not found: ${docPath}`);
+        continue;
+      }
+      references.push(`- ${docPath}`);
+    } catch (error) {
+      log("ERROR" /* ERROR */, `Error processing guiding document ${docPath}: ${error}`);
+    }
+  }
+  if (references.length === 0) {
+    return "";
+  }
+  return "\n\n# Guiding Documents\n\nRefer to these documents for context:\n" + references.join("\n");
+}
+function getRelativePath(absolutePath) {
+  const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+  if (!workspaceFolder) {
+    return absolutePath;
+  }
+  const workspacePath = workspaceFolder.uri.fsPath;
+  if (absolutePath.startsWith(workspacePath)) {
+    return path.relative(workspacePath, absolutePath);
+  }
+  return absolutePath;
+}
+function getAbsolutePath(relativePath) {
+  if (path.isAbsolute(relativePath)) {
+    return relativePath;
+  }
+  const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+  if (!workspaceFolder) {
+    return relativePath;
+  }
+  return path.join(workspaceFolder.uri.fsPath, relativePath);
+}
+var vscode, fs, path;
+var init_guidingDocuments = __esm({
+  "src/modules/guidingDocuments.ts"() {
+    "use strict";
+    vscode = __toESM(require("vscode"));
+    fs = __toESM(require("fs"));
+    path = __toESM(require("path"));
+    init_logging();
+    init_types();
+  }
+});
+
+// src/modules/autoContinue.ts
+var autoContinue_exports = {};
+__export(autoContinue_exports, {
+  formatCountdown: () => formatCountdown,
+  getSmartAutoContinueMessage: () => getSmartAutoContinueMessage,
+  getTimeUntilNextReminder: () => getTimeUntilNextReminder,
+  isAutoContinueActive: () => isAutoContinueActive,
+  restartAutoContinue: () => restartAutoContinue,
+  startAutoContinue: () => startAutoContinue,
+  stopAutoContinue: () => stopAutoContinue
+});
+async function getSmartAutoContinueMessage(context, getConfig, force = false) {
+  const config = getConfig();
+  const categories = ["tasks", "improvements", "coverage", "robustness", "cleanup", "commits"];
+  const now = Date.now();
+  const messages = [];
+  const lastSentKey = "autoContinue.lastSent";
+  const lastSent = context.globalState.get(lastSentKey, {});
+  const newLastSent = { ...lastSent };
+  for (const category of categories) {
+    const enabled = config.get(`autoContinue.${category}.enabled`, true);
+    const interval = config.get(`autoContinue.${category}.interval`, 300);
+    const message = config.get(`autoContinue.${category}.message`, "");
+    if (!enabled || !message) {
+      continue;
+    }
+    const lastSentTime = lastSent[category] || 0;
+    const elapsed = (now - lastSentTime) / 1e3;
+    if (force || elapsed >= interval) {
+      messages.push(message);
+      newLastSent[category] = now;
+    }
+  }
+  await context.globalState.update(lastSentKey, newLastSent);
+  if (messages.length === 0) {
+    return "";
+  }
+  let combinedMessage = messages.join(". ") + ".";
+  const docsContext = await getGuidingDocumentsContext();
+  if (docsContext) {
+    combinedMessage += docsContext;
+  }
+  return combinedMessage;
+}
+function startAutoContinue(context, getConfig, sendToAgent2) {
+  const config = getConfig();
+  const enabled = config.get("autoContinue.enabled", false);
+  if (enabled) {
+    const checkInterval = 500;
+    const workspaceName = vscode6.workspace.name || "No Workspace";
+    log("INFO" /* INFO */, `\u2705 Auto-Continue enabled for window: ${workspaceName}`);
+    autoContinueTimer = setInterval(async () => {
+      try {
+        const currentConfig = getConfig();
+        const stillEnabled = currentConfig.get("autoContinue.enabled", false);
+        if (!stillEnabled) {
+          log("INFO" /* INFO */, "[Auto-Continue] Detected disabled state, stopping timer");
+          if (autoContinueTimer) {
+            clearInterval(autoContinueTimer);
+            autoContinueTimer = void 0;
+          }
+          return;
+        }
+        const message = await getSmartAutoContinueMessage(context, getConfig);
+        if (message) {
+          log("INFO" /* INFO */, "[Auto-Continue] Sending periodic reminder");
+          await sendToAgent2(message, {
+            source: "auto_continue",
+            timestamp: (/* @__PURE__ */ new Date()).toISOString()
+          });
+        }
+      } catch (error) {
+        log("ERROR" /* ERROR */, "[Auto-Continue] Failed to send message", {
+          error: getErrorMessage(error)
+        });
+      }
+    }, checkInterval);
+  } else {
+    log("DEBUG" /* DEBUG */, "Auto-Continue is disabled");
+  }
+}
+function stopAutoContinue() {
+  if (autoContinueTimer) {
+    clearInterval(autoContinueTimer);
+    autoContinueTimer = void 0;
+    log("INFO" /* INFO */, "Auto-Continue timer stopped");
+  }
+}
+function restartAutoContinue(context, getConfig, sendToAgent2) {
+  stopAutoContinue();
+  startAutoContinue(context, getConfig, sendToAgent2);
+}
+function isAutoContinueActive() {
+  return autoContinueTimer !== void 0;
+}
+function getTimeUntilNextReminder(context, getConfig) {
+  const config = getConfig();
+  const categories = ["tasks", "improvements", "coverage", "robustness", "cleanup", "commits"];
+  const now = Date.now();
+  let shortestTime = null;
+  const lastSentKey = "autoContinue.lastSent";
+  const lastSent = context.globalState.get(lastSentKey, {});
+  for (const category of categories) {
+    const enabled = config.get(`autoContinue.${category}.enabled`, true);
+    const interval = config.get(`autoContinue.${category}.interval`, 300);
+    const message = config.get(`autoContinue.${category}.message`, "");
+    if (!enabled || !message) {
+      continue;
+    }
+    const lastSentTime = lastSent[category] || 0;
+    const elapsed = (now - lastSentTime) / 1e3;
+    const remaining = Math.max(0, interval - elapsed);
+    if (shortestTime === null || remaining < shortestTime) {
+      shortestTime = remaining;
+    }
+  }
+  return shortestTime;
+}
+function formatCountdown(seconds) {
+  if (seconds < 60) {
+    return `${Math.floor(seconds)}s`;
+  } else if (seconds < 3600) {
+    const minutes = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${minutes}m ${secs}s`;
+  } else {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor(seconds % 3600 / 60);
+    return `${hours}h ${minutes}m`;
+  }
+}
+var vscode6, autoContinueTimer;
+var init_autoContinue = __esm({
+  "src/modules/autoContinue.ts"() {
+    "use strict";
+    vscode6 = __toESM(require("vscode"));
+    init_types();
+    init_logging();
+    init_guidingDocuments();
+  }
+});
+
+// src/test/suite/extension.test.ts
+var assert10 = __toESM(require("assert"));
+var vscode14 = __toESM(require("vscode"));
+
+// src/test/suite/aiQueue.test.ts
+var assert = __toESM(require("assert"));
 
 // src/modules/aiQueue.ts
+init_logging();
+init_types();
 var instructionQueue = [];
 var processingActive = false;
 var autoProcessEnabled = false;
@@ -107,7 +368,7 @@ function clearQueue() {
   instructionQueue = [];
   log("INFO" /* INFO */, `Cleared all ${count} instructions from queue`);
 }
-async function processNextInstruction(sendToAgent) {
+async function processNextInstruction(sendToAgent2) {
   if (processingActive) {
     log("WARN" /* WARN */, "Already processing an instruction");
     return false;
@@ -120,8 +381,8 @@ async function processNextInstruction(sendToAgent) {
   pending.status = "processing";
   try {
     log("INFO" /* INFO */, `Processing instruction: ${pending.id}`);
-    if (sendToAgent) {
-      const success = await sendToAgent(pending.instruction, {
+    if (sendToAgent2) {
+      const success = await sendToAgent2(pending.instruction, {
         source: pending.source,
         queueId: pending.id,
         priority: pending.priority,
@@ -148,10 +409,10 @@ async function processNextInstruction(sendToAgent) {
   }
   return true;
 }
-async function processAllInstructions(sendToAgent) {
+async function processAllInstructions(sendToAgent2) {
   let processed = 0;
   while (getQueue("pending").length > 0 && !processingActive) {
-    const success = await processNextInstruction(sendToAgent);
+    const success = await processNextInstruction(sendToAgent2);
     if (success) {
       processed++;
       await new Promise((resolve) => setTimeout(resolve, 500));
@@ -162,11 +423,11 @@ async function processAllInstructions(sendToAgent) {
   log("INFO" /* INFO */, `Processed ${processed} instructions`);
   return processed;
 }
-function setAutoProcess(enabled, sendToAgent) {
+function setAutoProcess(enabled, sendToAgent2) {
   autoProcessEnabled = enabled;
   log("INFO" /* INFO */, `Auto-process ${enabled ? "enabled" : "disabled"}`);
-  if (enabled && sendToAgent) {
-    void processAllInstructions(sendToAgent);
+  if (enabled && sendToAgent2) {
+    void processAllInstructions(sendToAgent2);
   }
 }
 function getQueueStats() {
@@ -506,103 +767,7 @@ suite("AI Queue Module Test Suite", () => {
 var assert2 = __toESM(require("assert"));
 var vscode2 = __toESM(require("vscode"));
 var path2 = __toESM(require("path"));
-
-// src/modules/guidingDocuments.ts
-var vscode = __toESM(require("vscode"));
-var fs = __toESM(require("fs"));
-var path = __toESM(require("path"));
-function getGuidingDocuments() {
-  const config = vscode.workspace.getConfiguration("aiFeedbackBridge");
-  const docs = config.get("guidingDocuments", []);
-  return docs;
-}
-async function addGuidingDocument(filePath) {
-  const config = vscode.workspace.getConfiguration("aiFeedbackBridge");
-  const docs = config.get("guidingDocuments", []);
-  if (!filePath || filePath.trim().length === 0) {
-    log("WARN" /* WARN */, `Attempted to add invalid guiding document path: '${filePath}'`);
-    throw new Error("Invalid file path");
-  }
-  const relativePath = getRelativePath(filePath);
-  if (docs.includes(relativePath)) {
-    log("INFO" /* INFO */, `Document already added: ${relativePath}`);
-    return;
-  }
-  docs.push(relativePath);
-  const target = vscode.workspace.workspaceFolders ? vscode.ConfigurationTarget.Workspace : vscode.ConfigurationTarget.Global;
-  await config.update("guidingDocuments", docs, target);
-  log("INFO" /* INFO */, `Added guiding document: ${relativePath} (target=${target})`);
-}
-async function removeGuidingDocument(filePath) {
-  const config = vscode.workspace.getConfiguration("aiFeedbackBridge");
-  const docs = config.get("guidingDocuments", []);
-  const targetRelative = getRelativePath(filePath);
-  const targetAbsolute = getAbsolutePath(filePath);
-  const filtered = docs.filter((doc) => {
-    const storedAbsolute = getAbsolutePath(doc);
-    return doc !== targetRelative && doc !== filePath && storedAbsolute !== targetAbsolute;
-  });
-  if (filtered.length === docs.length) {
-    log("WARN" /* WARN */, `Document not found: ${filePath}`);
-    return;
-  }
-  const target = vscode.workspace.workspaceFolders ? vscode.ConfigurationTarget.Workspace : vscode.ConfigurationTarget.Global;
-  await config.update("guidingDocuments", filtered, target);
-  log("INFO" /* INFO */, `Removed guiding document: ${filePath} (target=${target})`);
-}
-async function getGuidingDocumentsContext() {
-  const docs = getGuidingDocuments();
-  if (docs.length === 0) {
-    return "";
-  }
-  const config = vscode.workspace.getConfiguration("aiFeedbackBridge");
-  const maxSize = config.get("guidingDocuments.maxSize", 5e4);
-  const contents = [];
-  for (const docPath of docs) {
-    try {
-      const absolutePath = getAbsolutePath(docPath);
-      if (!fs.existsSync(absolutePath)) {
-        log("WARN" /* WARN */, `Guiding document not found: ${docPath}`);
-        continue;
-      }
-      const content = fs.readFileSync(absolutePath, "utf-8");
-      const truncated = content.length > maxSize ? content.substring(0, maxSize) + "\n\n[... truncated ...]" : content;
-      const fileName = path.basename(absolutePath);
-      contents.push(`
---- ${fileName} ---
-${truncated}`);
-    } catch (error) {
-      log("ERROR" /* ERROR */, `Error reading guiding document ${docPath}: ${error}`);
-    }
-  }
-  if (contents.length === 0) {
-    return "";
-  }
-  return "# Guiding Documents\n\n" + contents.join("\n");
-}
-function getRelativePath(absolutePath) {
-  const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-  if (!workspaceFolder) {
-    return absolutePath;
-  }
-  const workspacePath = workspaceFolder.uri.fsPath;
-  if (absolutePath.startsWith(workspacePath)) {
-    return path.relative(workspacePath, absolutePath);
-  }
-  return absolutePath;
-}
-function getAbsolutePath(relativePath) {
-  if (path.isAbsolute(relativePath)) {
-    return relativePath;
-  }
-  const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-  if (!workspaceFolder) {
-    return relativePath;
-  }
-  return path.join(workspaceFolder.uri.fsPath, relativePath);
-}
-
-// src/test/suite/guidingDocuments.test.ts
+init_guidingDocuments();
 suite("Guiding Documents Module Test Suite", () => {
   const testWorkspaceFolder = vscode2.workspace.workspaceFolders?.[0];
   const testFilePath = testWorkspaceFolder ? path2.join(testWorkspaceFolder.uri.fsPath, "README.md") : "";
@@ -764,15 +929,19 @@ suite("Guiding Documents Module Test Suite", () => {
       assert2.ok(context.length > 0);
       assert2.ok(context.includes("# Guiding Documents"));
       assert2.ok(context.includes("README.md"));
+      assert2.ok(context.includes("Refer to these documents for context:"));
+      assert2.ok(context.includes("- "));
     });
-    test("getGuidingDocumentsContext should include file contents", async () => {
+    test("getGuidingDocumentsContext should use concise path references", async () => {
       if (!testWorkspaceFolder) {
         console.log("Skipping test - no workspace folder");
         return;
       }
       addGuidingDocument(testFilePath);
       const context = await getGuidingDocumentsContext();
-      assert2.ok(context.includes("AI Feedback Bridge") || context.length > 100);
+      assert2.ok(context.includes("- "));
+      assert2.ok(context.includes("README.md"));
+      assert2.ok(context.length < 500, "Context should be concise, not include full file content");
     });
     test("getGuidingDocumentsContext should handle read errors gracefully", async () => {
       if (!testWorkspaceFolder) {
@@ -782,10 +951,9 @@ suite("Guiding Documents Module Test Suite", () => {
       const nonExistentPath = path2.join(testWorkspaceFolder.uri.fsPath, "non-existent-file.md");
       addGuidingDocument(nonExistentPath);
       const context = await getGuidingDocumentsContext();
-      assert2.ok(context.includes("# Guiding Documents"));
-      assert2.ok(context.includes("non-existent-file.md"));
+      assert2.ok(!context.includes("non-existent-file.md"));
     });
-    test("getGuidingDocumentsContext should handle large files", async () => {
+    test("getGuidingDocumentsContext should be lightweight", async () => {
       if (!testWorkspaceFolder) {
         console.log("Skipping test - no workspace folder");
         return;
@@ -793,16 +961,17 @@ suite("Guiding Documents Module Test Suite", () => {
       addGuidingDocument(testFilePath);
       const context = await getGuidingDocumentsContext();
       assert2.ok(context.length > 0);
-      assert2.ok(context.length < 1e6);
+      assert2.ok(context.length < 500, "Context should be lightweight with just path references");
     });
-    test("getGuidingDocumentsContext should preserve markdown formatting", async () => {
+    test("getGuidingDocumentsContext should list paths as bullet points", async () => {
       if (!testWorkspaceFolder) {
         console.log("Skipping test - no workspace folder");
         return;
       }
       addGuidingDocument(testFilePath);
       const context = await getGuidingDocumentsContext();
-      assert2.ok(context.includes("```") || context.includes("#"));
+      assert2.ok(context.includes("- "));
+      assert2.ok(context.includes("README.md"));
     });
   });
   suite("Path Conversion", () => {
@@ -948,6 +1117,8 @@ var http2 = __toESM(require("http"));
 // src/modules/server.ts
 var vscode3 = __toESM(require("vscode"));
 var http = __toESM(require("http"));
+init_logging();
+init_types();
 
 // src/modules/taskManager.ts
 async function getTasks(context) {
@@ -1016,6 +1187,13 @@ async function removeTask(context, taskId) {
   const filtered = tasks.filter((t) => t.id !== taskId);
   await saveTasks(context, filtered);
 }
+async function clearCompletedTasks(context) {
+  const tasks = await getTasks(context);
+  const activeTasks = tasks.filter((t) => t.status !== "completed");
+  const clearedCount = tasks.length - activeTasks.length;
+  await saveTasks(context, activeTasks);
+  return clearedCount;
+}
 
 // src/modules/server.ts
 var server;
@@ -1024,7 +1202,7 @@ var REQUEST_TIMEOUT = 3e4;
 function isValidPort(port) {
   return Number.isInteger(port) && port >= 1024 && port <= 65535;
 }
-function startServer(context, port, sendToAgent) {
+function startServer(context, port, sendToAgent2) {
   if (!isValidPort(port)) {
     const error = `Invalid port number: ${port}. Must be between 1024 and 65535.`;
     log("ERROR" /* ERROR */, error);
@@ -1047,7 +1225,7 @@ function startServer(context, port, sendToAgent) {
       return;
     }
     try {
-      await handleRequest(req, res, context, port, sendToAgent);
+      await handleRequest(req, res, context, port, sendToAgent2);
     } catch (error) {
       log("ERROR" /* ERROR */, "Request handler error", getErrorMessage(error));
       if (!res.headersSent) {
@@ -1080,7 +1258,7 @@ function stopServer() {
     server = void 0;
   }
 }
-async function handleRequest(req, res, context, port, sendToAgent) {
+async function handleRequest(req, res, context, port, sendToAgent2) {
   const url = req.url || "/";
   const method = req.method || "GET";
   log("DEBUG" /* DEBUG */, `${method} ${url}`);
@@ -1095,7 +1273,7 @@ async function handleRequest(req, res, context, port, sendToAgent) {
   } else if (url.startsWith("/tasks/") && method === "DELETE") {
     await handleDeleteTask(res, context, url);
   } else if (url === "/feedback" && method === "POST") {
-    await handleFeedback(req, res, sendToAgent);
+    await handleFeedback(req, res, sendToAgent2);
   } else if (url === "/restart-app" || url.startsWith("/restart-app?")) {
     await handleRestartApp(req, res);
   } else if (url === "/ai/queue" && method === "GET") {
@@ -1103,7 +1281,7 @@ async function handleRequest(req, res, context, port, sendToAgent) {
   } else if (url === "/ai/queue" && method === "POST") {
     await handleEnqueueInstruction(req, res);
   } else if (url === "/ai/queue/process" && method === "POST") {
-    await handleProcessQueue(res, sendToAgent);
+    await handleProcessQueue(res, sendToAgent2);
   } else if (url === "/ai/queue/stats" && method === "GET") {
     handleGetQueueStats(res);
   } else if (url.startsWith("/ai/queue/") && method === "DELETE") {
@@ -1329,7 +1507,7 @@ async function handleDeleteTask(res, context, url) {
     res.end(JSON.stringify({ error: "Failed to delete task" }));
   }
 }
-async function handleFeedback(req, res, sendToAgent) {
+async function handleFeedback(req, res, sendToAgent2) {
   const body = await readRequestBody(req, 1024 * 1024);
   try {
     const feedback = JSON.parse(body);
@@ -1350,7 +1528,7 @@ async function handleFeedback(req, res, sendToAgent) {
       messageLength: sanitizedMessage.length,
       hasContext: !!feedback.context
     });
-    const success = await sendToAgent(sanitizedMessage, feedback.context);
+    const success = await sendToAgent2(sanitizedMessage, feedback.context);
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify({
       success,
@@ -1460,9 +1638,9 @@ async function handleEnqueueInstruction(req, res) {
     res.end(JSON.stringify({ error: "Internal server error", message: getErrorMessage(error) }));
   }
 }
-async function handleProcessQueue(res, sendToAgent) {
+async function handleProcessQueue(res, sendToAgent2) {
   try {
-    const processed = await processNextInstruction(sendToAgent);
+    const processed = await processNextInstruction(sendToAgent2);
     if (processed) {
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({
@@ -1527,6 +1705,53 @@ function handleClearQueue(res) {
 }
 
 // src/test/suite/server.test.ts
+suite("Server Validation Tests", () => {
+  let mockContext;
+  let mockSendToAgent;
+  setup(() => {
+    mockContext = {
+      subscriptions: [],
+      globalState: {
+        get: () => void 0,
+        update: async () => {
+        },
+        keys: () => [],
+        setKeysForSync: () => {
+        }
+      },
+      workspaceState: {
+        get: () => void 0,
+        update: async () => {
+        },
+        keys: () => []
+      }
+    };
+    mockSendToAgent = async (message) => {
+      return true;
+    };
+  });
+  test("startServer should reject invalid port number (too low)", () => {
+    assert3.throws(
+      () => startServer(mockContext, 500, mockSendToAgent),
+      /Invalid port number.*Must be between 1024 and 65535/,
+      "Should throw error for port < 1024"
+    );
+  });
+  test("startServer should reject invalid port number (too high)", () => {
+    assert3.throws(
+      () => startServer(mockContext, 7e4, mockSendToAgent),
+      /Invalid port number.*Must be between 1024 and 65535/,
+      "Should throw error for port > 65535"
+    );
+  });
+  test("startServer should reject invalid port number (negative)", () => {
+    assert3.throws(
+      () => startServer(mockContext, -1, mockSendToAgent),
+      /Invalid port number.*Must be between 1024 and 65535/,
+      "Should throw error for negative port"
+    );
+  });
+});
 suite("Server HTTP Endpoints Test Suite", () => {
   let testServer;
   let testPort;
@@ -2034,20 +2259,1389 @@ suite("Server HTTP Endpoints Test Suite", () => {
   });
 });
 
+// src/test/suite/statusBar.test.ts
+var assert4 = __toESM(require("assert"));
+var vscode5 = __toESM(require("vscode"));
+
+// src/modules/statusBar.ts
+var vscode4 = __toESM(require("vscode"));
+init_types();
+init_logging();
+var statusBarToggle;
+var statusBarSettings;
+var statusBarInject;
+var currentPortRef = 3737;
+function initializeStatusBar(context, currentPort, config) {
+  currentPortRef = currentPort;
+  statusBarSettings = vscode4.window.createStatusBarItem(vscode4.StatusBarAlignment.Right, 100);
+  statusBarSettings.command = "ai-feedback-bridge.openSettings";
+  statusBarSettings.show();
+  context.subscriptions.push(statusBarSettings);
+  statusBarToggle = vscode4.window.createStatusBarItem(vscode4.StatusBarAlignment.Right, 99);
+  statusBarToggle.command = "ai-feedback-bridge.toggleAutoContinue";
+  statusBarToggle.show();
+  context.subscriptions.push(statusBarToggle);
+  statusBarInject = vscode4.window.createStatusBarItem(vscode4.StatusBarAlignment.Right, 98);
+  statusBarInject.command = "ai-feedback-bridge.injectScript";
+  statusBarInject.text = "$(clippy) Inject";
+  statusBarInject.tooltip = "Copy auto-approval script to clipboard";
+  statusBarInject.show();
+  context.subscriptions.push(statusBarInject);
+  updateStatusBar(config);
+  log("INFO" /* INFO */, "Status bar items initialized");
+}
+function updateStatusBar(config, countdown) {
+  if (!statusBarToggle || !statusBarSettings) {
+    return;
+  }
+  const autoEnabled = config.get("autoContinue.enabled", false);
+  statusBarSettings.text = `AI Dev: ${currentPortRef}`;
+  statusBarSettings.tooltip = "Click to configure AI Feedback Bridge";
+  if (autoEnabled) {
+    const countdownText = countdown ? ` (${countdown})` : "";
+    statusBarToggle.text = `$(sync~spin) Stop AI Dev${countdownText}`;
+    statusBarToggle.tooltip = countdown ? `Auto-Continue active
+Next reminder: ${countdown}
+Click to stop` : "Auto-Continue active\nClick to stop";
+  } else {
+    statusBarToggle.text = "$(play) Start AI Dev";
+    statusBarToggle.tooltip = "Auto-Continue inactive\nClick to start";
+  }
+}
+
+// src/test/suite/statusBar.test.ts
+suite("Status Bar Module Tests", () => {
+  let context;
+  setup(async () => {
+    const ext = vscode5.extensions.getExtension("local.ai-feedback-bridge");
+    assert4.ok(ext, "Extension should be available for testing");
+    if (!ext.isActive) {
+      await ext.activate();
+    }
+    context = ext.exports?.context || {
+      subscriptions: [],
+      extensionPath: ""
+    };
+  });
+  test("initializeStatusBar should create status bar items", () => {
+    const mockConfig = {
+      get: (key, defaultValue) => {
+        if (key === "autoContinue.enabled") {
+          return false;
+        }
+        return defaultValue;
+      }
+    };
+    assert4.doesNotThrow(() => {
+      initializeStatusBar(context, 3737, mockConfig);
+    }, "Should initialize without errors");
+  });
+  test("updateStatusBar should handle auto-continue disabled state", () => {
+    const mockConfig = {
+      get: (key, defaultValue) => {
+        if (key === "autoContinue.enabled") {
+          return false;
+        }
+        return defaultValue;
+      }
+    };
+    initializeStatusBar(context, 3737, mockConfig);
+    assert4.doesNotThrow(() => {
+      updateStatusBar(mockConfig);
+    }, "Should update status bar when auto-continue disabled");
+  });
+  test("updateStatusBar should handle auto-continue enabled without countdown", () => {
+    const mockConfig = {
+      get: (key, defaultValue) => {
+        if (key === "autoContinue.enabled") {
+          return true;
+        }
+        return defaultValue;
+      }
+    };
+    initializeStatusBar(context, 3737, mockConfig);
+    assert4.doesNotThrow(() => {
+      updateStatusBar(mockConfig, void 0);
+    }, "Should update status bar when auto-continue enabled without countdown");
+  });
+  test("updateStatusBar should handle auto-continue enabled with countdown", () => {
+    const mockConfig = {
+      get: (key, defaultValue) => {
+        if (key === "autoContinue.enabled") {
+          return true;
+        }
+        return defaultValue;
+      }
+    };
+    initializeStatusBar(context, 3737, mockConfig);
+    assert4.doesNotThrow(() => {
+      updateStatusBar(mockConfig, "5m 30s");
+    }, "Should update status bar when auto-continue enabled with countdown");
+  });
+  test("updateStatusBar should handle being called before initialization", () => {
+    const mockConfig = {
+      get: (key, defaultValue) => {
+        return defaultValue;
+      }
+    };
+    assert4.doesNotThrow(() => {
+      updateStatusBar(mockConfig);
+    }, "Should handle being called before initialization");
+  });
+});
+
+// src/test/suite/autoContinue.test.ts
+var assert5 = __toESM(require("assert"));
+var vscode7 = __toESM(require("vscode"));
+init_autoContinue();
+suite("Auto-Continue Module Tests", () => {
+  let context;
+  setup(async () => {
+    const ext = vscode7.extensions.getExtension("local.ai-feedback-bridge");
+    assert5.ok(ext, "Extension should be available for testing");
+    if (!ext.isActive) {
+      await ext.activate();
+    }
+    context = ext.exports?.context || {
+      globalState: {
+        get: () => ({}),
+        update: async () => {
+        },
+        keys: () => []
+      },
+      workspaceState: {
+        get: () => void 0,
+        update: async () => {
+        },
+        keys: () => []
+      },
+      subscriptions: [],
+      extensionPath: ""
+    };
+  });
+  teardown(() => {
+    stopAutoContinue();
+  });
+  test("formatCountdown should format seconds correctly", () => {
+    assert5.strictEqual(formatCountdown(0), "0s", "Zero seconds");
+    assert5.strictEqual(formatCountdown(30), "30s", "Under a minute");
+    assert5.strictEqual(formatCountdown(45), "45s", "45 seconds");
+  });
+  test("formatCountdown should format minutes correctly", () => {
+    assert5.strictEqual(formatCountdown(60), "1m", "Exactly 1 minute");
+    assert5.strictEqual(formatCountdown(90), "1m 30s", "1 minute 30 seconds");
+    assert5.strictEqual(formatCountdown(150), "2m 30s", "2 minutes 30 seconds");
+    assert5.strictEqual(formatCountdown(300), "5m", "Exactly 5 minutes");
+  });
+  test("formatCountdown should format hours correctly", () => {
+    assert5.strictEqual(formatCountdown(3600), "1h", "Exactly 1 hour");
+    assert5.strictEqual(formatCountdown(3660), "1h 1m", "1 hour 1 minute");
+    assert5.strictEqual(formatCountdown(3900), "1h 5m", "1 hour 5 minutes");
+    assert5.strictEqual(formatCountdown(7200), "2h", "Exactly 2 hours");
+    assert5.strictEqual(formatCountdown(7320), "2h 2m", "2 hours 2 minutes");
+  });
+  test("formatCountdown should handle large values", () => {
+    assert5.strictEqual(formatCountdown(86400), "24h", "24 hours");
+    assert5.strictEqual(formatCountdown(9e4), "25h", "25 hours");
+  });
+  test("formatCountdown should handle negative values", () => {
+    assert5.strictEqual(formatCountdown(-10), "0s", "Negative value");
+    assert5.strictEqual(formatCountdown(-100), "0s", "Large negative value");
+  });
+  test("getSmartAutoContinueMessage should return empty string when no categories enabled", async () => {
+    const mockConfig = {
+      get: (key, defaultValue) => {
+        if (key.includes("enabled")) {
+          return false;
+        }
+        return defaultValue;
+      }
+    };
+    const message = await getSmartAutoContinueMessage(
+      context,
+      () => mockConfig,
+      false
+    );
+    assert5.strictEqual(message, "", "Should return empty when no categories enabled");
+  });
+  test("getSmartAutoContinueMessage should include enabled categories when forced", async () => {
+    const mockConfig = {
+      get: (key, defaultValue) => {
+        if (key === "autoContinue.tasks.enabled") {
+          return true;
+        }
+        if (key === "autoContinue.tasks.message") {
+          return "Check pending tasks";
+        }
+        if (key === "autoContinue.tasks.interval") {
+          return 300;
+        }
+        if (key.includes("enabled")) {
+          return false;
+        }
+        return defaultValue;
+      }
+    };
+    const message = await getSmartAutoContinueMessage(
+      context,
+      () => mockConfig,
+      true
+      // Force send
+    );
+    assert5.ok(message.includes("Check pending tasks"), "Should include task message when forced");
+  });
+  test("getSmartAutoContinueMessage should combine multiple enabled categories", async () => {
+    const mockConfig = {
+      get: (key, defaultValue) => {
+        if (key === "autoContinue.tasks.enabled") {
+          return true;
+        }
+        if (key === "autoContinue.tasks.message") {
+          return "Check tasks";
+        }
+        if (key === "autoContinue.improvements.enabled") {
+          return true;
+        }
+        if (key === "autoContinue.improvements.message") {
+          return "Consider improvements";
+        }
+        if (key.includes("interval")) {
+          return 300;
+        }
+        if (key.includes("enabled")) {
+          return false;
+        }
+        return defaultValue;
+      }
+    };
+    const message = await getSmartAutoContinueMessage(
+      context,
+      () => mockConfig,
+      true
+      // Force send
+    );
+    assert5.ok(message.includes("Check tasks"), "Should include tasks");
+    assert5.ok(message.includes("Consider improvements"), "Should include improvements");
+    assert5.ok(message.endsWith("."), "Should end with period");
+  });
+  test("getSmartAutoContinueMessage should respect intervals when not forced", async () => {
+    const mockConfig = {
+      get: (key, defaultValue) => {
+        if (key === "autoContinue.tasks.enabled") {
+          return true;
+        }
+        if (key === "autoContinue.tasks.message") {
+          return "Check tasks";
+        }
+        if (key === "autoContinue.tasks.interval") {
+          return 9999;
+        }
+        if (key.includes("enabled")) {
+          return false;
+        }
+        return defaultValue;
+      }
+    };
+    const message1 = await getSmartAutoContinueMessage(
+      context,
+      () => mockConfig,
+      false
+    );
+    assert5.ok(message1.includes("Check tasks"), "First call should include message");
+    const message2 = await getSmartAutoContinueMessage(
+      context,
+      () => mockConfig,
+      false
+    );
+    assert5.strictEqual(message2, "", "Second call should be empty (interval not elapsed)");
+  });
+  test("getSmartAutoContinueMessage should skip categories with empty messages", async () => {
+    const mockConfig = {
+      get: (key, defaultValue) => {
+        if (key === "autoContinue.tasks.enabled") {
+          return true;
+        }
+        if (key === "autoContinue.tasks.message") {
+          return "";
+        }
+        if (key.includes("enabled")) {
+          return false;
+        }
+        return defaultValue;
+      }
+    };
+    const message = await getSmartAutoContinueMessage(
+      context,
+      () => mockConfig,
+      true
+    );
+    assert5.strictEqual(message, "", "Should skip categories with empty messages");
+  });
+  test("getTimeUntilNextReminder should return valid seconds", () => {
+    const mockConfig = {
+      get: (key, defaultValue) => {
+        if (key === "autoContinue.tasks.enabled") {
+          return true;
+        }
+        if (key === "autoContinue.tasks.interval") {
+          return 300;
+        }
+        if (key.includes("enabled")) {
+          return false;
+        }
+        return defaultValue;
+      }
+    };
+    const seconds = getTimeUntilNextReminder(context, () => mockConfig);
+    assert5.ok(typeof seconds === "number" || seconds === null, "Should return a number or null");
+    if (seconds !== null) {
+      assert5.ok(seconds >= 0, "Should return non-negative value");
+      assert5.ok(seconds <= 300, "Should not exceed max interval");
+    }
+  });
+  test("getTimeUntilNextReminder should return null when no categories enabled", () => {
+    const mockConfig = {
+      get: (key, defaultValue) => {
+        if (key.includes("enabled")) {
+          return false;
+        }
+        return defaultValue;
+      }
+    };
+    const seconds = getTimeUntilNextReminder(context, () => mockConfig);
+    assert5.strictEqual(seconds, null, "Should return null when nothing enabled");
+  });
+  test("startAutoContinue and stopAutoContinue should not throw", () => {
+    const mockSendToAgent = async () => true;
+    assert5.doesNotThrow(() => {
+      startAutoContinue(
+        context,
+        () => vscode7.workspace.getConfiguration("aiFeedbackBridge"),
+        mockSendToAgent
+      );
+    }, "startAutoContinue should not throw");
+    assert5.doesNotThrow(() => {
+      stopAutoContinue();
+    }, "stopAutoContinue should not throw");
+  });
+  test("stopAutoContinue should be idempotent", () => {
+    assert5.doesNotThrow(() => {
+      stopAutoContinue();
+      stopAutoContinue();
+      stopAutoContinue();
+    }, "Multiple calls to stopAutoContinue should be safe");
+  });
+  test("formatCountdown should handle edge case values", () => {
+    assert5.strictEqual(formatCountdown(1), "1s", "Single second");
+    assert5.strictEqual(formatCountdown(59), "59s", "Just under a minute");
+    assert5.strictEqual(formatCountdown(61), "1m 1s", "Just over a minute");
+    assert5.strictEqual(formatCountdown(3599), "59m 59s", "Just under an hour");
+    assert5.strictEqual(formatCountdown(3601), "1h", "Just over an hour (seconds hidden)");
+  });
+  test("Message formatting should be consistent", async () => {
+    const mockConfig = {
+      get: (key, defaultValue) => {
+        if (key === "autoContinue.tasks.enabled") {
+          return true;
+        }
+        if (key === "autoContinue.tasks.message") {
+          return "Message without period";
+        }
+        if (key.includes("enabled")) {
+          return false;
+        }
+        return defaultValue;
+      }
+    };
+    const message = await getSmartAutoContinueMessage(
+      context,
+      () => mockConfig,
+      true
+    );
+    assert5.ok(message.endsWith("."), "Combined message should end with period");
+  });
+  test("getSmartAutoContinueMessage should handle empty guiding documents", async () => {
+    const mockConfig = {
+      get: (key, defaultValue) => {
+        if (key === "autoContinue.tasks.enabled") {
+          return true;
+        }
+        if (key === "autoContinue.tasks.message") {
+          return "Check tasks.";
+        }
+        if (key.includes("enabled")) {
+          return false;
+        }
+        if (key === "guidingDocuments.files") {
+          return [];
+        }
+        return defaultValue;
+      }
+    };
+    const message = await getSmartAutoContinueMessage(
+      context,
+      () => mockConfig,
+      true
+      // Force send
+    );
+    assert5.ok(message.includes("Check tasks"), "Should include task message");
+    assert5.ok(!message.includes("# Guiding Documents"), "Should not include guiding documents header when empty");
+  });
+  test("stopAutoContinue should handle being called when timer already stopped", () => {
+    stopAutoContinue();
+    assert5.doesNotThrow(() => {
+      stopAutoContinue();
+    }, "Should not throw when stopping already stopped timer");
+  });
+  test("formatCountdown should handle exact minute boundaries without seconds", () => {
+    assert5.strictEqual(formatCountdown(120), "2m", "Exactly 2 minutes");
+    assert5.strictEqual(formatCountdown(180), "3m", "Exactly 3 minutes");
+  });
+  test("formatCountdown should handle hours with no remaining minutes", () => {
+    assert5.strictEqual(formatCountdown(7200), "2h", "Exactly 2 hours, no minutes");
+    assert5.strictEqual(formatCountdown(10800), "3h", "Exactly 3 hours, no minutes");
+  });
+  test("startAutoContinue should do nothing when disabled", () => {
+    const mockConfig = {
+      get: (key, defaultValue) => {
+        if (key === "autoContinue.enabled") {
+          return false;
+        }
+        return defaultValue;
+      }
+    };
+    const mockSendToAgent = async () => true;
+    startAutoContinue(context, () => mockConfig, mockSendToAgent);
+    const { isAutoContinueActive: isAutoContinueActive2 } = (init_autoContinue(), __toCommonJS(autoContinue_exports));
+    assert5.strictEqual(isAutoContinueActive2(), false, "Timer should not be active when disabled");
+  });
+  test("startAutoContinue should start timer when enabled", () => {
+    const mockConfig = {
+      get: (key, defaultValue) => {
+        if (key === "autoContinue.enabled") {
+          return true;
+        }
+        if (key.includes("enabled")) {
+          return false;
+        }
+        return defaultValue;
+      }
+    };
+    const mockSendToAgent = async () => true;
+    startAutoContinue(context, () => mockConfig, mockSendToAgent);
+    const { isAutoContinueActive: isAutoContinueActive2 } = (init_autoContinue(), __toCommonJS(autoContinue_exports));
+    assert5.strictEqual(isAutoContinueActive2(), true, "Timer should be active when enabled");
+    stopAutoContinue();
+  });
+  test("restartAutoContinue should stop and restart timer", () => {
+    const { restartAutoContinue: restartAutoContinue3, isAutoContinueActive: isAutoContinueActive2 } = (init_autoContinue(), __toCommonJS(autoContinue_exports));
+    const mockConfig = {
+      get: (key, defaultValue) => {
+        if (key === "autoContinue.enabled") {
+          return true;
+        }
+        if (key.includes("enabled")) {
+          return false;
+        }
+        return defaultValue;
+      }
+    };
+    const mockSendToAgent = async () => true;
+    startAutoContinue(context, () => mockConfig, mockSendToAgent);
+    assert5.strictEqual(isAutoContinueActive2(), true, "Timer should be active initially");
+    restartAutoContinue3(context, () => mockConfig, mockSendToAgent);
+    assert5.strictEqual(isAutoContinueActive2(), true, "Timer should still be active after restart");
+    stopAutoContinue();
+  });
+  test("isAutoContinueActive should return correct state", () => {
+    const { isAutoContinueActive: isAutoContinueActive2 } = (init_autoContinue(), __toCommonJS(autoContinue_exports));
+    stopAutoContinue();
+    assert5.strictEqual(isAutoContinueActive2(), false, "Should be inactive initially");
+    const mockConfig = {
+      get: (key, defaultValue) => {
+        if (key === "autoContinue.enabled") {
+          return true;
+        }
+        if (key.includes("enabled")) {
+          return false;
+        }
+        return defaultValue;
+      }
+    };
+    startAutoContinue(context, () => mockConfig, async () => true);
+    assert5.strictEqual(isAutoContinueActive2(), true, "Should be active after start");
+    stopAutoContinue();
+    assert5.strictEqual(isAutoContinueActive2(), false, "Should be inactive after stop");
+  });
+  test("getSmartAutoContinueMessage should handle category with message but not enabled", async () => {
+    const mockConfig = {
+      get: (key, defaultValue) => {
+        if (key === "autoContinue.tasks.enabled") {
+          return false;
+        }
+        if (key === "autoContinue.tasks.message") {
+          return "This message should not be included";
+        }
+        if (key.includes("enabled")) {
+          return false;
+        }
+        return defaultValue;
+      }
+    };
+    const message = await getSmartAutoContinueMessage(
+      context,
+      () => mockConfig,
+      true
+    );
+    assert5.strictEqual(message, "", "Should not include message from disabled category");
+  });
+  test("getTimeUntilNextReminder should calculate shortest time across multiple categories", () => {
+    const mockContext = {
+      ...context,
+      globalState: {
+        get: (key, defaultValue) => {
+          if (key === "autoContinue.lastSent") {
+            const now = Date.now();
+            return {
+              "tasks": now - 1e5,
+              // 100 seconds ago
+              "improvements": now - 2e5
+              // 200 seconds ago
+            };
+          }
+          return defaultValue;
+        },
+        update: async () => {
+        },
+        keys: () => []
+      }
+    };
+    const mockConfig = {
+      get: (key, defaultValue) => {
+        if (key === "autoContinue.tasks.enabled") {
+          return true;
+        }
+        if (key === "autoContinue.tasks.interval") {
+          return 300;
+        }
+        if (key === "autoContinue.tasks.message") {
+          return "Check tasks";
+        }
+        if (key === "autoContinue.improvements.enabled") {
+          return true;
+        }
+        if (key === "autoContinue.improvements.interval") {
+          return 250;
+        }
+        if (key === "autoContinue.improvements.message") {
+          return "Check improvements";
+        }
+        if (key.includes("enabled")) {
+          return false;
+        }
+        return defaultValue;
+      }
+    };
+    const seconds = getTimeUntilNextReminder(mockContext, () => mockConfig);
+    assert5.ok(seconds !== null, "Should return a value");
+    assert5.ok(seconds >= 0, "Should be non-negative");
+    assert5.ok(seconds <= 250, "Should not exceed shortest interval");
+  });
+  test("startAutoContinue timer should handle errors gracefully", async function() {
+    this.timeout(3e3);
+    let errorThrown = false;
+    const mockSendToAgent = async () => {
+      errorThrown = true;
+      throw new Error("Test error in sendToAgent");
+    };
+    const mockConfig = {
+      get: (key, defaultValue) => {
+        if (key === "autoContinue.enabled") {
+          return true;
+        }
+        if (key === "autoContinue.tasks.enabled") {
+          return true;
+        }
+        if (key === "autoContinue.tasks.message") {
+          return "Test message";
+        }
+        if (key === "autoContinue.tasks.interval") {
+          return 0.1;
+        }
+        if (key.includes("enabled")) {
+          return false;
+        }
+        return defaultValue;
+      }
+    };
+    await context.globalState.update("autoContinue.lastSent", {
+      "tasks": 0
+    });
+    startAutoContinue(context, () => mockConfig, mockSendToAgent);
+    await new Promise((resolve) => setTimeout(resolve, 1e3));
+    stopAutoContinue();
+    assert5.strictEqual(errorThrown, true, "Error should have been thrown and caught");
+  });
+  test("startAutoContinue timer should stop itself when disabled during execution", async function() {
+    this.timeout(3e3);
+    let callCount = 0;
+    let configEnabled = true;
+    const mockSendToAgent = async () => {
+      callCount++;
+      return true;
+    };
+    const mockConfig = {
+      get: (key, defaultValue) => {
+        if (key === "autoContinue.enabled") {
+          return configEnabled;
+        }
+        if (key.includes("enabled")) {
+          return false;
+        }
+        return defaultValue;
+      }
+    };
+    startAutoContinue(context, () => mockConfig, mockSendToAgent);
+    await new Promise((resolve) => setTimeout(resolve, 600));
+    configEnabled = false;
+    await new Promise((resolve) => setTimeout(resolve, 600));
+    assert5.strictEqual(isAutoContinueActive(), false, "Timer should stop when disabled");
+  });
+});
+
+// src/test/suite/taskManager.test.ts
+var assert6 = __toESM(require("assert"));
+var vscode8 = __toESM(require("vscode"));
+suite("TaskManager Module Tests", () => {
+  let context;
+  suiteSetup(async () => {
+    const ext = vscode8.extensions.getExtension("local.ai-feedback-bridge");
+    assert6.ok(ext, "Extension should be available");
+    await ext.activate();
+    context = ext.exports.context || createMockContext();
+  });
+  setup(async () => {
+    await clearCompletedTasks(context);
+    const tasks = await getTasks(context);
+    for (const task of tasks) {
+      await removeTask(context, task.id);
+    }
+  });
+  suite("getTasks", () => {
+    test("should return empty array when no tasks exist", async () => {
+      const tasks = await getTasks(context);
+      assert6.strictEqual(Array.isArray(tasks), true);
+      assert6.strictEqual(tasks.length, 0);
+    });
+    test("should return array even with corrupted state", async () => {
+      await context.workspaceState.update("tasks", "invalid");
+      const tasks = await getTasks(context);
+      assert6.strictEqual(Array.isArray(tasks), true);
+      assert6.strictEqual(tasks.length, 0);
+    });
+    test("should handle storage read errors gracefully", async () => {
+      const errorContext = {
+        ...context,
+        workspaceState: {
+          get: () => {
+            throw new Error("Storage read error");
+          },
+          update: async () => {
+          },
+          keys: () => []
+        }
+      };
+      const tasks = await getTasks(errorContext);
+      assert6.strictEqual(Array.isArray(tasks), true);
+      assert6.strictEqual(tasks.length, 0);
+    });
+    test("should return all added tasks", async () => {
+      await addTask(context, "Task 1", "Description 1", "bug");
+      await addTask(context, "Task 2", "Description 2", "feature");
+      const tasks = await getTasks(context);
+      assert6.strictEqual(tasks.length, 2);
+      assert6.strictEqual(tasks[0].title, "Task 1");
+      assert6.strictEqual(tasks[1].title, "Task 2");
+    });
+  });
+  suite("addTask", () => {
+    test("should add task with valid data", async () => {
+      const task = await addTask(context, "Test Task", "Test Description", "bug");
+      assert6.ok(task);
+      assert6.strictEqual(task.title, "Test Task");
+      assert6.strictEqual(task.description, "Test Description");
+      assert6.strictEqual(task.category, "bug");
+      assert6.strictEqual(task.status, "pending");
+      assert6.ok(task.id);
+      assert6.ok(task.createdAt);
+    });
+    test("should trim whitespace from title and description", async () => {
+      const task = await addTask(context, "  Spaced Task  ", "  Spaced Desc  ", "feature");
+      assert6.strictEqual(task.title, "Spaced Task");
+      assert6.strictEqual(task.description, "Spaced Desc");
+    });
+    test("should reject empty title", async () => {
+      await assert6.rejects(
+        async () => await addTask(context, "", "Description", "bug"),
+        /Title is required/
+      );
+    });
+    test("should reject whitespace-only title", async () => {
+      await assert6.rejects(
+        async () => await addTask(context, "   ", "Description", "bug"),
+        /Title is required/
+      );
+    });
+    test("should reject title longer than 200 characters", async () => {
+      const longTitle = "a".repeat(201);
+      await assert6.rejects(
+        async () => await addTask(context, longTitle, "Description", "bug"),
+        /Title too long/
+      );
+    });
+    test("should accept title exactly 200 characters", async () => {
+      const title = "a".repeat(200);
+      const task = await addTask(context, title, "Description", "bug");
+      assert6.strictEqual(task.title.length, 200);
+    });
+    test("should reject description longer than 5000 characters", async () => {
+      const longDesc = "a".repeat(5001);
+      await assert6.rejects(
+        async () => await addTask(context, "Title", longDesc, "bug"),
+        /Description too long/
+      );
+    });
+    test("should accept empty description", async () => {
+      const task = await addTask(context, "Title", "", "bug");
+      assert6.strictEqual(task.description, "");
+    });
+    test("should generate unique IDs for tasks", async () => {
+      const task1 = await addTask(context, "Task 1", "", "bug");
+      const task2 = await addTask(context, "Task 2", "", "feature");
+      assert6.notStrictEqual(task1.id, task2.id);
+    });
+    test("saveTasks should throw when provided non-array", async () => {
+      await assert6.rejects(async () => {
+        await saveTasks(context, {});
+      }, /Tasks must be an array/);
+    });
+  });
+  suite("updateTaskStatus", () => {
+    test("should update task status", async () => {
+      const task = await addTask(context, "Test Task", "", "bug");
+      await updateTaskStatus(context, task.id, "in-progress");
+      const tasks = await getTasks(context);
+      const updated = tasks.find((t) => t.id === task.id);
+      assert6.strictEqual(updated?.status, "in-progress");
+    });
+    test("should update updatedAt timestamp when marked completed", async () => {
+      const task = await addTask(context, "Test Task", "", "bug");
+      await updateTaskStatus(context, task.id, "completed");
+      const tasks = await getTasks(context);
+      const completed = tasks.find((t) => t.id === task.id);
+      assert6.ok(completed?.updatedAt);
+      assert6.strictEqual(completed?.status, "completed");
+    });
+    test("should handle non-existent task ID gracefully", async () => {
+      await updateTaskStatus(context, "non-existent-id", "completed");
+    });
+  });
+  suite("removeTask", () => {
+    test("should remove task by ID", async () => {
+      const task = await addTask(context, "Test Task", "", "bug");
+      await removeTask(context, task.id);
+      const tasks = await getTasks(context);
+      assert6.strictEqual(tasks.length, 0);
+    });
+    test("should remove only specified task", async () => {
+      const task1 = await addTask(context, "Task 1", "", "bug");
+      const task2 = await addTask(context, "Task 2", "", "feature");
+      await removeTask(context, task1.id);
+      const tasks = await getTasks(context);
+      assert6.strictEqual(tasks.length, 1);
+      assert6.strictEqual(tasks[0].id, task2.id);
+    });
+    test("should handle non-existent task ID gracefully", async () => {
+      await removeTask(context, "non-existent-id");
+    });
+  });
+  suite("clearCompletedTasks", () => {
+    test("should remove only completed tasks", async () => {
+      const task1 = await addTask(context, "Task 1", "", "bug");
+      const task2 = await addTask(context, "Task 2", "", "feature");
+      const task3 = await addTask(context, "Task 3", "", "improvement");
+      await updateTaskStatus(context, task1.id, "completed");
+      await updateTaskStatus(context, task2.id, "in-progress");
+      await clearCompletedTasks(context);
+      const tasks = await getTasks(context);
+      assert6.strictEqual(tasks.length, 2);
+      assert6.ok(!tasks.find((t) => t.id === task1.id));
+      assert6.ok(tasks.find((t) => t.id === task2.id));
+      assert6.ok(tasks.find((t) => t.id === task3.id));
+    });
+  });
+});
+function createMockContext() {
+  const storage = /* @__PURE__ */ new Map();
+  return {
+    workspaceState: {
+      get: (key) => storage.get(key),
+      update: async (key, value) => {
+        storage.set(key, value);
+      },
+      keys: () => Array.from(storage.keys())
+    },
+    subscriptions: [],
+    extensionPath: "",
+    extensionUri: vscode8.Uri.file(""),
+    environmentVariableCollection: {},
+    extensionMode: vscode8.ExtensionMode.Test,
+    globalState: {
+      get: (key) => void 0,
+      update: async (key, value) => {
+      },
+      keys: () => [],
+      setKeysForSync: (keys) => {
+      }
+    },
+    secrets: {},
+    storageUri: void 0,
+    globalStorageUri: vscode8.Uri.file(""),
+    logUri: vscode8.Uri.file(""),
+    asAbsolutePath: (path3) => path3,
+    storagePath: void 0,
+    globalStoragePath: "",
+    logPath: "",
+    extension: {},
+    languageModelAccessInformation: {}
+  };
+}
+
+// src/test/suite/portManager.test.ts
+var assert7 = __toESM(require("assert"));
+var vscode10 = __toESM(require("vscode"));
+
+// src/modules/portManager.ts
+var vscode9 = __toESM(require("vscode"));
+var http3 = __toESM(require("http"));
+init_logging();
+init_types();
+var PORT_REGISTRY_KEY = "aiFeedbackBridge.portRegistry";
+var BASE_PORT = 3737;
+var MAX_PORT_SEARCH = 50;
+async function getPortRegistry(context) {
+  return context.globalState.get(PORT_REGISTRY_KEY, []);
+}
+async function savePortRegistry(context, registry) {
+  await context.globalState.update(PORT_REGISTRY_KEY, registry);
+}
+async function findAvailablePort(context) {
+  const registry = await getPortRegistry(context);
+  const workspaceName = vscode9.workspace.name || "No Workspace";
+  const workspaceId = vscode9.workspace.workspaceFolders?.[0]?.uri.fsPath || "no-workspace";
+  const oneHourAgo = Date.now() - 60 * 60 * 1e3;
+  const activeRegistry = registry.filter((entry) => entry.timestamp > oneHourAgo);
+  const existingEntry = activeRegistry.find((entry) => entry.workspace === workspaceId);
+  if (existingEntry) {
+    log("INFO" /* INFO */, `Reusing existing port ${existingEntry.port} for workspace`);
+    existingEntry.timestamp = Date.now();
+    await savePortRegistry(context, activeRegistry);
+    return existingEntry.port;
+  }
+  const usedPorts = new Set(activeRegistry.map((e) => e.port));
+  let port = BASE_PORT;
+  for (let i = 0; i < MAX_PORT_SEARCH; i++) {
+    const candidatePort = BASE_PORT + i;
+    if (!usedPorts.has(candidatePort)) {
+      const isAvailable = await isPortAvailable(candidatePort);
+      if (isAvailable) {
+        port = candidatePort;
+        break;
+      }
+    }
+  }
+  activeRegistry.push({
+    port,
+    workspace: workspaceId,
+    timestamp: Date.now()
+  });
+  await savePortRegistry(context, activeRegistry);
+  log("INFO" /* INFO */, `Auto-assigned port ${port} for workspace: ${workspaceName}`);
+  return port;
+}
+async function isPortAvailable(port) {
+  return new Promise((resolve) => {
+    const testServer = http3.createServer();
+    testServer.once("error", (err) => {
+      if (err.code === "EADDRINUSE") {
+        resolve(false);
+      } else {
+        resolve(true);
+      }
+    });
+    testServer.once("listening", () => {
+      testServer.close();
+      resolve(true);
+    });
+    testServer.listen(port);
+  });
+}
+async function releasePort(context, port) {
+  const registry = await getPortRegistry(context);
+  const workspaceId = vscode9.workspace.workspaceFolders?.[0]?.uri.fsPath || "no-workspace";
+  const filtered = registry.filter(
+    (entry) => !(entry.port === port && entry.workspace === workspaceId)
+  );
+  await savePortRegistry(context, filtered);
+  log("INFO" /* INFO */, `Released port ${port}`);
+}
+
+// src/test/suite/portManager.test.ts
+suite("PortManager Module Tests", () => {
+  let context;
+  suiteSetup(async () => {
+    const ext = vscode10.extensions.getExtension("local.ai-feedback-bridge");
+    assert7.ok(ext, "Extension should be available");
+    await ext.activate();
+    context = ext.exports.context || createMockContext2();
+  });
+  suite("findAvailablePort", () => {
+    test("should find an available port", async () => {
+      const port = await findAvailablePort(context);
+      assert7.ok(port);
+      assert7.strictEqual(typeof port, "number");
+      assert7.ok(port >= 1024 && port <= 65535);
+    });
+    test("should return valid port in expected range", async () => {
+      const testContext = createMockContext2();
+      const port = await findAvailablePort(testContext);
+      assert7.ok(port >= 3737);
+      assert7.ok(port < 65536);
+    });
+    test("should return unique ports for different workspaces", async () => {
+      const context1 = createMockContext2();
+      const context2 = createMockContext2();
+      context1.workspaceId = "workspace-1";
+      context2.workspaceId = "workspace-2";
+      const port1 = await findAvailablePort(context1);
+      const port2 = await findAvailablePort(context2);
+      assert7.ok(port1 >= 3737 && port1 < 65536);
+      assert7.ok(port2 >= 3737 && port2 < 65536);
+    });
+    test("should reuse port for same workspace", async () => {
+      const testContext = createMockContext2();
+      const port1 = await findAvailablePort(testContext);
+      const port2 = await findAvailablePort(testContext);
+      assert7.strictEqual(port1, port2, "Should reuse port for same workspace");
+    });
+    test("should skip ports that are already bound (EADDRINUSE)", async () => {
+      const server2 = require("http").createServer();
+      await new Promise((resolve) => server2.listen(3737, resolve));
+      try {
+        const testContext = createMockContext2();
+        const port = await findAvailablePort(testContext);
+        assert7.notStrictEqual(port, 3737);
+      } finally {
+        await new Promise((resolve) => server2.close(() => resolve()));
+      }
+    });
+  });
+  suite("releasePort", () => {
+    test("should release allocated port", async () => {
+      const testContext = createMockContext2();
+      const port = await findAvailablePort(testContext);
+      await releasePort(testContext, port);
+      const newPort = await findAvailablePort(testContext);
+      assert7.ok(newPort >= 3737, "New port should be valid");
+    });
+    test("should handle releasing non-existent port", async () => {
+      const testContext = createMockContext2();
+      await releasePort(testContext, 9999);
+    });
+  });
+  suite("Edge Cases", () => {
+    test("should handle rapid allocation requests", async () => {
+      const contexts = [
+        createMockContext2(),
+        createMockContext2(),
+        createMockContext2()
+      ];
+      const ports = await Promise.all(
+        contexts.map((ctx) => findAvailablePort(ctx))
+      );
+      ports.forEach((port) => {
+        assert7.ok(port >= 3737 && port < 65536, `Port ${port} should be in valid range`);
+      });
+    });
+    test("should handle workspace without folders", async () => {
+      const testContext = createMockContext2();
+      const port = await findAvailablePort(testContext);
+      assert7.ok(port >= 3737);
+    });
+  });
+});
+function createMockContext2() {
+  const workspaceStorage = /* @__PURE__ */ new Map();
+  const globalStorage = /* @__PURE__ */ new Map();
+  return {
+    workspaceState: {
+      get: (key) => workspaceStorage.get(key),
+      update: async (key, value) => {
+        workspaceStorage.set(key, value);
+      },
+      keys: () => Array.from(workspaceStorage.keys())
+    },
+    subscriptions: [],
+    extensionPath: "",
+    extensionUri: vscode10.Uri.file(""),
+    environmentVariableCollection: {},
+    extensionMode: vscode10.ExtensionMode.Test,
+    globalState: {
+      get: (key) => globalStorage.get(key),
+      update: async (key, value) => {
+        if (value === void 0) {
+          globalStorage.delete(key);
+        } else {
+          globalStorage.set(key, value);
+        }
+      },
+      keys: () => Array.from(globalStorage.keys()),
+      setKeysForSync: (keys) => {
+      }
+    },
+    secrets: {},
+    storageUri: void 0,
+    globalStorageUri: vscode10.Uri.file(""),
+    logUri: vscode10.Uri.file(""),
+    asAbsolutePath: (path3) => path3,
+    storagePath: void 0,
+    globalStoragePath: "",
+    logPath: "",
+    extension: {},
+    languageModelAccessInformation: {}
+  };
+}
+
+// src/test/suite/chatIntegration.test.ts
+var assert8 = __toESM(require("assert"));
+var vscode12 = __toESM(require("vscode"));
+
+// src/modules/chatIntegration.ts
+var vscode11 = __toESM(require("vscode"));
+init_types();
+init_logging();
+var chatParticipant;
+var outputChannel2;
+function initChat(channel) {
+  outputChannel2 = channel;
+}
+function createChatParticipant(context) {
+  chatParticipant = vscode11.chat.createChatParticipant(
+    "ai-agent-feedback-bridge.agent",
+    handleChatRequest
+  );
+  chatParticipant.iconPath = vscode11.Uri.file(context.asAbsolutePath("icon.png"));
+  context.subscriptions.push(chatParticipant);
+  log("INFO" /* INFO */, "Chat participant registered");
+  return chatParticipant;
+}
+function getChatParticipant() {
+  return chatParticipant;
+}
+async function handleChatRequest(request2, context, stream, token) {
+  outputChannel2.appendLine(`Chat request received: ${request2.prompt}`);
+  stream.markdown(`### \u{1F504} Processing Feedback
+
+`);
+  stream.markdown(`**Message:** ${request2.prompt}
+
+`);
+  const feedbackMatch = request2.prompt.match(/# 🔄 FEEDBACK FROM AI AGENT SYSTEM APP/);
+  if (feedbackMatch) {
+    stream.markdown(`I've received feedback from your external AI agent system. Let me analyze it:
+
+`);
+  } else {
+    stream.markdown(`Processing your message...
+
+`);
+  }
+  try {
+    const [model] = await vscode11.lm.selectChatModels({ vendor: "copilot", family: "gpt-4o" });
+    if (model) {
+      const messages = [
+        vscode11.LanguageModelChatMessage.User(request2.prompt)
+      ];
+      const response = await model.sendRequest(messages, {}, token);
+      for await (const fragment of response.text) {
+        stream.markdown(fragment);
+      }
+    }
+  } catch (err) {
+    if (err instanceof vscode11.LanguageModelError) {
+      outputChannel2.appendLine(`Language model error: ${err.message}`);
+      stream.markdown(`\u26A0\uFE0F Error: ${err.message}
+
+`);
+    }
+  }
+  return { metadata: { command: "process-feedback" } };
+}
+function formatFeedbackMessage(feedbackMessage, appContext) {
+  const context = appContext || {
+    source: "unknown",
+    timestamp: (/* @__PURE__ */ new Date()).toISOString()
+  };
+  let fullMessage = `# \u{1F916} AI DEV MODE
+
+`;
+  fullMessage += `**User Feedback:**
+${feedbackMessage}
+
+`;
+  const contextKeys = Object.keys(context).filter((k) => k !== "source" && k !== "timestamp");
+  if (contextKeys.length > 0) {
+    fullMessage += `**Context:**
+\`\`\`json
+${JSON.stringify(context, null, 2)}
+\`\`\`
+
+`;
+  }
+  fullMessage += `**Instructions:**
+`;
+  fullMessage += `Analyze feedback, take appropriate action:
+`;
+  fullMessage += `\u2022 If a bug \u2192 find and fix root cause
+`;
+  fullMessage += `\u2022 If a feature \u2192 draft implementation plan
+`;
+  fullMessage += `\u2022 Apply and commit changes
+`;
+  return fullMessage;
+}
+async function sendToAgent(feedbackMessage, appContext) {
+  try {
+    const fullMessage = formatFeedbackMessage(feedbackMessage, appContext);
+    outputChannel2.appendLine("Processing feedback through AI agent...");
+    outputChannel2.appendLine(fullMessage);
+    try {
+      const [model] = await vscode11.lm.selectChatModels({ vendor: "copilot", family: "gpt-4o" });
+      if (model) {
+        outputChannel2.appendLine("\u2705 AI Agent processing request...");
+        await vscode11.commands.executeCommand("workbench.action.chat.open", {
+          query: `@agent ${fullMessage}`
+        });
+        setTimeout(async () => {
+          try {
+            await vscode11.commands.executeCommand("workbench.action.chat.submit");
+          } catch (e) {
+            outputChannel2.appendLine("Note: Could not auto-submit. User can press Enter to submit.");
+          }
+        }, 300);
+        log("INFO" /* INFO */, "Feedback sent to AI Agent");
+        return true;
+      }
+    } catch (modelError) {
+      outputChannel2.appendLine(`Could not access language model: ${getErrorMessage(modelError)}`);
+    }
+    await vscode11.env.clipboard.writeText(fullMessage);
+    log("INFO" /* INFO */, "Feedback copied to clipboard");
+    return true;
+  } catch (error) {
+    log("ERROR" /* ERROR */, `Error sending to agent: ${getErrorMessage(error)}`);
+    return false;
+  }
+}
+function disposeChat() {
+  if (chatParticipant) {
+    chatParticipant.dispose();
+    chatParticipant = void 0;
+    log("INFO" /* INFO */, "Chat participant disposed");
+  }
+}
+
+// src/test/suite/chatIntegration.test.ts
+suite("Chat Integration Module Tests", () => {
+  let outputChannel3;
+  let context;
+  setup(() => {
+    outputChannel3 = vscode12.window.createOutputChannel("Test Chat Integration");
+    const ext = vscode12.extensions.getExtension("local.ai-feedback-bridge");
+    assert8.ok(ext, "Extension should be available for testing");
+    context = ext.exports?.context || {
+      subscriptions: [],
+      extensionPath: "",
+      asAbsolutePath: (path3) => path3
+    };
+  });
+  teardown(() => {
+    disposeChat();
+    outputChannel3.dispose();
+  });
+  test("initChat should initialize output channel", () => {
+    assert8.doesNotThrow(() => {
+      initChat(outputChannel3);
+    }, "initChat should not throw error");
+  });
+  test("createChatParticipant should return participant instance", () => {
+    initChat(outputChannel3);
+    const participant = createChatParticipant(context);
+    assert8.ok(participant, "Participant should be created");
+    assert8.strictEqual(typeof participant, "object", "Participant should be an object");
+  });
+  test("getChatParticipant should return undefined before creation", () => {
+    disposeChat();
+    const participant = getChatParticipant();
+    assert8.strictEqual(participant, void 0, "Should return undefined when not created");
+  });
+  test("getChatParticipant should return participant after creation", () => {
+    initChat(outputChannel3);
+    createChatParticipant(context);
+    const participant = getChatParticipant();
+    assert8.ok(participant, "Should return participant after creation");
+  });
+  test("sendToAgent should handle message without errors", async () => {
+    initChat(outputChannel3);
+    createChatParticipant(context);
+    const message = "Test feedback message";
+    const feedbackContext = { source: "test", timestamp: (/* @__PURE__ */ new Date()).toISOString() };
+    await assert8.doesNotReject(async () => {
+      await sendToAgent(message, feedbackContext);
+    }, "sendToAgent should not reject with valid input");
+  });
+  test("sendToAgent should handle empty message", async () => {
+    initChat(outputChannel3);
+    createChatParticipant(context);
+    await assert8.doesNotReject(async () => {
+      await sendToAgent("", { source: "test", timestamp: (/* @__PURE__ */ new Date()).toISOString() });
+    }, "sendToAgent should handle empty message");
+  });
+  test("sendToAgent should handle very long message", async () => {
+    initChat(outputChannel3);
+    createChatParticipant(context);
+    const longMessage = "a".repeat(1e4);
+    await assert8.doesNotReject(async () => {
+      await sendToAgent(longMessage, { source: "test", timestamp: (/* @__PURE__ */ new Date()).toISOString() });
+    }, "sendToAgent should handle long messages");
+  });
+  test("sendToAgent should handle special characters", async () => {
+    initChat(outputChannel3);
+    createChatParticipant(context);
+    const specialMessage = `Test with special chars: @#$%^&*()_+{}[]|\\:";'<>?,./
+	`;
+    await assert8.doesNotReject(async () => {
+      await sendToAgent(specialMessage, { source: "test", timestamp: (/* @__PURE__ */ new Date()).toISOString() });
+    }, "sendToAgent should handle special characters");
+  });
+  test("sendToAgent should work without context", async () => {
+    initChat(outputChannel3);
+    createChatParticipant(context);
+    await assert8.doesNotReject(async () => {
+      await sendToAgent("Test message");
+    }, "sendToAgent should work without context parameter");
+  });
+  test("disposeChat should cleanup participant", () => {
+    initChat(outputChannel3);
+    createChatParticipant(context);
+    disposeChat();
+    const participant = getChatParticipant();
+    assert8.strictEqual(participant, void 0, "Participant should be undefined after disposal");
+  });
+  test("disposeChat should be idempotent", () => {
+    initChat(outputChannel3);
+    createChatParticipant(context);
+    assert8.doesNotThrow(() => {
+      disposeChat();
+      disposeChat();
+      disposeChat();
+    }, "disposeChat should be safe to call multiple times");
+  });
+  test("sendToAgent should handle markdown formatting", async () => {
+    initChat(outputChannel3);
+    createChatParticipant(context);
+    const markdownMessage = "# Header\n**Bold** and *italic* with `code` and [links](http://example.com)";
+    await assert8.doesNotReject(async () => {
+      await sendToAgent(markdownMessage, { source: "test", timestamp: (/* @__PURE__ */ new Date()).toISOString() });
+    }, "sendToAgent should handle markdown syntax");
+  });
+  test("sendToAgent should handle context with extra properties", async () => {
+    initChat(outputChannel3);
+    createChatParticipant(context);
+    const extendedContext = {
+      source: "test",
+      timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+      customField: "custom value",
+      nestedObject: { key: "value" },
+      array: [1, 2, 3]
+    };
+    await assert8.doesNotReject(async () => {
+      await sendToAgent("Test", extendedContext);
+    }, "sendToAgent should handle context with extra properties");
+  });
+  test("Multiple chat operations should work in sequence", async () => {
+    initChat(outputChannel3);
+    createChatParticipant(context);
+    await sendToAgent("First message", { source: "test1", timestamp: (/* @__PURE__ */ new Date()).toISOString() });
+    await sendToAgent("Second message", { source: "test2", timestamp: (/* @__PURE__ */ new Date()).toISOString() });
+    await sendToAgent("Third message", { source: "test3", timestamp: (/* @__PURE__ */ new Date()).toISOString() });
+    const participant = getChatParticipant();
+    assert8.ok(participant, "Participant should remain available after multiple operations");
+  });
+  test("sendToAgent before initialization should handle gracefully", async () => {
+    disposeChat();
+    await assert8.doesNotReject(async () => {
+      await sendToAgent("Test message", { source: "test", timestamp: (/* @__PURE__ */ new Date()).toISOString() });
+    }, "Should handle sendToAgent before initialization");
+  });
+  test("Context timestamps should be valid ISO 8601", async () => {
+    initChat(outputChannel3);
+    createChatParticipant(context);
+    const timestamp = (/* @__PURE__ */ new Date()).toISOString();
+    const parsedDate = new Date(timestamp);
+    assert8.ok(!isNaN(parsedDate.getTime()), "Timestamp should be valid ISO 8601 format");
+    await sendToAgent("Test", { source: "test", timestamp });
+  });
+});
+
+// src/test/suite/commands.integration.test.ts
+var assert9 = __toESM(require("assert"));
+var vscode13 = __toESM(require("vscode"));
+suite("Commands Integration Tests", () => {
+  test("toggleAutoContinue enables when disabled", async function() {
+    this.timeout(8e3);
+    const config = vscode13.workspace.getConfiguration("aiFeedbackBridge");
+    await config.update("autoContinue.enabled", false, vscode13.ConfigurationTarget.Global);
+    await vscode13.commands.executeCommand("ai-feedback-bridge.toggleAutoContinue");
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    const value = config.get("autoContinue.enabled");
+    assert9.strictEqual(value, true, "autoContinue should be enabled after toggle");
+  });
+  test("toggleAutoContinue disables when enabled", async function() {
+    this.timeout(8e3);
+    const config = vscode13.workspace.getConfiguration("aiFeedbackBridge");
+    await config.update("autoContinue.enabled", true, vscode13.ConfigurationTarget.Global);
+    await vscode13.commands.executeCommand("ai-feedback-bridge.toggleAutoContinue");
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    const value = config.get("autoContinue.enabled");
+    assert9.strictEqual(value, false, "autoContinue should be disabled after toggle");
+  });
+});
+
 // src/test/suite/extension.test.ts
 suite("AI Feedback Bridge Extension Test Suite", () => {
-  vscode4.window.showInformationMessage("Start all tests.");
+  vscode14.window.showInformationMessage("Start all tests.");
   test("Extension should be present", () => {
-    assert4.ok(vscode4.extensions.getExtension("local.ai-feedback-bridge"));
+    assert10.ok(vscode14.extensions.getExtension("local.ai-feedback-bridge"));
   });
   test("Extension should activate", async () => {
-    const ext = vscode4.extensions.getExtension("local.ai-feedback-bridge");
-    assert4.ok(ext);
+    const ext = vscode14.extensions.getExtension("local.ai-feedback-bridge");
+    assert10.ok(ext);
     await ext.activate();
-    assert4.strictEqual(ext.isActive, true);
+    assert10.strictEqual(ext.isActive, true);
   });
   test("Commands should be registered", async () => {
-    const commands2 = await vscode4.commands.getCommands(true);
+    const commands4 = await vscode14.commands.getCommands(true);
     const expectedCommands = [
       "ai-feedback-bridge.openSettings",
       "ai-feedback-bridge.injectScript",
@@ -2056,32 +3650,32 @@ suite("AI Feedback Bridge Extension Test Suite", () => {
       "ai-feedback-bridge.showStatus"
     ];
     expectedCommands.forEach((cmd) => {
-      assert4.ok(commands2.includes(cmd), `Command ${cmd} should be registered`);
+      assert10.ok(commands4.includes(cmd), `Command ${cmd} should be registered`);
     });
   });
   test("Configuration should have expected settings", () => {
-    const config = vscode4.workspace.getConfiguration("aiFeedbackBridge");
-    assert4.notStrictEqual(config.get("port"), void 0);
-    assert4.notStrictEqual(config.get("autoStart"), void 0);
-    assert4.notStrictEqual(config.get("autoApproval.enabled"), void 0);
-    assert4.notStrictEqual(config.get("autoApproval.autoInject"), void 0);
-    assert4.notStrictEqual(config.get("autoContinue.enabled"), void 0);
+    const config = vscode14.workspace.getConfiguration("aiFeedbackBridge");
+    assert10.notStrictEqual(config.get("port"), void 0);
+    assert10.notStrictEqual(config.get("autoStart"), void 0);
+    assert10.notStrictEqual(config.get("autoApproval.enabled"), void 0);
+    assert10.notStrictEqual(config.get("autoApproval.autoInject"), void 0);
+    assert10.notStrictEqual(config.get("autoContinue.enabled"), void 0);
   });
   test("Auto-continue categories should exist", () => {
-    const config = vscode4.workspace.getConfiguration("aiFeedbackBridge");
+    const config = vscode14.workspace.getConfiguration("aiFeedbackBridge");
     const categories = ["tasks", "improvements", "coverage", "robustness", "cleanup", "commits"];
     categories.forEach((category) => {
-      assert4.notStrictEqual(
+      assert10.notStrictEqual(
         config.get(`autoContinue.${category}.enabled`),
         void 0,
         `Category ${category} should have enabled setting`
       );
-      assert4.notStrictEqual(
+      assert10.notStrictEqual(
         config.get(`autoContinue.${category}.interval`),
         void 0,
         `Category ${category} should have interval setting`
       );
-      assert4.notStrictEqual(
+      assert10.notStrictEqual(
         config.get(`autoContinue.${category}.message`),
         void 0,
         `Category ${category} should have message setting`
@@ -2090,119 +3684,119 @@ suite("AI Feedback Bridge Extension Test Suite", () => {
   });
   test("Status bar items should be created", async function() {
     this.timeout(5e3);
-    const ext = vscode4.extensions.getExtension("local.ai-feedback-bridge");
+    const ext = vscode14.extensions.getExtension("local.ai-feedback-bridge");
     await ext.activate();
     await new Promise((resolve) => setTimeout(resolve, 1e3));
-    assert4.strictEqual(ext.isActive, true);
+    assert10.strictEqual(ext.isActive, true);
   });
   test("Opening settings should work", async function() {
     this.timeout(1e4);
-    const ext = vscode4.extensions.getExtension("local.ai-feedback-bridge");
+    const ext = vscode14.extensions.getExtension("local.ai-feedback-bridge");
     await ext.activate();
-    await vscode4.commands.executeCommand("ai-feedback-bridge.openSettings");
+    await vscode14.commands.executeCommand("ai-feedback-bridge.openSettings");
     await new Promise((resolve) => setTimeout(resolve, 500));
-    assert4.ok(true);
+    assert10.ok(true);
   });
   test("Toggle auto-continue command should execute", async function() {
     this.timeout(5e3);
     try {
-      await vscode4.commands.executeCommand("ai-feedback-bridge.toggleAutoContinue");
+      await vscode14.commands.executeCommand("ai-feedback-bridge.toggleAutoContinue");
       await new Promise((resolve) => setTimeout(resolve, 500));
-      assert4.ok(true, "Toggle command executed successfully");
+      assert10.ok(true, "Toggle command executed successfully");
     } catch (error) {
       if (error.message && error.message.includes("no workspace is opened")) {
-        assert4.ok(true, "Toggle command executed (workspace config not available in test)");
+        assert10.ok(true, "Toggle command executed (workspace config not available in test)");
       } else {
-        assert4.fail(`Toggle command failed: ${error}`);
+        assert10.fail(`Toggle command failed: ${error}`);
       }
     }
   });
   test("Default port should be 3737", () => {
-    const config = vscode4.workspace.getConfiguration("aiFeedbackBridge");
+    const config = vscode14.workspace.getConfiguration("aiFeedbackBridge");
     const defaultPort = config.get("port");
-    assert4.strictEqual(defaultPort, 3737);
+    assert10.strictEqual(defaultPort, 3737);
   });
   test("Auto-continue intervals should be reasonable values", () => {
-    const config = vscode4.workspace.getConfiguration("aiFeedbackBridge");
+    const config = vscode14.workspace.getConfiguration("aiFeedbackBridge");
     const categories = ["tasks", "improvements", "coverage", "robustness", "cleanup", "commits"];
     categories.forEach((category) => {
       const interval = config.get(`autoContinue.${category}.interval`, 0);
-      assert4.ok(
+      assert10.ok(
         interval >= 60 && interval <= 7200,
         `${category} interval should be between 60-7200 seconds (got ${interval})`
       );
     });
   });
   test("Auto-inject should be disabled by default", () => {
-    const config = vscode4.workspace.getConfiguration("aiFeedbackBridge");
+    const config = vscode14.workspace.getConfiguration("aiFeedbackBridge");
     const autoInject = config.get("autoApproval.autoInject");
-    assert4.strictEqual(autoInject, false, "Auto-inject should be disabled by default");
+    assert10.strictEqual(autoInject, false, "Auto-inject should be disabled by default");
   });
   test("Run Now command should be registered", async () => {
-    const commands2 = await vscode4.commands.getCommands(true);
-    assert4.ok(commands2.includes("ai-feedback-bridge.runNow"), "Run Now command should be registered");
+    const commands4 = await vscode14.commands.getCommands(true);
+    assert10.ok(commands4.includes("ai-feedback-bridge.runNow"), "Run Now command should be registered");
   });
   test("Port registry should handle cleanup", async function() {
     this.timeout(5e3);
-    const ext = vscode4.extensions.getExtension("local.ai-feedback-bridge");
-    assert4.ok(ext);
+    const ext = vscode14.extensions.getExtension("local.ai-feedback-bridge");
+    assert10.ok(ext);
     await ext.activate();
-    assert4.strictEqual(ext.isActive, true);
+    assert10.strictEqual(ext.isActive, true);
   });
   test("Smart message rotation respects enabled categories", () => {
-    const config = vscode4.workspace.getConfiguration("aiFeedbackBridge");
+    const config = vscode14.workspace.getConfiguration("aiFeedbackBridge");
     const categories = ["tasks", "improvements", "coverage", "robustness", "cleanup", "commits"];
     categories.forEach((category) => {
       const message = config.get(`autoContinue.${category}.message`);
-      assert4.ok(message && message.length > 0, `${category} should have a message`);
+      assert10.ok(message && message.length > 0, `${category} should have a message`);
     });
   });
   test("Auto-approval script should be retrievable", () => {
-    assert4.ok(true);
+    assert10.ok(true);
   });
   test("Configuration schema should be valid", async function() {
     this.timeout(5e3);
-    const config = vscode4.workspace.getConfiguration("aiFeedbackBridge");
+    const config = vscode14.workspace.getConfiguration("aiFeedbackBridge");
     try {
       const testInterval = 120;
-      await config.update("autoContinue.tasks.interval", testInterval, vscode4.ConfigurationTarget.Workspace);
+      await config.update("autoContinue.tasks.interval", testInterval, vscode14.ConfigurationTarget.Workspace);
       await new Promise((resolve) => setTimeout(resolve, 200));
-      assert4.ok(true, "Configuration update succeeded");
-      await config.update("autoContinue.tasks.interval", void 0, vscode4.ConfigurationTarget.Workspace);
+      assert10.ok(true, "Configuration update succeeded");
+      await config.update("autoContinue.tasks.interval", void 0, vscode14.ConfigurationTarget.Workspace);
     } catch (error) {
-      assert4.ok(true, "Configuration test completed");
+      assert10.ok(true, "Configuration test completed");
     }
   });
   test("Multiple status bar buttons should be created", async function() {
     this.timeout(5e3);
-    const ext = vscode4.extensions.getExtension("local.ai-feedback-bridge");
+    const ext = vscode14.extensions.getExtension("local.ai-feedback-bridge");
     await ext.activate();
     await new Promise((resolve) => setTimeout(resolve, 1e3));
-    assert4.strictEqual(ext.isActive, true);
+    assert10.strictEqual(ext.isActive, true);
   });
   test("HTTP server port should be valid", async function() {
     this.timeout(5e3);
-    const ext = vscode4.extensions.getExtension("local.ai-feedback-bridge");
+    const ext = vscode14.extensions.getExtension("local.ai-feedback-bridge");
     await ext.activate();
-    const config = vscode4.workspace.getConfiguration("aiFeedbackBridge");
+    const config = vscode14.workspace.getConfiguration("aiFeedbackBridge");
     const port = config.get("port", 3737);
-    assert4.ok(port >= 3737, "Port should be 3737 or higher");
-    assert4.ok(port < 65536, "Port should be below 65536");
+    assert10.ok(port >= 3737, "Port should be 3737 or higher");
+    assert10.ok(port < 65536, "Port should be below 65536");
   });
   test("All category intervals should be >= 60 seconds", () => {
-    const config = vscode4.workspace.getConfiguration("aiFeedbackBridge");
+    const config = vscode14.workspace.getConfiguration("aiFeedbackBridge");
     const categories = ["tasks", "improvements", "coverage", "robustness", "cleanup", "commits"];
     categories.forEach((category) => {
       const interval = config.get(`autoContinue.${category}.interval`, 0);
-      assert4.ok(interval >= 60, `${category} interval should be at least 60 seconds`);
+      assert10.ok(interval >= 60, `${category} interval should be at least 60 seconds`);
     });
   });
   test("Chat participant should be registered", async function() {
     this.timeout(5e3);
-    const ext = vscode4.extensions.getExtension("local.ai-feedback-bridge");
+    const ext = vscode14.extensions.getExtension("local.ai-feedback-bridge");
     await ext.activate();
     await new Promise((resolve) => setTimeout(resolve, 500));
-    assert4.strictEqual(ext.isActive, true);
+    assert10.strictEqual(ext.isActive, true);
   });
 });
 //# sourceMappingURL=extension.test.js.map
