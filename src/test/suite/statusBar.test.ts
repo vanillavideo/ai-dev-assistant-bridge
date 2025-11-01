@@ -6,10 +6,11 @@
 
 import * as assert from 'assert';
 import * as vscode from 'vscode';
-import { initializeStatusBar, updateStatusBar } from '../../modules/statusBar';
+import { initializeStatusBar, updateStatusBar, updatePort, disposeStatusBar } from '../../modules/statusBar';
 
 suite('Status Bar Module Tests', () => {
 	let context: vscode.ExtensionContext;
+	let disposables: vscode.Disposable[];
 
 	setup(async () => {
 		// Get extension context
@@ -20,10 +21,33 @@ suite('Status Bar Module Tests', () => {
 			await ext!.activate();
 		}
 		
-		context = ext!.exports?.context || {
-			subscriptions: [],
-			extensionPath: ''
+		// Create fresh disposables array for each test
+		disposables = [];
+		
+		context = {
+			...(ext!.exports?.context || {}),
+			subscriptions: disposables,
+			extensionPath: ext!.extensionPath
 		} as any;
+	});
+
+	teardown(() => {
+		// Clean up any disposables created during tests
+		disposables.forEach(d => {
+			try {
+				d.dispose();
+			} catch (e) {
+				// Ignore disposal errors in teardown
+			}
+		});
+		disposables = [];
+		
+		// Ensure status bar is disposed after each test
+		try {
+			disposeStatusBar();
+		} catch (e) {
+			// Ignore if already disposed
+		}
 	});
 
 	test('initializeStatusBar should create status bar items', () => {
@@ -111,5 +135,75 @@ suite('Status Bar Module Tests', () => {
 		assert.doesNotThrow(() => {
 			updateStatusBar(mockConfig);
 		}, 'Should handle being called before initialization');
+	});
+
+	test('updatePort should update the port reference', () => {
+		const mockConfig = {
+			get: (key: string, defaultValue: any) => {
+				if (key === 'autoContinue.enabled') {
+					return false;
+				}
+				return defaultValue;
+			}
+		} as any;
+
+		// Initialize status bar
+		initializeStatusBar(context, 3737, mockConfig);
+
+		// Update port
+		assert.doesNotThrow(() => {
+			updatePort(4545);
+		}, 'Should update port without errors');
+		
+		// Verify doesn't throw even after update
+		assert.doesNotThrow(() => {
+			updateStatusBar(mockConfig);
+		}, 'Should still work after port update');
+	});
+
+	test('disposeStatusBar should clean up all status bar items', () => {
+		const mockConfig = {
+			get: (key: string, defaultValue: any) => {
+				if (key === 'autoContinue.enabled') {
+					return false;
+				}
+				return defaultValue;
+			}
+		} as any;
+
+		// Initialize status bar
+		initializeStatusBar(context, 3737, mockConfig);
+
+		// Dispose
+		assert.doesNotThrow(() => {
+			disposeStatusBar();
+		}, 'Should dispose status bar items without errors');
+		
+		// Calling dispose again should be safe (idempotent)
+		assert.doesNotThrow(() => {
+			disposeStatusBar();
+		}, 'Should handle multiple dispose calls');
+	});
+
+	test('updateStatusBar should return early after disposal', () => {
+		const mockConfig = {
+			get: (key: string, defaultValue: any) => {
+				if (key === 'autoContinue.enabled') {
+					return true;
+				}
+				return defaultValue;
+			}
+		} as any;
+
+		// Initialize
+		initializeStatusBar(context, 3737, mockConfig);
+		
+		// Dispose
+		disposeStatusBar();
+
+		// Try to update after disposal - should return early without error
+		assert.doesNotThrow(() => {
+			updateStatusBar(mockConfig, '1m 30s');
+		}, 'Should handle update after disposal gracefully');
 	});
 });

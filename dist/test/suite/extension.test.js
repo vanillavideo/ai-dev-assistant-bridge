@@ -2308,20 +2308,57 @@ Click to stop` : "Auto-Continue active\nClick to stop";
     statusBarToggle.tooltip = "Auto-Continue inactive\nClick to start";
   }
 }
+function updatePort(port) {
+  currentPortRef = port;
+  if (statusBarSettings) {
+    statusBarSettings.text = `AI Dev: ${port}`;
+  }
+}
+function disposeStatusBar() {
+  if (statusBarToggle) {
+    statusBarToggle.dispose();
+    statusBarToggle = void 0;
+  }
+  if (statusBarSettings) {
+    statusBarSettings.dispose();
+    statusBarSettings = void 0;
+  }
+  if (statusBarInject) {
+    statusBarInject.dispose();
+    statusBarInject = void 0;
+  }
+  log("INFO" /* INFO */, "Status bar items disposed");
+}
 
 // src/test/suite/statusBar.test.ts
 suite("Status Bar Module Tests", () => {
   let context;
+  let disposables;
   setup(async () => {
     const ext = vscode5.extensions.getExtension("local.ai-feedback-bridge");
     assert4.ok(ext, "Extension should be available for testing");
     if (!ext.isActive) {
       await ext.activate();
     }
-    context = ext.exports?.context || {
-      subscriptions: [],
-      extensionPath: ""
+    disposables = [];
+    context = {
+      ...ext.exports?.context || {},
+      subscriptions: disposables,
+      extensionPath: ext.extensionPath
     };
+  });
+  teardown(() => {
+    disposables.forEach((d) => {
+      try {
+        d.dispose();
+      } catch (e) {
+      }
+    });
+    disposables = [];
+    try {
+      disposeStatusBar();
+    } catch (e) {
+    }
   });
   test("initializeStatusBar should create status bar items", () => {
     const mockConfig = {
@@ -2387,6 +2424,55 @@ suite("Status Bar Module Tests", () => {
     assert4.doesNotThrow(() => {
       updateStatusBar(mockConfig);
     }, "Should handle being called before initialization");
+  });
+  test("updatePort should update the port reference", () => {
+    const mockConfig = {
+      get: (key, defaultValue) => {
+        if (key === "autoContinue.enabled") {
+          return false;
+        }
+        return defaultValue;
+      }
+    };
+    initializeStatusBar(context, 3737, mockConfig);
+    assert4.doesNotThrow(() => {
+      updatePort(4545);
+    }, "Should update port without errors");
+    assert4.doesNotThrow(() => {
+      updateStatusBar(mockConfig);
+    }, "Should still work after port update");
+  });
+  test("disposeStatusBar should clean up all status bar items", () => {
+    const mockConfig = {
+      get: (key, defaultValue) => {
+        if (key === "autoContinue.enabled") {
+          return false;
+        }
+        return defaultValue;
+      }
+    };
+    initializeStatusBar(context, 3737, mockConfig);
+    assert4.doesNotThrow(() => {
+      disposeStatusBar();
+    }, "Should dispose status bar items without errors");
+    assert4.doesNotThrow(() => {
+      disposeStatusBar();
+    }, "Should handle multiple dispose calls");
+  });
+  test("updateStatusBar should return early after disposal", () => {
+    const mockConfig = {
+      get: (key, defaultValue) => {
+        if (key === "autoContinue.enabled") {
+          return true;
+        }
+        return defaultValue;
+      }
+    };
+    initializeStatusBar(context, 3737, mockConfig);
+    disposeStatusBar();
+    assert4.doesNotThrow(() => {
+      updateStatusBar(mockConfig, "1m 30s");
+    }, "Should handle update after disposal gracefully");
   });
 });
 
