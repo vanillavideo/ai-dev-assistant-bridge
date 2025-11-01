@@ -1,8 +1,16 @@
 /**
  * Chat Integration Module
  * 
- * Handles all chat participant and language model interactions
- * including message formatting, auto-submission, and fallback handling.
+ * Handles all chat participant and language model interactions including
+ * message formatting, auto-submission, and fallback handling.
+ * 
+ * Features:
+ * - Custom chat participant (@agent-feedback-bridge)
+ * - Automatic chat request submission
+ * - Language Model API fallback
+ * - Markdown formatting for feedback messages
+ * - Context tracking for feedback sources
+ * - Graceful error handling with user notifications
  */
 
 import * as vscode from 'vscode';
@@ -14,6 +22,11 @@ let outputChannel: vscode.OutputChannel;
 
 /**
  * Initialize the chat module with output channel
+ * 
+ * @param channel - Output channel for logging chat activity
+ * 
+ * @remarks
+ * Must be called during extension activation before other chat functions
  */
 export function initChat(channel: vscode.OutputChannel): void {
 	outputChannel = channel;
@@ -21,6 +34,9 @@ export function initChat(channel: vscode.OutputChannel): void {
 
 /**
  * Context object for feedback messages
+ * 
+ * @property source - Origin of the feedback (e.g., 'http_api', 'auto_continue')
+ * @property timestamp - ISO 8601 timestamp of feedback creation
  */
 export interface FeedbackContext {
 	source: string;
@@ -30,6 +46,21 @@ export interface FeedbackContext {
 
 /**
  * Create and register the chat participant
+ * 
+ * @param context - VS Code extension context for registration
+ * @returns The created chat participant instance
+ * 
+ * @remarks
+ * Creates chat participant with ID 'ai-agent-feedback-bridge.agent'
+ * - Sets custom icon from extension assets
+ * - Registers participant for automatic cleanup
+ * - Attaches handleChatRequest as request handler
+ * 
+ * @example
+ * ```typescript
+ * const participant = createChatParticipant(context);
+ * console.log('Chat participant ready');
+ * ```
  */
 export function createChatParticipant(context: vscode.ExtensionContext): vscode.ChatParticipant {
 	chatParticipant = vscode.chat.createChatParticipant(
@@ -44,7 +75,12 @@ export function createChatParticipant(context: vscode.ExtensionContext): vscode.
 }
 
 /**
- * Get the active chat participant
+ * Get the active chat participant instance
+ * 
+ * @returns The chat participant if created, undefined otherwise
+ * 
+ * @remarks
+ * Used to check if chat participant has been initialized
  */
 export function getChatParticipant(): vscode.ChatParticipant | undefined {
 	return chatParticipant;
@@ -52,6 +88,16 @@ export function getChatParticipant(): vscode.ChatParticipant | undefined {
 
 /**
  * Handle chat requests from the participant
+ * 
+ * @param request - The incoming chat request with user message
+ * @param context - Chat context including conversation history
+ * @param stream - Response stream for writing chat output
+ * @param token - Cancellation token for aborting long operations
+ * @returns Promise that resolves when response is complete
+ * 
+ * @remarks
+ * Default handler that logs the request and provides simple echo response.
+ * Currently returns basic acknowledgment - can be extended for custom responses.
  */
 async function handleChatRequest(
 	request: vscode.ChatRequest,
@@ -100,7 +146,31 @@ async function handleChatRequest(
 }
 
 /**
- * Format feedback message for AI agent processing
+ * Format feedback message with context for AI agent processing
+ * 
+ * @param feedbackMessage - The core feedback text from user or system
+ * @param appContext - Optional context object with source, timestamp, and additional data
+ * @returns Formatted markdown string ready for chat submission
+ * 
+ * @remarks
+ * Message structure:
+ * - Header: "🤖 AI DEV MODE" for clear identification
+ * - User Feedback section with main message
+ * - Context section (JSON) if meaningful data beyond source/timestamp exists
+ * - Instructions section with action guidelines (bug fixes, features, commits)
+ * 
+ * Format optimized for:
+ * - Minimal token usage (ultra-concise)
+ * - Clear action prompts for AI
+ * - Structured markdown for readability
+ * 
+ * @example
+ * ```typescript
+ * const formatted = formatFeedbackMessage(
+ *   'Button click not working',
+ *   { source: 'http_api', timestamp: '2024-01-01T00:00:00Z', userId: 123 }
+ * );
+ * ```
  */
 function formatFeedbackMessage(feedbackMessage: string, appContext?: unknown): string {
 	const context: FeedbackContext = (appContext as FeedbackContext) || { 
@@ -128,7 +198,42 @@ function formatFeedbackMessage(feedbackMessage: string, appContext?: unknown): s
 }
 
 /**
- * Send feedback directly to the AI agent for automatic processing
+ * Send feedback directly to AI agent for automatic processing
+ * 
+ * @param feedbackMessage - The feedback text to send
+ * @param appContext - Optional context with source, timestamp, and additional data
+ * @returns Promise resolving to true if sent successfully, false otherwise
+ * 
+ * @remarks
+ * Submission flow:
+ * 1. Formats message with formatFeedbackMessage()
+ * 2. Logs message to output channel
+ * 3. Attempts Language Model API (vendor: 'copilot', family: 'gpt-4o')
+ * 4. Opens chat UI with @agent prefix and formatted message
+ * 5. Auto-submits after 300ms delay (allows UI population)
+ * 6. Falls back to manual chat opening if LM unavailable
+ * 
+ * Error handling:
+ * - Language Model not found: Opens chat UI manually (returns true)
+ * - Command execution failure: Logs error, shows user notification (returns false)
+ * - Auto-submit failure: Logs warning, user can submit manually (still returns true)
+ * 
+ * Auto-submission details:
+ * - Requires 'aiFeedbackBridge.autoSubmit' setting enabled
+ * - Uses 'workbench.action.chat.submitInput' command
+ * - 300ms delay ensures chat UI is ready
+ * - Gracefully handles failures without blocking
+ * 
+ * @example
+ * ```typescript
+ * const success = await sendToAgent(
+ *   'Add error handling to login',
+ *   { source: 'http_api', timestamp: new Date().toISOString() }
+ * );
+ * if (success) {
+ *   console.log('Feedback sent to AI agent');
+ * }
+ * ```
  */
 export async function sendToAgent(feedbackMessage: string, appContext?: unknown): Promise<boolean> {
 	try {

@@ -2,7 +2,28 @@
  * Commands Module
  * 
  * Central registry for all VS Code commands used by the extension.
- * Handles command registration, lifecycle management, and context coordination.
+ * Provides dependency injection pattern for command registration.
+ * 
+ * Commands (13 total):
+ * - openSettings: Show settings webview panel
+ * - runNow: Manually trigger auto-continue check
+ * - injectScript: Open inject script input box
+ * - getPort: Show current server port
+ * - addTask: Create new task via input
+ * - listTasks: Show all tasks in webview
+ * - sendToCopilotChat: Send arbitrary message to chat
+ * - toggleAutoContinue: Enable/disable auto-continue feature
+ * - changePort: Update server port via input
+ * - showStatus: Display extension status info
+ * - enableAutoApproval: Turn on auto-approval
+ * - disableAutoApproval: Turn off auto-approval
+ * - injectAutoApprovalScript: Manually inject approval script
+ * 
+ * Architecture:
+ * - Dependency injection via CommandDependencies interface
+ * - All commands registered in single function call
+ * - Proper cleanup via context.subscriptions
+ * - Separation of concerns (commands don't implement logic)
  */
 
 import * as vscode from 'vscode';
@@ -17,6 +38,20 @@ import { Task } from './types';
 
 /**
  * Dependencies required for command execution
+ * 
+ * @property context - VS Code extension context for subscriptions and state
+ * @property currentPort - Current HTTP server port number
+ * @property getConfig - Function to get current workspace configuration
+ * @property updateConfig - Function to update configuration values
+ * @property sendToAgent - Function to send messages to Copilot Chat
+ * @property autoInjectScript - Function to auto-inject custom scripts
+ * @property enableAutoApproval - Function to enable auto-approval feature
+ * @property disableAutoApproval - Function to disable auto-approval feature
+ * @property injectAutoApprovalScript - Function to manually inject approval script
+ * @property startCountdownUpdates - Function to start countdown timer updates
+ * @property stopCountdownUpdates - Function to stop countdown timer updates
+ * @property outputChannel - Output channel for logging
+ * @property server - HTTP server instance for status checks
  */
 export interface CommandDependencies {
 	context: vscode.ExtensionContext;
@@ -35,7 +70,45 @@ export interface CommandDependencies {
 }
 
 /**
- * Register all extension commands
+ * Register all extension commands with dependency injection
+ * 
+ * @param deps - Command dependencies object containing all required functions and state
+ * 
+ * @remarks
+ * Registers 13 commands total:
+ * 1. openSettings - Shows settings webview with configuration UI
+ * 2. runNow - Manually triggers auto-continue reminder check (force=true)
+ * 3. injectScript - Opens input box for custom script injection
+ * 4. getPort - Displays current HTTP server port in message
+ * 5. addTask - Creates new task via input dialogs (title, description, category)
+ * 6. listTasks - Shows all tasks in webview panel
+ * 7. sendToCopilotChat - Sends arbitrary message to Copilot Chat
+ * 8. toggleAutoContinue - Enables/disables auto-continue with status bar updates
+ * 9. changePort - Updates server port via input box
+ * 10. showStatus - Displays extension status (port, auto-continue, chat)
+ * 11. enableAutoApproval - Turns on auto-approval feature
+ * 12. disableAutoApproval - Turns off auto-approval feature
+ * 13. injectAutoApprovalScript - Manually injects approval script into chat UI
+ * 
+ * All commands are:
+ * - Registered with context.subscriptions for automatic cleanup
+ * - Implemented using dependency injection (no direct module coupling)
+ * - Wrapped with try-catch for error handling
+ * - Logged for debugging and audit trail
+ * 
+ * @example
+ * ```typescript
+ * const deps: CommandDependencies = {
+ *   context,
+ *   currentPort: 3737,
+ *   getConfig: () => vscode.workspace.getConfiguration('aiFeedbackBridge'),
+ *   updateConfig: async (key, value) => { ... },
+ *   sendToAgent: async (msg) => { ... },
+ *   // ... other dependencies
+ * };
+ * registerCommands(deps);
+ * // All 13 commands now registered and ready
+ * ```
  */
 export function registerCommands(deps: CommandDependencies): void {
 	const { context } = deps;
