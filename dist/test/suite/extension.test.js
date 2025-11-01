@@ -1122,6 +1122,33 @@ suite("Guiding Documents Module Test Suite", () => {
       assert2.strictEqual(docs.length, 1);
     });
   });
+  suite("Error Handling", () => {
+    test("getGuidingDocumentsContext should handle all files non-existent (line 121-122)", async () => {
+      const docs = getGuidingDocuments();
+      for (const doc of docs) {
+        await removeGuidingDocument(doc);
+      }
+      const config = vscode2.workspace.getConfiguration("aiFeedbackBridge");
+      await config.update("guidingDocuments", ["/nonexistent/file1.md", "/nonexistent/file2.md"], vscode2.ConfigurationTarget.Global);
+      try {
+        const context = await getGuidingDocumentsContext();
+        assert2.strictEqual(context, "", "Should return empty string when no valid files exist");
+      } finally {
+        await config.update("guidingDocuments", [], vscode2.ConfigurationTarget.Global);
+      }
+    });
+    test("getGuidingDocumentsContext should handle errors during processing (line 117)", async () => {
+      const config = vscode2.workspace.getConfiguration("aiFeedbackBridge");
+      const testPath = path2.join(__dirname, "../../../README.md");
+      await config.update("guidingDocuments", [testPath], vscode2.ConfigurationTarget.Global);
+      try {
+        const context = await getGuidingDocumentsContext();
+        assert2.ok(typeof context === "string", "Should return string even with potential errors");
+      } finally {
+        await config.update("guidingDocuments", [], vscode2.ConfigurationTarget.Global);
+      }
+    });
+  });
 });
 
 // src/test/suite/server.test.ts

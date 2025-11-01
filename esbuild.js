@@ -60,7 +60,9 @@ async function main() {
 			'src/test/suite/numberValidation.unit.test.ts',
 			'src/test/suite/timeFormatting.unit.test.ts',
 			'src/test/suite/autoContinue.test.ts',
-			'src/test/suite/statusBar.test.ts'
+			'src/test/suite/statusBar.test.ts',
+			'src/test/suite/autoApproval.test.ts',
+			'src/test/suite/commands.integration.test.ts'
 		],
 		bundle: true,
 		format: 'cjs',
