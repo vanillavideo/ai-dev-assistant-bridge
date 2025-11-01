@@ -58,7 +58,12 @@ export function formatFeedbackMessage(feedbackMessage: string, appContext?: unkn
 	// Only include context if it has meaningful data beyond source/timestamp
 	const contextKeys = Object.keys(context).filter(k => k !== 'source' && k !== 'timestamp');
 	if (contextKeys.length > 0) {
-		fullMessage += `**Context:**\n\`\`\`json\n${JSON.stringify(context, null, 2)}\n\`\`\`\n\n`;
+		// Create filtered context object without source/timestamp
+		const filteredContext: Record<string, unknown> = {};
+		contextKeys.forEach(key => {
+			filteredContext[key] = context[key as keyof FeedbackContext];
+		});
+		fullMessage += `**Context:**\n\`\`\`json\n${JSON.stringify(filteredContext, null, 2)}\n\`\`\`\n\n`;
 	}
 
 	fullMessage += `**Instructions:**\n`;

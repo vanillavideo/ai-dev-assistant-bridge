@@ -934,9 +934,13 @@ ${feedbackMessage}
 `;
   const contextKeys = Object.keys(context).filter((k) => k !== "source" && k !== "timestamp");
   if (contextKeys.length > 0) {
+    const filteredContext = {};
+    contextKeys.forEach((key) => {
+      filteredContext[key] = context[key];
+    });
     fullMessage += `**Context:**
 \`\`\`json
-${JSON.stringify(context, null, 2)}
+${JSON.stringify(filteredContext, null, 2)}
 \`\`\`
 
 `;

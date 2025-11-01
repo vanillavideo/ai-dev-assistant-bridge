@@ -54,6 +54,7 @@ async function main() {
 			'src/test/suite/extension.test.ts',
 			'src/test/suite/aiQueue.unit.test.ts',
 			'src/test/suite/logging.unit.test.ts',
+			'src/test/suite/messageFormatter.unit.test.ts',
 			'src/test/suite/autoContinue.test.ts',
 			'src/test/suite/statusBar.test.ts'
 		],
