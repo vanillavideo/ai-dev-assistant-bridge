@@ -124,6 +124,9 @@ suite('Status Bar Module Tests', () => {
 	});
 
 	test('updateStatusBar should handle being called before initialization', () => {
+		// Explicitly dispose status bar to ensure it's not initialized
+		disposeStatusBar();
+		
 		const mockConfig = {
 			get: (key: string, defaultValue: any) => {
 				return defaultValue;
@@ -131,7 +134,7 @@ suite('Status Bar Module Tests', () => {
 		} as any;
 
 		// Call updateStatusBar without initializing first
-		// Should return early without errors (line 58 return branch)
+		// Should return early without errors (line 58-59 return branch)
 		assert.doesNotThrow(() => {
 			updateStatusBar(mockConfig);
 		}, 'Should handle being called before initialization');

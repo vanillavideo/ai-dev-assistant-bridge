@@ -2416,6 +2416,7 @@ suite("Status Bar Module Tests", () => {
     }, "Should update status bar when auto-continue enabled with countdown");
   });
   test("updateStatusBar should handle being called before initialization", () => {
+    disposeStatusBar();
     const mockConfig = {
       get: (key, defaultValue) => {
         return defaultValue;
