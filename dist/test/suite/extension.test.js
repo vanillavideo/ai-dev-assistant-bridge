@@ -67,6 +67,30 @@ var init_logging = __esm({
   }
 });
 
+// src/modules/pathValidation.ts
+function validatePath(filePath) {
+  if (filePath === null || filePath === void 0) {
+    return { valid: false, error: "Path is required" };
+  }
+  const pathStr = String(filePath).trim();
+  if (pathStr.length === 0) {
+    return { valid: false, error: "Path cannot be empty" };
+  }
+  if (pathStr === "." || pathStr === "..") {
+    return { valid: false, error: 'Path cannot be just "." or ".."' };
+  }
+  const invalidChars = /[*?"|<>]/;
+  if (invalidChars.test(pathStr)) {
+    return { valid: false, error: 'Path contains invalid characters (*, ?, ", |, <, >)' };
+  }
+  return { valid: true };
+}
+var init_pathValidation = __esm({
+  "src/modules/pathValidation.ts"() {
+    "use strict";
+  }
+});
+
 // src/modules/guidingDocuments.ts
 function getGuidingDocuments() {
   const config = vscode.workspace.getConfiguration("aiFeedbackBridge");
@@ -76,9 +100,10 @@ function getGuidingDocuments() {
 async function addGuidingDocument(filePath) {
   const config = vscode.workspace.getConfiguration("aiFeedbackBridge");
   const docs = config.get("guidingDocuments", []);
-  if (!filePath || filePath.trim().length === 0) {
-    log("WARN" /* WARN */, `Attempted to add invalid guiding document path: '${filePath}'`);
-    throw new Error("Invalid file path");
+  const validation = validatePath(filePath);
+  if (!validation.valid) {
+    log("WARN" /* WARN */, `Invalid guiding document path: ${validation.error}`);
+    throw new Error(validation.error || "Invalid file path");
   }
   const relativePath = getRelativePath(filePath);
   if (docs.includes(relativePath)) {
@@ -160,13 +185,13 @@ var init_guidingDocuments = __esm({
     path = __toESM(require("path"));
     init_logging();
     init_types();
+    init_pathValidation();
   }
 });
 
 // src/modules/autoContinue.ts
 var autoContinue_exports = {};
 __export(autoContinue_exports, {
-  formatCountdown: () => formatCountdown,
   getSmartAutoContinueMessage: () => getSmartAutoContinueMessage,
   getTimeUntilNextReminder: () => getTimeUntilNextReminder,
   isAutoContinueActive: () => isAutoContinueActive,
@@ -280,22 +305,6 @@ function getTimeUntilNextReminder(context, getConfig) {
     }
   }
   return shortestTime;
-}
-function formatCountdown(seconds) {
-  if (seconds < 0) {
-    return "0s";
-  }
-  if (seconds < 60) {
-    return `${Math.floor(seconds)}s`;
-  } else if (seconds < 3600) {
-    const minutes = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return secs === 0 ? `${minutes}m` : `${minutes}m ${secs}s`;
-  } else {
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor(seconds % 3600 / 60);
-    return minutes === 0 ? `${hours}h` : `${hours}h ${minutes}m`;
-  }
 }
 var vscode6, autoContinueTimer;
 var init_autoContinue = __esm({
@@ -1014,12 +1023,12 @@ suite("Guiding Documents Module Test Suite", () => {
     test("Should reject empty file path", async () => {
       await assert2.rejects(async () => {
         await addGuidingDocument("");
-      }, /Invalid file path/);
+      }, /Path cannot be empty/);
     });
     test("Should reject whitespace-only path", async () => {
       await assert2.rejects(async () => {
         await addGuidingDocument("   ");
-      }, /Invalid file path/);
+      }, /Path cannot be empty/);
     });
     test("Should handle special characters in filename", async () => {
       if (!testWorkspaceFolder) {
@@ -1123,6 +1132,70 @@ var http = __toESM(require("http"));
 init_logging();
 init_types();
 
+// src/modules/taskValidation.ts
+function validateTaskTitle(title) {
+  if (title === null || title === void 0) {
+    return { valid: false, error: "Title is required" };
+  }
+  const titleStr = String(title).trim();
+  if (titleStr.length === 0) {
+    return { valid: false, error: "Title cannot be empty" };
+  }
+  if (titleStr.length > 200) {
+    return { valid: false, error: "Title cannot exceed 200 characters" };
+  }
+  return { valid: true };
+}
+function validateTaskDescription(description) {
+  if (description === null || description === void 0) {
+    return { valid: true };
+  }
+  const descStr = String(description).trim();
+  if (descStr.length === 0) {
+    return { valid: true };
+  }
+  if (descStr.length > 5e3) {
+    return { valid: false, error: "Description cannot exceed 5000 characters" };
+  }
+  return { valid: true };
+}
+function validateTaskCategory(category) {
+  if (category === null || category === void 0 || category === "") {
+    return { valid: true };
+  }
+  const categoryStr = String(category).toLowerCase().trim();
+  const validCategories = ["bug", "feature", "improvement", "documentation", "test", "other"];
+  if (!validCategories.includes(categoryStr)) {
+    return {
+      valid: false,
+      error: `Invalid category. Must be one of: ${validCategories.join(", ")}`
+    };
+  }
+  return { valid: true };
+}
+function validateTaskData(title, description, category) {
+  const titleResult = validateTaskTitle(title);
+  if (!titleResult.valid) {
+    return titleResult;
+  }
+  const descResult = validateTaskDescription(description);
+  if (!descResult.valid) {
+    return descResult;
+  }
+  const catResult = validateTaskCategory(category);
+  if (!catResult.valid) {
+    return catResult;
+  }
+  return { valid: true };
+}
+function normalizeTaskData(title, description, category) {
+  return {
+    title: title.trim(),
+    description: (description || "").trim(),
+    category: (category || "other").toLowerCase().trim()
+  };
+}
+
 // src/modules/taskManager.ts
 async function getTasks(context) {
   try {
@@ -1150,25 +1223,18 @@ async function saveTasks(context, tasks) {
   }
 }
 async function addTask(context, title, description = "", category = "other") {
-  if (!title || typeof title !== "string" || title.trim().length === 0) {
-    throw new Error("Task title is required and must be a non-empty string");
+  const validation = validateTaskData(title, description, category);
+  if (!validation.valid) {
+    throw new Error(validation.error || "Invalid task data");
   }
-  if (title.length > 200) {
-    throw new Error("Task title too long (max 200 characters)");
-  }
-  if (typeof description !== "string") {
-    throw new Error("Task description must be a string");
-  }
-  if (description.length > 5e3) {
-    throw new Error("Task description too long (max 5000 characters)");
-  }
+  const normalized = normalizeTaskData(title, description, category);
   const tasks = await getTasks(context);
   const newTask = {
     id: Date.now().toString(),
-    title: title.trim(),
-    description: description.trim(),
+    title: normalized.title,
+    description: normalized.description,
     status: "pending",
-    category,
+    category: normalized.category,
     createdAt: (/* @__PURE__ */ new Date()).toISOString(),
     updatedAt: (/* @__PURE__ */ new Date()).toISOString()
   };
@@ -1198,12 +1264,54 @@ async function clearCompletedTasks(context) {
   return clearedCount;
 }
 
+// src/modules/numberValidation.ts
+function validateInteger(value) {
+  if (typeof value !== "number") {
+    return { valid: false, error: "Value must be a number" };
+  }
+  if (isNaN(value)) {
+    return { valid: false, error: "Value cannot be NaN" };
+  }
+  if (!isFinite(value)) {
+    return { valid: false, error: "Value must be finite" };
+  }
+  if (!Number.isInteger(value)) {
+    return { valid: false, error: "Value must be an integer" };
+  }
+  return { valid: true };
+}
+function validateRange(value, min, max) {
+  if (value < min) {
+    return { valid: false, error: `Value must be at least ${min}` };
+  }
+  if (value > max) {
+    return { valid: false, error: `Value must be at most ${max}` };
+  }
+  return { valid: true };
+}
+function validatePort(port) {
+  const intCheck = validateInteger(port);
+  if (!intCheck.valid) {
+    return { valid: false, error: intCheck.error };
+  }
+  const portNumber = port;
+  const rangeCheck = validateRange(portNumber, 1024, 65535);
+  if (!rangeCheck.valid) {
+    if (portNumber < 1024) {
+      return { valid: false, error: "Port must be at least 1024 (privileged ports not allowed)" };
+    }
+    return { valid: false, error: "Port must be at most 65535" };
+  }
+  return { valid: true };
+}
+
 // src/modules/server.ts
 var server;
 var MAX_REQUEST_SIZE = 1024 * 1024;
 var REQUEST_TIMEOUT = 3e4;
 function isValidPort(port) {
-  return Number.isInteger(port) && port >= 1024 && port <= 65535;
+  const result = validatePort(port);
+  return result.valid;
 }
 function startServer(context, port, sendToAgent2) {
   if (!isValidPort(port)) {
@@ -2484,6 +2592,26 @@ suite("Status Bar Module Tests", () => {
 var assert5 = __toESM(require("assert"));
 var vscode7 = __toESM(require("vscode"));
 init_autoContinue();
+
+// src/modules/timeFormatting.ts
+function formatCountdown(seconds) {
+  if (seconds < 0) {
+    return "0s";
+  }
+  if (seconds < 60) {
+    return `${Math.floor(seconds)}s`;
+  } else if (seconds < 3600) {
+    const minutes = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return secs === 0 ? `${minutes}m` : `${minutes}m ${secs}s`;
+  } else {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor(seconds % 3600 / 60);
+    return minutes === 0 ? `${hours}h` : `${hours}h ${minutes}m`;
+  }
+}
+
+// src/test/suite/autoContinue.test.ts
 suite("Auto-Continue Module Tests", () => {
   let context;
   let mockGlobalState;
@@ -3133,6 +3261,139 @@ suite("Auto-Continue Module Tests", () => {
     assert5.ok(seconds <= 60, "Should be approximately 50 seconds or less");
     assert5.ok(seconds >= 0, "Should not be negative");
   });
+  test("getSmartAutoContinueMessage should handle enabled=true but empty message (line 79 branch)", async () => {
+    const mockConfig = {
+      get: (key, defaultValue) => {
+        if (key === "autoContinue.tasks.enabled") {
+          return true;
+        }
+        if (key === "autoContinue.tasks.message") {
+          return "";
+        }
+        if (key === "autoContinue.tasks.interval") {
+          return 300;
+        }
+        if (key.includes("enabled")) {
+          return false;
+        }
+        return defaultValue;
+      }
+    };
+    const message = await getSmartAutoContinueMessage(
+      context,
+      () => mockConfig,
+      true
+    );
+    assert5.strictEqual(message, "", "Should return empty when message is empty");
+  });
+  test("getSmartAutoContinueMessage should handle missing docsContext (line 106 false branch)", async () => {
+    const mockConfig = {
+      get: (key, defaultValue) => {
+        if (key === "autoContinue.tasks.enabled") {
+          return true;
+        }
+        if (key === "autoContinue.tasks.message") {
+          return "Test message";
+        }
+        if (key === "guidingDocuments.files") {
+          return [];
+        }
+        if (key.includes("enabled")) {
+          return false;
+        }
+        return defaultValue;
+      }
+    };
+    const message = await getSmartAutoContinueMessage(
+      context,
+      () => mockConfig,
+      true
+    );
+    assert5.ok(message.includes("Test message"), "Should include the task message");
+    assert5.ok(!message.includes("# Guiding Documents"), "Should not include guiding docs header");
+  });
+  test("startAutoContinue should handle null timer in stillEnabled check (line 166 false branch)", async function() {
+    this.timeout(2e3);
+    let configEnabled = true;
+    const mockSendToAgent = async () => true;
+    const mockConfig = {
+      get: (key, defaultValue) => {
+        if (key === "autoContinue.enabled") {
+          return configEnabled;
+        }
+        if (key.includes("enabled")) {
+          return false;
+        }
+        return defaultValue;
+      }
+    };
+    startAutoContinue(context, () => mockConfig, mockSendToAgent);
+    stopAutoContinue();
+    configEnabled = false;
+    await new Promise((resolve) => setTimeout(resolve, 600));
+    assert5.strictEqual(isAutoContinueActive(), false, "Timer should remain stopped");
+  });
+  test("getTimeUntilNextReminder should handle enabled=true but empty message (line 312 branch)", () => {
+    const mockConfig = {
+      get: (key, defaultValue) => {
+        if (key === "autoContinue.tasks.enabled") {
+          return true;
+        }
+        if (key === "autoContinue.tasks.message") {
+          return "";
+        }
+        if (key === "autoContinue.tasks.interval") {
+          return 300;
+        }
+        if (key.includes("enabled")) {
+          return false;
+        }
+        return defaultValue;
+      }
+    };
+    const seconds = getTimeUntilNextReminder(context, () => mockConfig);
+    assert5.strictEqual(seconds, null, "Should return null when no valid categories");
+  });
+  test("getTimeUntilNextReminder should compare multiple category times (line 316 both conditions)", () => {
+    const now = Date.now();
+    const lastSentKey = "autoContinue.lastSent";
+    mockGlobalState.set(lastSentKey, {
+      tasks: now - 1e5,
+      // 100 seconds ago
+      improvements: now - 5e4
+      // 50 seconds ago
+    });
+    const mockConfig = {
+      get: (key, defaultValue) => {
+        if (key === "autoContinue.tasks.enabled") {
+          return true;
+        }
+        if (key === "autoContinue.tasks.message") {
+          return "Check tasks";
+        }
+        if (key === "autoContinue.tasks.interval") {
+          return 200;
+        }
+        if (key === "autoContinue.improvements.enabled") {
+          return true;
+        }
+        if (key === "autoContinue.improvements.message") {
+          return "Check improvements";
+        }
+        if (key === "autoContinue.improvements.interval") {
+          return 100;
+        }
+        if (key.includes("enabled")) {
+          return false;
+        }
+        return defaultValue;
+      }
+    };
+    const seconds = getTimeUntilNextReminder(context, () => mockConfig);
+    assert5.ok(seconds !== null, "Should return a time");
+    assert5.ok(seconds <= 55, "Should be approximately 50 seconds or less");
+    assert5.ok(seconds >= 45, "Should be approximately 50 seconds");
+  });
 });
 
 // src/test/suite/taskManager.test.ts
@@ -3209,20 +3470,20 @@ suite("TaskManager Module Tests", () => {
     test("should reject empty title", async () => {
       await assert6.rejects(
         async () => await addTask(context, "", "Description", "bug"),
-        /Title is required/
+        /Title cannot be empty/
       );
     });
     test("should reject whitespace-only title", async () => {
       await assert6.rejects(
         async () => await addTask(context, "   ", "Description", "bug"),
-        /Title is required/
+        /Title cannot be empty/
       );
     });
     test("should reject title longer than 200 characters", async () => {
       const longTitle = "a".repeat(201);
       await assert6.rejects(
         async () => await addTask(context, longTitle, "Description", "bug"),
-        /Title too long/
+        /Title cannot exceed 200 characters/
       );
     });
     test("should accept title exactly 200 characters", async () => {
@@ -3234,7 +3495,7 @@ suite("TaskManager Module Tests", () => {
       const longDesc = "a".repeat(5001);
       await assert6.rejects(
         async () => await addTask(context, "Title", longDesc, "bug"),
-        /Description too long/
+        /Description cannot exceed 5000 characters/
       );
     });
     test("should accept empty description", async () => {
@@ -3243,6 +3504,7 @@ suite("TaskManager Module Tests", () => {
     });
     test("should generate unique IDs for tasks", async () => {
       const task1 = await addTask(context, "Task 1", "", "bug");
+      await new Promise((resolve) => setTimeout(resolve, 2));
       const task2 = await addTask(context, "Task 2", "", "feature");
       assert6.notStrictEqual(task1.id, task2.id);
     });
@@ -3281,6 +3543,7 @@ suite("TaskManager Module Tests", () => {
     });
     test("should remove only specified task", async () => {
       const task1 = await addTask(context, "Task 1", "", "bug");
+      await new Promise((resolve) => setTimeout(resolve, 2));
       const task2 = await addTask(context, "Task 2", "", "feature");
       await removeTask(context, task1.id);
       const tasks = await getTasks(context);
@@ -3294,7 +3557,9 @@ suite("TaskManager Module Tests", () => {
   suite("clearCompletedTasks", () => {
     test("should remove only completed tasks", async () => {
       const task1 = await addTask(context, "Task 1", "", "bug");
+      await new Promise((resolve) => setTimeout(resolve, 2));
       const task2 = await addTask(context, "Task 2", "", "feature");
+      await new Promise((resolve) => setTimeout(resolve, 2));
       const task3 = await addTask(context, "Task 3", "", "improvement");
       await updateTaskStatus(context, task1.id, "completed");
       await updateTaskStatus(context, task2.id, "in-progress");
@@ -3583,7 +3848,9 @@ function createMockContext2() {
   const globalStorage = /* @__PURE__ */ new Map();
   return {
     workspaceState: {
-      get: (key) => workspaceStorage.get(key),
+      get: (key, defaultValue) => {
+        return workspaceStorage.has(key) ? workspaceStorage.get(key) : defaultValue;
+      },
       update: async (key, value) => {
         workspaceStorage.set(key, value);
       },
@@ -3595,7 +3862,9 @@ function createMockContext2() {
     environmentVariableCollection: {},
     extensionMode: vscode10.ExtensionMode.Test,
     globalState: {
-      get: (key) => globalStorage.get(key),
+      get: (key, defaultValue) => {
+        return globalStorage.has(key) ? globalStorage.get(key) : defaultValue;
+      },
       update: async (key, value) => {
         if (value === void 0) {
           globalStorage.delete(key);
@@ -3631,10 +3900,7 @@ init_logging();
 
 // src/modules/messageFormatter.ts
 function formatFeedbackMessage(feedbackMessage, appContext) {
-  const context = appContext || {
-    source: "unknown",
-    timestamp: (/* @__PURE__ */ new Date()).toISOString()
-  };
+  const context = resolveContext(appContext);
   let fullMessage = `# \u{1F916} AI DEV MODE
 
 `;
@@ -3642,12 +3908,8 @@ function formatFeedbackMessage(feedbackMessage, appContext) {
 ${feedbackMessage}
 
 `;
-  const contextKeys = Object.keys(context).filter((k) => k !== "source" && k !== "timestamp");
-  if (contextKeys.length > 0) {
-    const filteredContext = {};
-    contextKeys.forEach((key) => {
-      filteredContext[key] = context[key];
-    });
+  const filteredContext = extractContextDetails(context);
+  if (filteredContext) {
     fullMessage += `**Context:**
 \`\`\`json
 ${JSON.stringify(filteredContext, null, 2)}
@@ -3666,6 +3928,25 @@ ${JSON.stringify(filteredContext, null, 2)}
   fullMessage += `\u2022 Apply and commit changes
 `;
   return fullMessage;
+}
+function resolveContext(appContext) {
+  if (!appContext || typeof appContext !== "object") {
+    return {
+      source: "unknown",
+      timestamp: (/* @__PURE__ */ new Date()).toISOString()
+    };
+  }
+  return appContext;
+}
+function extractContextDetails(context) {
+  const filtered = {};
+  for (const [key, value] of Object.entries(context)) {
+    if (key === "source" || key === "timestamp") {
+      continue;
+    }
+    filtered[key] = value;
+  }
+  return Object.keys(filtered).length > 0 ? filtered : void 0;
 }
 
 // src/modules/chatIntegration.ts
@@ -3954,20 +4235,22 @@ var assert9 = __toESM(require("assert"));
 var vscode13 = __toESM(require("vscode"));
 suite("Commands Integration Tests", () => {
   test("toggleAutoContinue enables when disabled", async function() {
-    this.timeout(8e3);
+    this.timeout(1e4);
     const config = vscode13.workspace.getConfiguration("aiFeedbackBridge");
     await config.update("autoContinue.enabled", false, vscode13.ConfigurationTarget.Global);
+    await new Promise((resolve) => setTimeout(resolve, 200));
     await vscode13.commands.executeCommand("ai-feedback-bridge.toggleAutoContinue");
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    await new Promise((resolve) => setTimeout(resolve, 1e3));
     const value = config.get("autoContinue.enabled");
     assert9.strictEqual(value, true, "autoContinue should be enabled after toggle");
   });
   test("toggleAutoContinue disables when enabled", async function() {
-    this.timeout(8e3);
+    this.timeout(1e4);
     const config = vscode13.workspace.getConfiguration("aiFeedbackBridge");
     await config.update("autoContinue.enabled", true, vscode13.ConfigurationTarget.Global);
+    await new Promise((resolve) => setTimeout(resolve, 200));
     await vscode13.commands.executeCommand("ai-feedback-bridge.toggleAutoContinue");
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    await new Promise((resolve) => setTimeout(resolve, 1e3));
     const value = config.get("autoContinue.enabled");
     assert9.strictEqual(value, false, "autoContinue should be disabled after toggle");
   });

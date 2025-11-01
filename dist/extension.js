@@ -205,6 +205,70 @@ var http2 = __toESM(require("http"));
 init_logging();
 init_types();
 
+// src/modules/taskValidation.ts
+function validateTaskTitle(title) {
+  if (title === null || title === void 0) {
+    return { valid: false, error: "Title is required" };
+  }
+  const titleStr = String(title).trim();
+  if (titleStr.length === 0) {
+    return { valid: false, error: "Title cannot be empty" };
+  }
+  if (titleStr.length > 200) {
+    return { valid: false, error: "Title cannot exceed 200 characters" };
+  }
+  return { valid: true };
+}
+function validateTaskDescription(description) {
+  if (description === null || description === void 0) {
+    return { valid: true };
+  }
+  const descStr = String(description).trim();
+  if (descStr.length === 0) {
+    return { valid: true };
+  }
+  if (descStr.length > 5e3) {
+    return { valid: false, error: "Description cannot exceed 5000 characters" };
+  }
+  return { valid: true };
+}
+function validateTaskCategory(category) {
+  if (category === null || category === void 0 || category === "") {
+    return { valid: true };
+  }
+  const categoryStr = String(category).toLowerCase().trim();
+  const validCategories = ["bug", "feature", "improvement", "documentation", "test", "other"];
+  if (!validCategories.includes(categoryStr)) {
+    return {
+      valid: false,
+      error: `Invalid category. Must be one of: ${validCategories.join(", ")}`
+    };
+  }
+  return { valid: true };
+}
+function validateTaskData(title, description, category) {
+  const titleResult = validateTaskTitle(title);
+  if (!titleResult.valid) {
+    return titleResult;
+  }
+  const descResult = validateTaskDescription(description);
+  if (!descResult.valid) {
+    return descResult;
+  }
+  const catResult = validateTaskCategory(category);
+  if (!catResult.valid) {
+    return catResult;
+  }
+  return { valid: true };
+}
+function normalizeTaskData(title, description, category) {
+  return {
+    title: title.trim(),
+    description: (description || "").trim(),
+    category: (category || "other").toLowerCase().trim()
+  };
+}
+
 // src/modules/taskManager.ts
 async function getTasks(context) {
   try {
@@ -232,25 +296,18 @@ async function saveTasks(context, tasks) {
   }
 }
 async function addTask(context, title, description = "", category = "other") {
-  if (!title || typeof title !== "string" || title.trim().length === 0) {
-    throw new Error("Task title is required and must be a non-empty string");
+  const validation = validateTaskData(title, description, category);
+  if (!validation.valid) {
+    throw new Error(validation.error || "Invalid task data");
   }
-  if (title.length > 200) {
-    throw new Error("Task title too long (max 200 characters)");
-  }
-  if (typeof description !== "string") {
-    throw new Error("Task description must be a string");
-  }
-  if (description.length > 5e3) {
-    throw new Error("Task description too long (max 5000 characters)");
-  }
+  const normalized = normalizeTaskData(title, description, category);
   const tasks = await getTasks(context);
   const newTask = {
     id: Date.now().toString(),
-    title: title.trim(),
-    description: description.trim(),
+    title: normalized.title,
+    description: normalized.description,
     status: "pending",
-    category,
+    category: normalized.category,
     createdAt: (/* @__PURE__ */ new Date()).toISOString(),
     updatedAt: (/* @__PURE__ */ new Date()).toISOString()
   };
@@ -399,12 +456,71 @@ function generateId() {
   return `ai-queue-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 }
 
+// src/modules/numberValidation.ts
+function validateInteger(value) {
+  if (typeof value !== "number") {
+    return { valid: false, error: "Value must be a number" };
+  }
+  if (isNaN(value)) {
+    return { valid: false, error: "Value cannot be NaN" };
+  }
+  if (!isFinite(value)) {
+    return { valid: false, error: "Value must be finite" };
+  }
+  if (!Number.isInteger(value)) {
+    return { valid: false, error: "Value must be an integer" };
+  }
+  return { valid: true };
+}
+function validateRange(value, min, max) {
+  if (value < min) {
+    return { valid: false, error: `Value must be at least ${min}` };
+  }
+  if (value > max) {
+    return { valid: false, error: `Value must be at most ${max}` };
+  }
+  return { valid: true };
+}
+function validatePort(port) {
+  const intCheck = validateInteger(port);
+  if (!intCheck.valid) {
+    return { valid: false, error: intCheck.error };
+  }
+  const portNumber = port;
+  const rangeCheck = validateRange(portNumber, 1024, 65535);
+  if (!rangeCheck.valid) {
+    if (portNumber < 1024) {
+      return { valid: false, error: "Port must be at least 1024 (privileged ports not allowed)" };
+    }
+    return { valid: false, error: "Port must be at most 65535" };
+  }
+  return { valid: true };
+}
+function parseIntegerString(value, radix = 10) {
+  if (typeof value !== "string") {
+    return { valid: false, error: "Value must be a string" };
+  }
+  if (value.trim().length === 0) {
+    return { valid: false, error: "Value cannot be empty" };
+  }
+  const parsed = parseInt(value, radix);
+  if (isNaN(parsed)) {
+    return { valid: false, error: "Cannot parse string to integer (result is NaN)" };
+  }
+  const intCheck = validateInteger(parsed);
+  if (!intCheck.valid) {
+    return { valid: false, error: intCheck.error };
+  }
+  return { valid: true };
+}
+
 // src/modules/server.ts
 var server;
 var MAX_REQUEST_SIZE = 1024 * 1024;
 var REQUEST_TIMEOUT = 3e4;
 function isValidPort(port) {
-  return Number.isInteger(port) && port >= 1024 && port <= 65535;
+  const result = validatePort(port);
+  return result.valid;
 }
 function startServer(context, port, sendToAgent2) {
   if (!isValidPort(port)) {
@@ -921,10 +1037,7 @@ init_logging();
 
 // src/modules/messageFormatter.ts
 function formatFeedbackMessage(feedbackMessage, appContext) {
-  const context = appContext || {
-    source: "unknown",
-    timestamp: (/* @__PURE__ */ new Date()).toISOString()
-  };
+  const context = resolveContext(appContext);
   let fullMessage = `# \u{1F916} AI DEV MODE
 
 `;
@@ -932,12 +1045,8 @@ function formatFeedbackMessage(feedbackMessage, appContext) {
 ${feedbackMessage}
 
 `;
-  const contextKeys = Object.keys(context).filter((k) => k !== "source" && k !== "timestamp");
-  if (contextKeys.length > 0) {
-    const filteredContext = {};
-    contextKeys.forEach((key) => {
-      filteredContext[key] = context[key];
-    });
+  const filteredContext = extractContextDetails(context);
+  if (filteredContext) {
     fullMessage += `**Context:**
 \`\`\`json
 ${JSON.stringify(filteredContext, null, 2)}
@@ -956,6 +1065,25 @@ ${JSON.stringify(filteredContext, null, 2)}
   fullMessage += `\u2022 Apply and commit changes
 `;
   return fullMessage;
+}
+function resolveContext(appContext) {
+  if (!appContext || typeof appContext !== "object") {
+    return {
+      source: "unknown",
+      timestamp: (/* @__PURE__ */ new Date()).toISOString()
+    };
+  }
+  return appContext;
+}
+function extractContextDetails(context) {
+  const filtered = {};
+  for (const [key, value] of Object.entries(context)) {
+    if (key === "source" || key === "timestamp") {
+      continue;
+    }
+    filtered[key] = value;
+  }
+  return Object.keys(filtered).length > 0 ? filtered : void 0;
 }
 
 // src/modules/chatIntegration.ts
@@ -1068,6 +1196,27 @@ var fs2 = __toESM(require("fs"));
 var path2 = __toESM(require("path"));
 init_logging();
 init_types();
+
+// src/modules/pathValidation.ts
+function validatePath(filePath) {
+  if (filePath === null || filePath === void 0) {
+    return { valid: false, error: "Path is required" };
+  }
+  const pathStr = String(filePath).trim();
+  if (pathStr.length === 0) {
+    return { valid: false, error: "Path cannot be empty" };
+  }
+  if (pathStr === "." || pathStr === "..") {
+    return { valid: false, error: 'Path cannot be just "." or ".."' };
+  }
+  const invalidChars = /[*?"|<>]/;
+  if (invalidChars.test(pathStr)) {
+    return { valid: false, error: 'Path contains invalid characters (*, ?, ", |, <, >)' };
+  }
+  return { valid: true };
+}
+
+// src/modules/guidingDocuments.ts
 function getGuidingDocuments() {
   const config = vscode5.workspace.getConfiguration("aiFeedbackBridge");
   const docs = config.get("guidingDocuments", []);
@@ -1076,9 +1225,10 @@ function getGuidingDocuments() {
 async function addGuidingDocument(filePath) {
   const config = vscode5.workspace.getConfiguration("aiFeedbackBridge");
   const docs = config.get("guidingDocuments", []);
-  if (!filePath || filePath.trim().length === 0) {
-    log("WARN" /* WARN */, `Attempted to add invalid guiding document path: '${filePath}'`);
-    throw new Error("Invalid file path");
+  const validation = validatePath(filePath);
+  if (!validation.valid) {
+    log("WARN" /* WARN */, `Invalid guiding document path: ${validation.error}`);
+    throw new Error(validation.error || "Invalid file path");
   }
   const relativePath = getRelativePath(filePath);
   if (docs.includes(relativePath)) {
@@ -1346,22 +1496,6 @@ function getTimeUntilNextReminder(context, getConfig2) {
     }
   }
   return shortestTime;
-}
-function formatCountdown(seconds) {
-  if (seconds < 0) {
-    return "0s";
-  }
-  if (seconds < 60) {
-    return `${Math.floor(seconds)}s`;
-  } else if (seconds < 3600) {
-    const minutes = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return secs === 0 ? `${minutes}m` : `${minutes}m ${secs}s`;
-  } else {
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor(seconds % 3600 / 60);
-    return minutes === 0 ? `${hours}h` : `${hours}h ${minutes}m`;
-  }
 }
 
 // src/modules/statusBar.ts
@@ -2288,8 +2422,15 @@ function registerCommands(deps) {
         prompt: "Enter new port number",
         value: deps.currentPort.toString(),
         validateInput: (value) => {
-          const port = parseInt(value);
-          return isNaN(port) || port < 1024 || port > 65535 ? "Invalid port (1024-65535)" : null;
+          const parseResult = parseIntegerString(value);
+          if (!parseResult.valid) {
+            return "Invalid port (must be an integer)";
+          }
+          const portResult = validatePort(parseInt(value));
+          if (!portResult.valid) {
+            return portResult.error || "Invalid port (1024-65535)";
+          }
+          return null;
         }
       });
       if (newPort) {
@@ -2353,6 +2494,24 @@ Endpoint: http://localhost:${deps.currentPort}`;
     )
   );
   log("INFO" /* INFO */, "All commands registered successfully");
+}
+
+// src/modules/timeFormatting.ts
+function formatCountdown(seconds) {
+  if (seconds < 0) {
+    return "0s";
+  }
+  if (seconds < 60) {
+    return `${Math.floor(seconds)}s`;
+  } else if (seconds < 3600) {
+    const minutes = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return secs === 0 ? `${minutes}m` : `${minutes}m ${secs}s`;
+  } else {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor(seconds % 3600 / 60);
+    return minutes === 0 ? `${hours}h` : `${hours}h ${minutes}m`;
+  }
 }
 
 // src/extension.ts

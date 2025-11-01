@@ -29,19 +29,17 @@ suite('Message Formatter Unit Tests', () => {
 			assert.ok(!result.includes('```json'), 'Should not include JSON block');
 		});
 
-		test('should format message with rich context (custom fields)', () => {
-			const message = 'Feature request';
-			const context = {
-				source: 'http_api',
-				timestamp: '2024-01-01T00:00:00Z',
-				userId: 123,
-				page: '/dashboard',
-				action: 'click'
-			};
+	test('should format message with rich context (custom fields) - EXPLICIT BRANCH COVERAGE', () => {
+		const message = 'Feature request';
+		const context = {
+			source: 'http_api',
+			timestamp: '2024-01-01T00:00:00Z',
+			userId: 123,
+			page: '/dashboard',
+			action: 'click'
+		};
 
-			const result = formatFeedbackMessage(message, context);
-
-			// Should include all standard sections
+		const result = formatFeedbackMessage(message, context);			// Should include all standard sections
 			assert.ok(result.includes('# 🤖 AI DEV MODE'), 'Should include header');
 			assert.ok(result.includes('Feature request'), 'Should include message');
 			assert.ok(result.includes('**Instructions:**'), 'Should include instructions');
@@ -314,6 +312,57 @@ suite('Message Formatter Unit Tests', () => {
 			assert.ok(result.includes('**User Feedback:**'), 'Should include feedback section');
 			assert.ok(result.includes('**Context:**'), 'Should include context');
 			assert.ok(result.includes('userId'), 'Should include context data');
+		});
+
+		test('should fall back to default context when input is falsy', () => {
+			const originalEntries = Object.entries;
+			const seen: Array<Record<string, unknown>> = [];
+			// Intercept Object.entries calls to capture the context instance used internally.
+			Object.entries = ((value: any) => {
+				if (value && typeof value === 'object') {
+					seen.push(value);
+				}
+				return originalEntries(value);
+			}) as typeof Object.entries;
+
+			try {
+				formatFeedbackMessage('Test message', 0);
+			} finally {
+				Object.entries = originalEntries;
+			}
+
+			assert.ok(seen.length > 0, 'Should inspect at least one context object');
+			const fallback = seen[0];
+			assert.strictEqual(fallback.source, 'unknown', 'Fallback context should default source');
+			assert.ok(typeof fallback.timestamp === 'string' && fallback.timestamp.length > 0, 'Fallback context should include timestamp');
+		});
+
+		test('should stringify filtered context without source metadata', () => {
+			const context = {
+				source: 'cli',
+				timestamp: '2024-01-01T00:00:00Z',
+				taskId: '42',
+				status: 'pending'
+			};
+
+			const originalStringify = JSON.stringify;
+			let captured: Record<string, unknown> | undefined;
+			// Capture the payload passed to JSON.stringify to ensure filtering happens before serialization.
+			JSON.stringify = ((value: any, replacer?: any, space?: any) => {
+				if (!captured && value && typeof value === 'object') {
+					captured = value as Record<string, unknown>;
+				}
+				return originalStringify(value, replacer, space);
+			}) as typeof JSON.stringify;
+
+			try {
+				formatFeedbackMessage('Test message', context);
+			} finally {
+				JSON.stringify = originalStringify;
+			}
+
+			assert.ok(captured, 'Should serialize a filtered context payload');
+			assert.deepStrictEqual(captured, { taskId: '42', status: 'pending' }, 'Serialized context should exclude source metadata');
 		});
 	});
 });

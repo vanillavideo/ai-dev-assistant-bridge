@@ -46,23 +46,14 @@ export interface FeedbackContext {
  * ```
  */
 export function formatFeedbackMessage(feedbackMessage: string, appContext?: unknown): string {
-	const context: FeedbackContext = (appContext as FeedbackContext) || { 
-		source: "unknown", 
-		timestamp: new Date().toISOString() 
-	};
-	
+	const context = resolveContext(appContext);
+
 	// Ultra-concise format to minimize token usage
 	let fullMessage = `# 🤖 AI DEV MODE\n\n`;
 	fullMessage += `**User Feedback:**\n${feedbackMessage}\n\n`;
 
-	// Only include context if it has meaningful data beyond source/timestamp
-	const contextKeys = Object.keys(context).filter(k => k !== 'source' && k !== 'timestamp');
-	if (contextKeys.length > 0) {
-		// Create filtered context object without source/timestamp
-		const filteredContext: Record<string, unknown> = {};
-		contextKeys.forEach(key => {
-			filteredContext[key] = context[key as keyof FeedbackContext];
-		});
+	const filteredContext = extractContextDetails(context);
+	if (filteredContext) {
 		fullMessage += `**Context:**\n\`\`\`json\n${JSON.stringify(filteredContext, null, 2)}\n\`\`\`\n\n`;
 	}
 
@@ -86,7 +77,30 @@ export function hasRichContext(context: unknown): boolean {
 		return false;
 	}
 	
-	const contextObj = context as Record<string, unknown>;
-	const keys = Object.keys(contextObj).filter(k => k !== 'source' && k !== 'timestamp');
-	return keys.length > 0;
+	return extractContextDetails(context as FeedbackContext) !== undefined;
+}
+
+function resolveContext(appContext: unknown): FeedbackContext {
+	if (!appContext || typeof appContext !== 'object') {
+		return {
+			source: 'unknown',
+			timestamp: new Date().toISOString()
+		};
+	}
+
+	return appContext as FeedbackContext;
+}
+
+function extractContextDetails(context: FeedbackContext): Record<string, unknown> | undefined {
+	const filtered: Record<string, unknown> = {};
+
+	for (const [key, value] of Object.entries(context)) {
+		if (key === 'source' || key === 'timestamp') {
+			continue;
+		}
+
+		filtered[key] = value;
+	}
+
+	return Object.keys(filtered).length > 0 ? filtered : undefined;
 }

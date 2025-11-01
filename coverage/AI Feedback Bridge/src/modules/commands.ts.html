@@ -23,16 +23,16 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">63.56% </span>
+                <span class="strong">65.02% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>239/376</span>
+                <span class='fraction'>251/386</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">50% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>3/6</span>
+                <span class='fraction'>7/7</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">63.56% </span>
+                <span class="strong">65.02% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>239/376</span>
+                <span class='fraction'>251/386</span>
             </div>
         
             
@@ -439,7 +439,18 @@
 <a name='L374'></a><a href='#L374'>374</a>
 <a name='L375'></a><a href='#L375'>375</a>
 <a name='L376'></a><a href='#L376'>376</a>
-<a name='L377'></a><a href='#L377'>377</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">1x</span>
+<a name='L377'></a><a href='#L377'>377</a>
+<a name='L378'></a><a href='#L378'>378</a>
+<a name='L379'></a><a href='#L379'>379</a>
+<a name='L380'></a><a href='#L380'>380</a>
+<a name='L381'></a><a href='#L381'>381</a>
+<a name='L382'></a><a href='#L382'>382</a>
+<a name='L383'></a><a href='#L383'>383</a>
+<a name='L384'></a><a href='#L384'>384</a>
+<a name='L385'></a><a href='#L385'>385</a>
+<a name='L386'></a><a href='#L386'>386</a>
+<a name='L387'></a><a href='#L387'>387</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
@@ -715,23 +726,32 @@
 <span class="cline-any cline-yes">5x</span>
 <span class="cline-any cline-yes">5x</span>
 <span class="cline-any cline-yes">5x</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">5x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -853,6 +873,7 @@ import * as chatIntegration from './chatIntegration';
 import * as statusBar from './statusBar';
 import * as guidingDocuments from './guidingDocuments';
 import { Task } from './types';
+import { validatePort, parseIntegerString } from './numberValidation';
 &nbsp;
 /**
  * Dependencies required for command execution
@@ -1086,22 +1107,22 @@ export function registerCommands(deps: CommandDependencies): void {
 		vscode.commands.registerCommand('ai-feedback-bridge.toggleAutoContinue', async () =&gt; {
 			const cfg = deps.getConfig();
 			const currentState = cfg.get&lt;boolean&gt;('autoContinue.enabled', false);
-			await deps.updateConfig('autoContinue.enabled', !currentState<span class="branch-0 cbranch-no" title="branch not covered" >);</span>
-			log(LogLevel.INFO, `Auto-Continue ${!currentState ? <span class="branch-0 cbranch-no" title="branch not covered" >'enabled' : 'disabled'}</span>`);
+			await deps.updateConfig('autoContinue.enabled', !currentState);
+			log(LogLevel.INFO, `Auto-Continue ${!currentState ? 'enabled' : 'disabled'}`);
 &nbsp;
 			// Start or stop countdown updates based on new state
-			if (!currentState) <span class="branch-0 cbranch-no" title="branch not covered" >{</span>
-<span class="cstat-no" title="statement not covered" >				deps.startCountdownUpdates(deps.context);</span>
-<span class="cstat-no" title="statement not covered" >			} else {</span>
-<span class="cstat-no" title="statement not covered" >				deps.stopCountdownUpdates();</span>
-<span class="cstat-no" title="statement not covered" >			}</span>
-<span class="cstat-no" title="statement not covered" ></span>
-<span class="cstat-no" title="statement not covered" >			// Refresh settings panel if it's open</span>
-<span class="cstat-no" title="statement not covered" >			settingsPanelModule.refreshSettingsPanel(</span>
-<span class="cstat-no" title="statement not covered" >				deps.context,</span>
-<span class="cstat-no" title="statement not covered" >				deps.getConfig,</span>
-<span class="cstat-no" title="statement not covered" >				deps.currentPort</span>
-<span class="cstat-no" title="statement not covered" >			);</span>
+			if (!currentState) {
+				deps.startCountdownUpdates(deps.context);
+			} else {
+				deps.stopCountdownUpdates();
+			}
+&nbsp;
+			// Refresh settings panel if it's open
+			settingsPanelModule.refreshSettingsPanel(
+				deps.context,
+				deps.getConfig,
+				deps.currentPort
+			);
 		})
 	);
 &nbsp;
@@ -1112,10 +1133,19 @@ export function registerCommands(deps: CommandDependencies): void {
 <span class="cstat-no" title="statement not covered" >				prompt: 'Enter new port number',</span>
 <span class="cstat-no" title="statement not covered" >				value: deps.currentPort.toString(),</span>
 <span class="cstat-no" title="statement not covered" >				validateInput: (value) =&gt; {</span>
-<span class="cstat-no" title="statement not covered" >					const port = parseInt(value);</span>
-<span class="cstat-no" title="statement not covered" >					return isNaN(port) || port &lt; 1024 || port &gt; 65535</span>
-<span class="cstat-no" title="statement not covered" >						? 'Invalid port (1024-65535)'</span>
-<span class="cstat-no" title="statement not covered" >						: null;</span>
+<span class="cstat-no" title="statement not covered" >					// Parse the string to integer</span>
+<span class="cstat-no" title="statement not covered" >					const parseResult = parseIntegerString(value);</span>
+<span class="cstat-no" title="statement not covered" >					if (!parseResult.valid) {</span>
+<span class="cstat-no" title="statement not covered" >						return 'Invalid port (must be an integer)';</span>
+<span class="cstat-no" title="statement not covered" >					}</span>
+<span class="cstat-no" title="statement not covered" >					</span>
+<span class="cstat-no" title="statement not covered" >					// Validate the port range</span>
+<span class="cstat-no" title="statement not covered" >					const portResult = validatePort(parseInt(value));</span>
+<span class="cstat-no" title="statement not covered" >					if (!portResult.valid) {</span>
+<span class="cstat-no" title="statement not covered" >						return portResult.error || 'Invalid port (1024-65535)';</span>
+<span class="cstat-no" title="statement not covered" >					}</span>
+<span class="cstat-no" title="statement not covered" >					</span>
+<span class="cstat-no" title="statement not covered" >					return null;</span>
 <span class="cstat-no" title="statement not covered" >				}</span>
 <span class="cstat-no" title="statement not covered" >			});</span>
 <span class="cstat-no" title="statement not covered" >			if (newPort) {</span>
@@ -1198,7 +1228,7 @@ export function registerCommands(deps: CommandDependencies): void {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-11-01T18:39:39.428Z
+                at 2025-11-01T21:56:13.291Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>
