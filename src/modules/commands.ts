@@ -36,6 +36,7 @@ import * as chatIntegration from './chatIntegration';
 import * as statusBar from './statusBar';
 import * as guidingDocuments from './guidingDocuments';
 import { Task } from './types';
+import { validatePort, parseIntegerString } from './numberValidation';
 
 /**
  * Dependencies required for command execution
@@ -295,10 +296,19 @@ export function registerCommands(deps: CommandDependencies): void {
 				prompt: 'Enter new port number',
 				value: deps.currentPort.toString(),
 				validateInput: (value) => {
-					const port = parseInt(value);
-					return isNaN(port) || port < 1024 || port > 65535
-						? 'Invalid port (1024-65535)'
-						: null;
+					// Parse the string to integer
+					const parseResult = parseIntegerString(value);
+					if (!parseResult.valid) {
+						return 'Invalid port (must be an integer)';
+					}
+					
+					// Validate the port range
+					const portResult = validatePort(parseInt(value));
+					if (!portResult.valid) {
+						return portResult.error || 'Invalid port (1024-65535)';
+					}
+					
+					return null;
 				}
 			});
 			if (newPort) {

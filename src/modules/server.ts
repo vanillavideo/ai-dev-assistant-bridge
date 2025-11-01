@@ -16,6 +16,7 @@ import { log, getErrorMessage } from './logging';
 import { LogLevel } from './types';
 import * as taskManager from './taskManager';
 import * as aiQueue from './aiQueue';
+import { validatePort } from './numberValidation';
 
 let server: http.Server | undefined;
 
@@ -33,9 +34,12 @@ const REQUEST_TIMEOUT = 30000; // 30 seconds
  * - Requires integer value
  * - Excludes privileged ports (0-1023)
  * - Maximum port is 65535 (TCP/IP limit)
+ * 
+ * @deprecated Use validatePort from numberValidation module instead
  */
 function isValidPort(port: number): boolean {
-	return Number.isInteger(port) && port >= 1024 && port <= 65535;
+	const result = validatePort(port);
+	return result.valid;
 }
 
 /**
