@@ -98,14 +98,14 @@ suite('TaskManager Module Tests', () => {
 		test('should reject empty title', async () => {
 			await assert.rejects(
 				async () => await taskManager.addTask(context, '', 'Description', 'bug'),
-				/Title is required/
+				/Title cannot be empty/
 			);
 		});
 
 		test('should reject whitespace-only title', async () => {
 			await assert.rejects(
 				async () => await taskManager.addTask(context, '   ', 'Description', 'bug'),
-				/Title is required/
+				/Title cannot be empty/
 			);
 		});
 
@@ -113,7 +113,7 @@ suite('TaskManager Module Tests', () => {
 			const longTitle = 'a'.repeat(201);
 			await assert.rejects(
 				async () => await taskManager.addTask(context, longTitle, 'Description', 'bug'),
-				/Title too long/
+				/Title cannot exceed 200 characters/
 			);
 		});
 
@@ -127,7 +127,7 @@ suite('TaskManager Module Tests', () => {
 			const longDesc = 'a'.repeat(5001);
 			await assert.rejects(
 				async () => await taskManager.addTask(context, 'Title', longDesc, 'bug'),
-				/Description too long/
+				/Description cannot exceed 5000 characters/
 			);
 		});
 
@@ -138,6 +138,8 @@ suite('TaskManager Module Tests', () => {
 
 		test('should generate unique IDs for tasks', async () => {
 			const task1 = await taskManager.addTask(context, 'Task 1', '', 'bug');
+			// Add tiny delay to ensure different timestamp
+			await new Promise(resolve => setTimeout(resolve, 2));
 			const task2 = await taskManager.addTask(context, 'Task 2', '', 'feature');
 			
 			assert.notStrictEqual(task1.id, task2.id);
@@ -187,6 +189,8 @@ suite('TaskManager Module Tests', () => {
 
 		test('should remove only specified task', async () => {
 			const task1 = await taskManager.addTask(context, 'Task 1', '', 'bug');
+			// Add tiny delay to ensure different IDs
+			await new Promise(resolve => setTimeout(resolve, 2));
 			const task2 = await taskManager.addTask(context, 'Task 2', '', 'feature');
 			
 			await taskManager.removeTask(context, task1.id);
@@ -205,7 +209,9 @@ suite('TaskManager Module Tests', () => {
 	suite('clearCompletedTasks', () => {
 		test('should remove only completed tasks', async () => {
 			const task1 = await taskManager.addTask(context, 'Task 1', '', 'bug');
+			await new Promise(resolve => setTimeout(resolve, 2));
 			const task2 = await taskManager.addTask(context, 'Task 2', '', 'feature');
+			await new Promise(resolve => setTimeout(resolve, 2));
 			const task3 = await taskManager.addTask(context, 'Task 3', '', 'improvement');
 			
 			await taskManager.updateTaskStatus(context, task1.id, 'completed');

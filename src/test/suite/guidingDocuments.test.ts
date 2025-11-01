@@ -339,13 +339,13 @@ suite('Guiding Documents Module Test Suite', () => {
 		test('Should reject empty file path', async () => {
 			await assert.rejects(async () => {
 				await guidingDocuments.addGuidingDocument('');
-			}, /Invalid file path/);
+			}, /Path cannot be empty/);
 		});
 
 		test('Should reject whitespace-only path', async () => {
 			await assert.rejects(async () => {
 				await guidingDocuments.addGuidingDocument('   ');
-			}, /Invalid file path/);
+			}, /Path cannot be empty/);
 		});
 
 		test('Should handle special characters in filename', async () => {

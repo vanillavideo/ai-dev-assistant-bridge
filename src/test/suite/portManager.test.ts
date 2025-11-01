@@ -251,7 +251,9 @@ function createMockContext(): vscode.ExtensionContext {
 	
 	return {
 		workspaceState: {
-			get: (key: string) => workspaceStorage.get(key),
+			get: <T>(key: string, defaultValue?: T): T => {
+				return workspaceStorage.has(key) ? workspaceStorage.get(key) : defaultValue as T;
+			},
 			update: async (key: string, value: any) => { workspaceStorage.set(key, value); },
 			keys: () => Array.from(workspaceStorage.keys())
 		},
@@ -261,7 +263,9 @@ function createMockContext(): vscode.ExtensionContext {
 		environmentVariableCollection: {} as any,
 		extensionMode: vscode.ExtensionMode.Test,
 		globalState: {
-			get: (key: string) => globalStorage.get(key),
+			get: <T>(key: string, defaultValue?: T): T => {
+				return globalStorage.has(key) ? globalStorage.get(key) : defaultValue as T;
+			},
 			update: async (key: string, value: any) => { 
 				if (value === undefined) {
 					globalStorage.delete(key);
