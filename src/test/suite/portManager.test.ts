@@ -16,7 +16,7 @@ suite('PortManager Module Tests', () => {
 		const ext = vscode.extensions.getExtension('local.ai-feedback-bridge');
 		assert.ok(ext, 'Extension should be available');
 		await ext.activate();
-		context = (ext.exports as any).context || createMockContext();
+		context = (ext.exports as any)?.context || createMockContext();
 	});
 
 	suite('findAvailablePort', () => {

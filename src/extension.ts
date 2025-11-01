@@ -36,11 +36,14 @@ function getConfig(): vscode.WorkspaceConfiguration {
  */
 async function updateConfig(key: string, value: unknown): Promise<void> {
 	const config = getConfig();
-	// Use Workspace target so settings are workspace-specific
-	await config.update(key, value, vscode.ConfigurationTarget.Workspace);
+	// Use Workspace target if workspace is open, otherwise use Global
+	const target = vscode.workspace.workspaceFolders 
+		? vscode.ConfigurationTarget.Workspace 
+		: vscode.ConfigurationTarget.Global;
+	await config.update(key, value, target);
 	
 	log(LogLevel.DEBUG, `Config updated: ${key} = ${value}`, {
-		scope: 'Workspace',
+		scope: target === vscode.ConfigurationTarget.Workspace ? 'Workspace' : 'Global',
 		newValue: config.get(key)
 	});
 }

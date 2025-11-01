@@ -3144,7 +3144,7 @@ suite("TaskManager Module Tests", () => {
     const ext = vscode8.extensions.getExtension("local.ai-feedback-bridge");
     assert6.ok(ext, "Extension should be available");
     await ext.activate();
-    context = ext.exports.context || createMockContext();
+    context = ext.exports?.context || createMockContext();
   });
   setup(async () => {
     await clearCompletedTasks(context);
@@ -3429,7 +3429,7 @@ suite("PortManager Module Tests", () => {
     const ext = vscode10.extensions.getExtension("local.ai-feedback-bridge");
     assert7.ok(ext, "Extension should be available");
     await ext.activate();
-    context = ext.exports.context || createMockContext2();
+    context = ext.exports?.context || createMockContext2();
   });
   suite("findAvailablePort", () => {
     test("should find an available port", async () => {

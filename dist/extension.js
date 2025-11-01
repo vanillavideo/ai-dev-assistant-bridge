@@ -2366,9 +2366,10 @@ function getConfig() {
 }
 async function updateConfig(key, value) {
   const config = getConfig();
-  await config.update(key, value, vscode10.ConfigurationTarget.Workspace);
+  const target = vscode10.workspace.workspaceFolders ? vscode10.ConfigurationTarget.Workspace : vscode10.ConfigurationTarget.Global;
+  await config.update(key, value, target);
   log("DEBUG" /* DEBUG */, `Config updated: ${key} = ${value}`, {
-    scope: "Workspace",
+    scope: target === vscode10.ConfigurationTarget.Workspace ? "Workspace" : "Global",
     newValue: config.get(key)
   });
 }
