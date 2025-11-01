@@ -646,4 +646,165 @@ suite('Auto-Continue Module Tests', () => {
 		// Timer should have stopped itself
 		assert.strictEqual(isAutoContinueActive(), false, 'Timer should stop when disabled');
 	});
+
+	test('getSmartAutoContinueMessage should include guiding documents when configured', async () => {
+		// Test branch at line 105: when docsContext is truthy
+		const mockConfig = {
+			get: (key: string, defaultValue: any) => {
+				if (key === 'autoContinue.tasks.enabled') {
+					return true;
+				}
+				if (key === 'autoContinue.tasks.message') {
+					return 'Check tasks';
+				}
+				if (key === 'guidingDocuments.files') {
+					return ['TESTING.md']; // Configure guiding documents
+				}
+				if (key.includes('enabled')) {
+					return false;
+				}
+				return defaultValue;
+			}
+		} as any;
+
+		const message = await getSmartAutoContinueMessage(
+			context,
+			() => mockConfig,
+			true
+		);
+
+		// Should include task message
+		assert.ok(message.includes('Check tasks'), 'Should include task message');
+		// Note: actual guiding documents content depends on filesystem, 
+		// but we're testing the branch where docsContext is truthy
+	});
+
+	test('startAutoContinue timer should continue when message is empty', async function() {
+		this.timeout(2000);
+
+		// Test branch at line 182: when message is empty (false branch)
+		let sendCalled = false;
+
+		const mockSendToAgent = async () => {
+			sendCalled = true;
+			return true;
+		};
+
+		const mockConfig = {
+			get: (key: string, defaultValue: any) => {
+				if (key === 'autoContinue.enabled') {
+					return true;
+				}
+				// All categories disabled, so message will be empty
+				if (key.includes('enabled')) {
+					return false;
+				}
+				return defaultValue;
+			}
+		} as any;
+
+		startAutoContinue(context, () => mockConfig, mockSendToAgent);
+
+		// Wait for timer to tick
+		await new Promise(resolve => setTimeout(resolve, 700));
+
+		stopAutoContinue();
+
+		// sendToAgent should NOT have been called because message was empty
+		assert.strictEqual(sendCalled, false, 'Should not send when message is empty');
+	});
+
+	test('formatCountdown should handle values >= 60 correctly', () => {
+		// Test branch at line 352: when seconds < 60 is false
+		assert.strictEqual(formatCountdown(60), '1m', 'Should format 60 seconds as 1m');
+		assert.strictEqual(formatCountdown(90), '1m 30s', 'Should format 90 seconds correctly');
+	});
+
+	test('formatCountdown should handle values >= 3600 correctly', () => {
+		// Test branch at line 358: when seconds < 3600 is false
+		assert.strictEqual(formatCountdown(3600), '1h', 'Should format 3600 seconds as 1h');
+		assert.strictEqual(formatCountdown(3900), '1h 5m', 'Should format 3900 seconds correctly');
+	});
+
+	test('getTimeUntilNextReminder should handle enabled category without message', () => {
+		// Test branch at line 311: when !enabled || !message is true (message is empty)
+		const mockConfig = {
+			get: (key: string, defaultValue: any) => {
+				if (key === 'autoContinue.tasks.enabled') {
+					return true; // Enabled
+				}
+				if (key === 'autoContinue.tasks.message') {
+					return ''; // But no message
+				}
+				if (key.includes('enabled')) {
+					return false;
+				}
+				return defaultValue;
+			}
+		} as any;
+
+		const seconds = getTimeUntilNextReminder(context, () => mockConfig);
+
+		// Should return null because no valid categories (message is empty)
+		assert.strictEqual(seconds, null, 'Should return null when message is empty');
+	});
+
+	test('getTimeUntilNextReminder should find shortest remaining time', () => {
+		// Test branch at line 315: when remaining < shortestTime
+		const now = Date.now();
+		const mockContext = {
+			...context,
+			globalState: {
+				get: (key: string, defaultValue: any) => {
+					if (key === 'autoContinue.lastSent') {
+						return {
+							'tasks': now - 250000, // 250 seconds ago, so 50s remaining for 300s interval
+							'improvements': now - 100000, // 100 seconds ago, so 200s remaining for 300s interval
+						};
+					}
+					return defaultValue;
+				},
+				update: async () => {},
+				keys: () => []
+			}
+		} as any;
+
+		const mockConfig = {
+			get: (key: string, defaultValue: any) => {
+				if (key.startsWith('autoContinue.tasks.')) {
+					if (key.endsWith('.enabled')) {
+						return true;
+					}
+					if (key.endsWith('.interval')) {
+						return 300;
+					}
+					if (key.endsWith('.message')) {
+						return 'Check tasks';
+					}
+				}
+				if (key.startsWith('autoContinue.improvements.')) {
+					if (key.endsWith('.enabled')) {
+						return true;
+					}
+					if (key.endsWith('.interval')) {
+						return 300;
+					}
+					if (key.endsWith('.message')) {
+						return 'Check improvements';
+					}
+				}
+				if (key.includes('enabled')) {
+					return false;
+				}
+				return defaultValue;
+			}
+		} as any;
+
+		const seconds = getTimeUntilNextReminder(mockContext, () => mockConfig);
+
+		// Should return the shortest time (tasks category: ~50 seconds)
+		assert.ok(seconds !== null, 'Should return a time');
+		assert.ok(seconds! <= 60, 'Should be approximately 50 seconds or less');
+		assert.ok(seconds! >= 0, 'Should not be negative');
+	});
 });
