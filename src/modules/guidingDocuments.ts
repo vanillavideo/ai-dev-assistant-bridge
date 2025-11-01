@@ -11,6 +11,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { log } from './logging';
 import { LogLevel } from './types';
+import { validatePath } from './pathValidation';
 
 /**
  * Get the list of guiding documents from workspace configuration
@@ -30,10 +31,11 @@ export async function addGuidingDocument(filePath: string): Promise<void> {
 	const config = vscode.workspace.getConfiguration('aiFeedbackBridge');
 	const docs = config.get<string[]>('guidingDocuments', []);
 
-	// Basic validation
-	if (!filePath || filePath.trim().length === 0) {
-		log(LogLevel.WARN, `Attempted to add invalid guiding document path: '${filePath}'`);
-		throw new Error('Invalid file path');
+	// Validate path using pathValidation module
+	const validation = validatePath(filePath);
+	if (!validation.valid) {
+		log(LogLevel.WARN, `Invalid guiding document path: ${validation.error}`);
+		throw new Error(validation.error || 'Invalid file path');
 	}
 
 	// Convert to workspace-relative path if possible

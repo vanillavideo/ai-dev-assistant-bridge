@@ -279,5 +279,42 @@ suite('Message Formatter Unit Tests', () => {
 			assert.ok(result.includes('field0'), 'Should include first field');
 			assert.ok(result.includes('field99'), 'Should include last field');
 		});
+
+		test('should handle context with falsy appContext (triggers OR operator)', () => {
+			// Explicitly test the || operator branch
+			const result = formatFeedbackMessage('Test', 0);
+			assert.ok(result.includes('# 🤖 AI DEV MODE'), 'Should include header');
+			assert.ok(!result.includes('**Context:**'), 'Should not include context for falsy value');
+		});
+
+		test('should handle context with false boolean', () => {
+			const result = formatFeedbackMessage('Test', false);
+			assert.ok(result.includes('Test'), 'Should include message');
+			assert.ok(!result.includes('**Context:**'), 'Should not include context for false');
+		});
+
+		test('should handle array as context', () => {
+			const result = formatFeedbackMessage('Test', [1, 2, 3]);
+			assert.ok(result.includes('Test'), 'Should include message');
+			// Arrays are objects, so this tests the object handling path
+		});
+
+		test('should handle context with prototype properties', () => {
+			const context = Object.create({ inheritedProp: 'inherited' });
+			context.source = 'test';
+			context.timestamp = '2024-01-01T00:00:00Z';
+			context.ownProp = 'own';
+			
+			const result = formatFeedbackMessage('Test', context);
+			assert.ok(result.includes('ownProp'), 'Should include own properties');
+		});
+
+		test('should handle empty string as feedback message', () => {
+			const result = formatFeedbackMessage('', { userId: 123 });
+			assert.ok(result.includes('**User Feedback:**'), 'Should include feedback section');
+			assert.ok(result.includes('**Context:**'), 'Should include context');
+			assert.ok(result.includes('userId'), 'Should include context data');
+		});
 	});
 });
+
