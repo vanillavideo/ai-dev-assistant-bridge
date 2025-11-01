@@ -18,6 +18,7 @@ import {
 
 suite('Auto-Continue Module Tests', () => {
 	let context: vscode.ExtensionContext;
+	let mockGlobalState: Map<string, any>;
 
 	setup(async () => {
 		// Get extension context
@@ -28,11 +29,18 @@ suite('Auto-Continue Module Tests', () => {
 			await ext!.activate();
 		}
 		
+		// Create a stateful mock for globalState
+		mockGlobalState = new Map<string, any>();
+		
 		context = ext!.exports?.context || {
 			globalState: {
-				get: () => ({}),
-				update: async () => {},
-				keys: () => []
+				get: (key: string, defaultValue?: any) => {
+					return mockGlobalState.has(key) ? mockGlobalState.get(key) : (defaultValue || {});
+				},
+				update: async (key: string, value: any) => {
+					mockGlobalState.set(key, value);
+				},
+				keys: () => Array.from(mockGlobalState.keys())
 			},
 			workspaceState: {
 				get: () => undefined,
@@ -46,6 +54,7 @@ suite('Auto-Continue Module Tests', () => {
 
 	teardown(() => {
 		stopAutoContinue();
+		mockGlobalState.clear();
 	});
 
 	test('formatCountdown should format seconds correctly', () => {

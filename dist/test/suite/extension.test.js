@@ -2486,18 +2486,23 @@ var vscode7 = __toESM(require("vscode"));
 init_autoContinue();
 suite("Auto-Continue Module Tests", () => {
   let context;
+  let mockGlobalState;
   setup(async () => {
     const ext = vscode7.extensions.getExtension("local.ai-feedback-bridge");
     assert5.ok(ext, "Extension should be available for testing");
     if (!ext.isActive) {
       await ext.activate();
     }
+    mockGlobalState = /* @__PURE__ */ new Map();
     context = ext.exports?.context || {
       globalState: {
-        get: () => ({}),
-        update: async () => {
+        get: (key, defaultValue) => {
+          return mockGlobalState.has(key) ? mockGlobalState.get(key) : defaultValue || {};
         },
-        keys: () => []
+        update: async (key, value) => {
+          mockGlobalState.set(key, value);
+        },
+        keys: () => Array.from(mockGlobalState.keys())
       },
       workspaceState: {
         get: () => void 0,
@@ -2511,6 +2516,7 @@ suite("Auto-Continue Module Tests", () => {
   });
   teardown(() => {
     stopAutoContinue();
+    mockGlobalState.clear();
   });
   test("formatCountdown should format seconds correctly", () => {
     assert5.strictEqual(formatCountdown(0), "0s", "Zero seconds");
