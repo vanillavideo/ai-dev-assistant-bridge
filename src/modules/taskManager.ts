@@ -6,6 +6,7 @@
  */
 import * as vscode from 'vscode';
 import { Task } from './types';
+import { validateTaskData, normalizeTaskData } from './taskValidation';
 
 /**
  * Get all tasks from workspace state
@@ -106,27 +107,22 @@ export async function addTask(
 	description: string = '',
 	category: Task['category'] = 'other'
 ): Promise<Task> {
-	// Validate inputs
-	if (!title || typeof title !== 'string' || title.trim().length === 0) {
-		throw new Error('Task title is required and must be a non-empty string');
+	// Validate inputs using taskValidation module
+	const validation = validateTaskData(title, description, category);
+	if (!validation.valid) {
+		throw new Error(validation.error || 'Invalid task data');
 	}
-	if (title.length > 200) {
-		throw new Error('Task title too long (max 200 characters)');
-	}
-	if (typeof description !== 'string') {
-		throw new Error('Task description must be a string');
-	}
-	if (description.length > 5000) {
-		throw new Error('Task description too long (max 5000 characters)');
-	}
+
+	// Normalize inputs (trim whitespace, apply defaults)
+	const normalized = normalizeTaskData(title, description, category);
 
 	const tasks = await getTasks(context);
 	const newTask: Task = {
 		id: Date.now().toString(),
-		title: title.trim(),
-		description: description.trim(),
+		title: normalized.title,
+		description: normalized.description,
 		status: 'pending',
-		category,
+		category: normalized.category as Task['category'],
 		createdAt: new Date().toISOString(),
 		updatedAt: new Date().toISOString()
 	};
@@ -201,16 +197,22 @@ export async function removeTask(context: vscode.ExtensionContext, taskId: strin
  * @param field - Field to update ('title' or 'description')
  * @param value - New value for the field
  * @returns Promise that resolves when task is updated
+ * @throws {Error} If validation fails for the field value
  * 
  * @remarks
+ * - Automatically validates the new value using taskValidation
  * - Automatically updates the updatedAt timestamp
  * - No error thrown if task doesn't exist
- * - Value is not validated (caller should validate before calling)
+ * - Value is trimmed before saving
  * 
  * @example
  * ```typescript
- * await updateTaskField(context, taskId, 'title', 'New title');
- * await updateTaskField(context, taskId, 'description', 'New description');
+ * try {
+ *   await updateTaskField(context, taskId, 'title', 'New title');
+ *   await updateTaskField(context, taskId, 'description', 'New description');
+ * } catch (error) {
+ *   vscode.window.showErrorMessage(error.message);
+ * }
  * ```
  */
 export async function updateTaskField(
@@ -219,10 +221,19 @@ export async function updateTaskField(
 	field: 'title' | 'description',
 	value: string
 ): Promise<void> {
+	// Validate the new value
+	const validation = field === 'title' 
+		? validateTaskData(value, undefined, undefined)
+		: validateTaskData('placeholder', value, undefined);
+	
+	if (!validation.valid) {
+		throw new Error(validation.error || `Invalid ${field} value`);
+	}
+
 	const tasks = await getTasks(context);
 	const task = tasks.find(t => t.id === taskId);
 	if (task) {
-		task[field] = value;
+		task[field] = value.trim();
 		task.updatedAt = new Date().toISOString();
 		await saveTasks(context, tasks);
 	}
