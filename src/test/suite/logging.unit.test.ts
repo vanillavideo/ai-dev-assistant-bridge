@@ -52,6 +52,9 @@ suite('Logging Unit Tests (Fast)', () => {
 		console.error = originalConsoleError;
 		console.warn = originalConsoleWarn;
 		console.log = originalConsoleLog;
+		
+		// Restore logging module to valid state
+		logging.initLogging(mockChannel as any);
 	});
 
 	suite('Basic Logging', () => {

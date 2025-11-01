@@ -6671,7 +6671,11 @@ async function run() {
     timeout: 1e4
   });
   const testsRoot = path2.resolve(__dirname, "..");
-  const files = await glob("**/**.test.js", { cwd: testsRoot });
+  const files = await glob("**/**.test.js", {
+    cwd: testsRoot,
+    ignore: ["**/*.unit.test.js"]
+    // Exclude unit tests from integration suite
+  });
   files.forEach((f) => mocha.addFile(path2.resolve(testsRoot, f)));
   return new Promise((resolve2, reject) => {
     try {
