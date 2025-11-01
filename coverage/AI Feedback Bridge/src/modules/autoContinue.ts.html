@@ -23,16 +23,16 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">93.93% </span>
+                <span class="strong">93.11% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>341/363</span>
+                <span class='fraction'>338/363</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">71.42% </span>
+                <span class="strong">66.66% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>20/28</span>
+                <span class='fraction'>20/30</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">93.93% </span>
+                <span class="strong">93.11% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>341/363</span>
+                <span class='fraction'>338/363</span>
             </div>
         
             
@@ -770,13 +770,11 @@
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">5x</span>
 <span class="cline-any cline-yes">5x</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-yes">5x</span>
@@ -784,6 +782,8 @@
 <span class="cline-any cline-yes">5x</span>
 <span class="cline-any cline-yes">5x</span>
 <span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -1116,40 +1116,40 @@ export function getTimeUntilNextReminder(
 }
 &nbsp;
 /**
- * Format countdown time as human-readable string
+ * Format countdown seconds into human-readable string (e.g., "5m 30s", "1h 5m")
+ * Hides zero values for cleaner output.
  * 
- * @param seconds - Time in seconds to format
- * @returns Formatted string (e.g., "45s", "2m 30s", "1h 15m")
- * 
- * @remarks
- * Format rules:
- * - Less than 60 seconds: "Xs" (e.g., "45s")
- * - 60-3599 seconds: "Xm Ys" (e.g., "2m 30s")
- * - 3600+ seconds: "Xh Ym" (e.g., "1h 15m")
- * 
- * Used for:
- * - Status bar countdown display
- * - User-facing time formatting
- * - Tooltip information
+ * @param seconds - Countdown time in seconds
+ * @returns Formatted string with appropriate time units
  * 
  * @example
  * ```typescript
  * console.log(formatCountdown(45));    // "45s"
+ * console.log(formatCountdown(60));    // "1m"
  * console.log(formatCountdown(150));   // "2m 30s"
+ * console.log(formatCountdown(3600));  // "1h"
  * console.log(formatCountdown(3900));  // "1h 5m"
+ * console.log(formatCountdown(-10));   // "0s" (negative clamped to 0)
  * ```
  */
 export function formatCountdown(seconds: number): string {
+	// Clamp negative values to 0
+	if (seconds &lt; 0) <span class="branch-0 cbranch-no" title="branch not covered" >{</span>
+<span class="cstat-no" title="statement not covered" >		return '0s';</span>
+<span class="cstat-no" title="statement not covered" >	}</span>
+	
 	if (seconds &lt; 60) <span class="branch-0 cbranch-no" title="branch not covered" >{</span>
 <span class="cstat-no" title="statement not covered" >		return `${Math.floor(seconds)}s`;</span>
 	} else if (seconds &lt; 3600) {
 		const minutes = Math.floor(seconds / 60);
 		const secs = Math.floor(seconds % 60);
-		return `${minutes}m ${secs}s`;
+		// Hide seconds if 0 for cleaner output
+		return secs === <span class="branch-0 cbranch-no" title="branch not covered" >0 ? `${minutes}m` : `</span>${minutes}m ${secs}s`;
 <span class="branch-0 cbranch-no" title="branch not covered" >	} else {</span>
 <span class="cstat-no" title="statement not covered" >		const hours = Math.floor(seconds / 3600);</span>
 <span class="cstat-no" title="statement not covered" >		const minutes = Math.floor((seconds % 3600) / 60);</span>
-<span class="cstat-no" title="statement not covered" >		return `${hours}h ${minutes}m`;</span>
+<span class="cstat-no" title="statement not covered" >		// Hide minutes if 0 for cleaner output</span>
+<span class="cstat-no" title="statement not covered" >		return minutes === 0 ? `${hours}h` : `${hours}h ${minutes}m`;</span>
 <span class="cstat-no" title="statement not covered" >	}</span>
 }
 &nbsp;</pre></td></tr></table></pre>
@@ -1159,7 +1159,7 @@ export function formatCountdown(seconds: number): string {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-11-01T18:31:18.581Z
+                at 2025-11-01T18:33:59.380Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>

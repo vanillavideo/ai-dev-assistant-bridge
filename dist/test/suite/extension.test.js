@@ -282,16 +282,19 @@ function getTimeUntilNextReminder(context, getConfig) {
   return shortestTime;
 }
 function formatCountdown(seconds) {
+  if (seconds < 0) {
+    return "0s";
+  }
   if (seconds < 60) {
     return `${Math.floor(seconds)}s`;
   } else if (seconds < 3600) {
     const minutes = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
-    return `${minutes}m ${secs}s`;
+    return secs === 0 ? `${minutes}m` : `${minutes}m ${secs}s`;
   } else {
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor(seconds % 3600 / 60);
-    return `${hours}h ${minutes}m`;
+    return minutes === 0 ? `${hours}h` : `${hours}h ${minutes}m`;
   }
 }
 var vscode6, autoContinueTimer;

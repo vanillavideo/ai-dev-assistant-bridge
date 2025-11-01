@@ -325,39 +325,39 @@ export function getTimeUntilNextReminder(
 }
 
 /**
- * Format countdown time as human-readable string
+ * Format countdown seconds into human-readable string (e.g., "5m 30s", "1h 5m")
+ * Hides zero values for cleaner output.
  * 
- * @param seconds - Time in seconds to format
- * @returns Formatted string (e.g., "45s", "2m 30s", "1h 15m")
- * 
- * @remarks
- * Format rules:
- * - Less than 60 seconds: "Xs" (e.g., "45s")
- * - 60-3599 seconds: "Xm Ys" (e.g., "2m 30s")
- * - 3600+ seconds: "Xh Ym" (e.g., "1h 15m")
- * 
- * Used for:
- * - Status bar countdown display
- * - User-facing time formatting
- * - Tooltip information
+ * @param seconds - Countdown time in seconds
+ * @returns Formatted string with appropriate time units
  * 
  * @example
  * ```typescript
  * console.log(formatCountdown(45));    // "45s"
+ * console.log(formatCountdown(60));    // "1m"
  * console.log(formatCountdown(150));   // "2m 30s"
+ * console.log(formatCountdown(3600));  // "1h"
  * console.log(formatCountdown(3900));  // "1h 5m"
+ * console.log(formatCountdown(-10));   // "0s" (negative clamped to 0)
  * ```
  */
 export function formatCountdown(seconds: number): string {
+	// Clamp negative values to 0
+	if (seconds < 0) {
+		return '0s';
+	}
+	
 	if (seconds < 60) {
 		return `${Math.floor(seconds)}s`;
 	} else if (seconds < 3600) {
 		const minutes = Math.floor(seconds / 60);
 		const secs = Math.floor(seconds % 60);
-		return `${minutes}m ${secs}s`;
+		// Hide seconds if 0 for cleaner output
+		return secs === 0 ? `${minutes}m` : `${minutes}m ${secs}s`;
 	} else {
 		const hours = Math.floor(seconds / 3600);
 		const minutes = Math.floor((seconds % 3600) / 60);
-		return `${hours}h ${minutes}m`;
+		// Hide minutes if 0 for cleaner output
+		return minutes === 0 ? `${hours}h` : `${hours}h ${minutes}m`;
 	}
 }
