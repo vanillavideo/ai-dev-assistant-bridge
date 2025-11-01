@@ -92,6 +92,35 @@ Find files with 0% coverage:
 npm run coverage:untested
 ```
 
+### Branch Coverage Analysis
+
+Check which branches need testing:
+
+```bash
+# View branch coverage breakdown from coverage report
+grep -E "^SF:|^BRH:|^BRF:" coverage/lcov.info | \
+  awk 'BEGIN{file=""} /^SF:/{file=$0; gsub("SF:.*/","",file)} \
+  /^BRF:/{brf=$0; gsub("BRF:","",brf)} \
+  /^BRH:/{brh=$0; gsub("BRH:","",brh); \
+  if(brf>0){pct=int(brh*100/brf); gap=brf-brh; \
+  print file " | " brh "/" brf " | " pct "% | Gap: " gap}}'
+
+# Or view in the HTML coverage report
+npm run coverage:report
+# Then look for yellow/red highlighted conditional branches
+```
+
+**100% Branch Coverage Modules:**
+- ✅ `aiQueue.ts` - All conditional paths tested
+- ✅ `autoApproval.ts` - Complete branch coverage
+- ✅ `chatIntegration.ts` - All error paths covered
+- ✅ `guidingDocuments.ts` - All branches tested
+- ✅ `types.ts` - Pure types (no branches)
+
+**Known Limitations:**
+- `logging.ts` - 71% branch coverage (c8 doesn't instrument `console.*` calls)
+- Modules with VS Code API - Require integration tests, not unit tests
+
 ### Advanced Features
 
 ```bash
@@ -142,6 +171,8 @@ Test files:
 
 ## Coverage Goals
 
+### Statement Coverage
+
 | Module | Current | Target | Priority |
 |--------|---------|--------|----------|
 | **aiQueue.ts** | 51.54% | 80%+ | Medium |
@@ -152,6 +183,56 @@ Test files:
 | **portManager.ts** | 95.02% | 95%+ | Low ✅ |
 | **logging.ts** | 84.78% | 90%+ | Low |
 | **statusBar.ts** | 93.51% | 95%+ | Low ✅ |
+
+### Branch Coverage Status
+
+**Overall: 60.6% branch coverage**
+
+| Status | Modules | Coverage |
+|--------|---------|----------|
+| ✅ **Complete** | aiQueue, autoApproval, chatIntegration, guidingDocuments, types | 100% |
+| 🟡 **High** | server (87%), portManager (70%), logging (71%*) | 70-89% |
+| 🟠 **Medium** | extension (54%), autoContinue (50%), commands (50%), statusBar (50%) | 50-69% |
+| 🔴 **Low** | taskManager (33%), settingsPanel (29%) | <50% |
+
+\* logging.ts limited by c8 instrumentation of console.* methods
+
+## Understanding Coverage Metrics
+
+### What Each Metric Means
+
+- **Statements** - % of executed code lines
+- **Branches** - % of conditional paths taken (if/else, switch, ternary)
+- **Functions** - % of functions called
+- **Lines** - % of lines executed (similar to statements)
+
+### Branch Coverage Example
+
+```typescript
+// This function has 2 branches
+function checkValue(x: number): string {
+  if (x > 0) {
+    return 'positive';  // Branch 1
+  }
+  return 'negative';    // Branch 2
+}
+
+// 100% branch coverage requires testing BOTH paths:
+test('positive value', () => {
+  assert.equal(checkValue(5), 'positive');  // Covers branch 1
+});
+
+test('negative value', () => {
+  assert.equal(checkValue(-5), 'negative'); // Covers branch 2
+});
+```
+
+### Why Branch Coverage Matters
+
+- Ensures all error paths are tested
+- Validates edge cases and conditionals
+- Catches logic bugs in untested paths
+- More thorough than statement coverage alone
 
 ## Best Practices
 
