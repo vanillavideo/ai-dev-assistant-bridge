@@ -5,6 +5,12 @@ import * as vscode from 'vscode';
 import './aiQueue.test';
 import './guidingDocuments.test';
 import './server.test';
+import './statusBar.test';
+import './autoContinue.test';
+import './taskManager.test';
+import './portManager.test';
+import './chatIntegration.test';
+import './commands.integration.test';
 
 suite('AI Feedback Bridge Extension Test Suite', () => {
 	vscode.window.showInformationMessage('Start all tests.');

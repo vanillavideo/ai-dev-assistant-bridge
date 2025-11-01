@@ -353,4 +353,17 @@ suite('Auto-Continue Module Tests', () => {
 		assert.ok(message.includes('Check tasks'), 'Should include task message');
 		assert.ok(!message.includes('# Guiding Documents'), 'Should not include guiding documents header when empty');
 	});
+
+	test('stopAutoContinue should handle being called when timer already stopped', () => {
+		// Test branch coverage: stopAutoContinue when autoContinueTimer is already undefined
+		// This tests the implicit else branch (line 209 in autoContinue.ts)
+		
+		// Ensure timer is not running
+		stopAutoContinue();
+		
+		// Call again - should handle gracefully without error
+		assert.doesNotThrow(() => {
+			stopAutoContinue();
+		}, 'Should not throw when stopping already stopped timer');
+	});
 });
