@@ -1,13 +1,17 @@
 # Compiled output
 dist/
 out/
+
+# Releases
 *.vsix
+releases/
 
 # Dependencies
 node_modules/
 
 # Test artifacts
 .vscode-test/
+coverage/
 
 # IDE
 .vscode/
