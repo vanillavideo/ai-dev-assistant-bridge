@@ -1,6 +1,14 @@
 /**
  * HTTP Server module for AI Feedback Bridge
- * Handles all HTTP endpoints for external communication
+ * 
+ * Provides REST API endpoints for external communication with the extension.
+ * Handles health checks, feedback submission, task management, and port queries.
+ * 
+ * Security features:
+ * - Port validation (1024-65535 range)
+ * - Request size limiting (1MB max)
+ * - Request timeout (30 seconds)
+ * - CORS headers for cross-origin requests
  */
 import * as vscode from 'vscode';
 import * as http from 'http';
@@ -15,14 +23,51 @@ const MAX_REQUEST_SIZE = 1024 * 1024; // 1MB max request body
 const REQUEST_TIMEOUT = 30000; // 30 seconds
 
 /**
- * Validate port number
+ * Validate port number is in safe range
+ * 
+ * @param port - Port number to validate
+ * @returns true if port is valid (1024-65535), false otherwise
+ * 
+ * @remarks
+ * - Requires integer value
+ * - Excludes privileged ports (0-1023)
+ * - Maximum port is 65535 (TCP/IP limit)
  */
 function isValidPort(port: number): boolean {
 	return Number.isInteger(port) && port >= 1024 && port <= 65535;
 }
 
 /**
- * Start the HTTP server
+ * Start the HTTP server on specified port
+ * 
+ * @param context - VS Code extension context for state access
+ * @param port - Port number to listen on (must be 1024-65535)
+ * @param sendToAgent - Function to send messages to Copilot Chat
+ * @returns HTTP server instance
+ * @throws {Error} If port is invalid (outside 1024-65535 range)
+ * 
+ * @remarks
+ * Security features:
+ * - Validates port number before starting
+ * - Sets 30-second timeout on all requests
+ * - Limits request body size to 1MB
+ * - Enables CORS for cross-origin requests
+ * - Handles OPTIONS preflight requests
+ * 
+ * Error handling:
+ * - EADDRINUSE: Port already in use (shown to user)
+ * - Request timeout: Returns 408 status
+ * - Handler errors: Returns 500 status
+ * 
+ * @example
+ * ```typescript
+ * try {
+ *   const server = startServer(context, 3737, sendToAgent);
+ *   console.log('Server started successfully');
+ * } catch (error) {
+ *   vscode.window.showErrorMessage(`Failed to start server: ${error.message}`);
+ * }
+ * ```
  */
 export function startServer(
 	context: vscode.ExtensionContext,
@@ -94,7 +139,18 @@ export function startServer(
 }
 
 /**
- * Stop the HTTP server
+ * Stop the HTTP server and clean up resources
+ * 
+ * @remarks
+ * - Closes all active connections
+ * - Safe to call even if server is not running
+ * - Idempotent operation (can be called multiple times)
+ * - Automatically called on extension deactivation
+ * 
+ * @example
+ * ```typescript
+ * stopServer(); // Gracefully shutdown server
+ * ```
  */
 export function stopServer(): void {
 	if (server) {
@@ -106,13 +162,66 @@ export function stopServer(): void {
 
 /**
  * Get the current server instance
+ * 
+ * @returns The active HTTP server instance, or undefined if not running
+ * 
+ * @remarks
+ * Used by commands to check server status without direct access to module internals
+ * 
+ * @example
+ * ```typescript
+ * const server = getServer();
+ * if (server && server.listening) {
+ *   console.log('Server is running');
+ * }
+ * ```
  */
 export function getServer(): http.Server | undefined {
 	return server;
 }
 
 /**
- * Handle incoming HTTP requests
+ * Handle incoming HTTP requests and route to appropriate endpoint
+ * 
+ * @param req - HTTP request object
+ * @param res - HTTP response object
+ * @param context - VS Code extension context for state access
+ * @param port - Current server port number
+ * @param sendToAgent - Function to send messages to Copilot Chat
+ * 
+ * @remarks
+ * Supported endpoints:
+ * - GET /health: Health check (returns OK)
+ * - GET /port: Get current port number
+ * - POST /feedback: Submit feedback message
+ * - GET /tasks: List all tasks
+ * - POST /tasks: Create new task
+ * - PUT /tasks/:id/status: Update task status
+/**
+ * Handle incoming HTTP requests and route to appropriate endpoint
+ * 
+ * @param req - HTTP request object
+ * @param res - HTTP response object
+ * @param context - VS Code extension context for state access
+ * @param port - Current server port number
+ * @param sendToAgent - Function to send messages to Copilot Chat
+ * 
+ * @remarks
+ * Supported endpoints:
+ * - GET /health: Health check (returns OK)
+ * - GET /port: Get current port number
+ * - POST /feedback: Submit feedback message
+ * - GET /tasks: List all tasks
+ * - POST /tasks: Create new task
+ * - PUT /tasks/:id/status: Update task status
+ * - DELETE /tasks/:id: Delete task
+ * 
+ * Security:
+ * - Enforces 1MB max request body size
+ * - Validates JSON payloads
+ * - Returns 400 for malformed requests
+ * - Returns 404 for unknown endpoints
+ * - Returns 405 for unsupported methods
  */
 async function handleRequest(
 	req: http.IncomingMessage,

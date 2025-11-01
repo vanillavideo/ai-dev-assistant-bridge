@@ -3,6 +3,14 @@
  * 
  * Manages periodic reminder system that automatically sends messages
  * to the AI agent based on category-specific intervals and configurations.
+ * 
+ * Features:
+ * - Category-based reminders (tasks, improvements, coverage, robustness, cleanup, commits)
+ * - Configurable intervals per category (in seconds)
+ * - Smart message rotation (only sends when interval elapsed)
+ * - Persistent state tracking (last sent times)
+ * - Live countdown display in status bar
+ * - Manual trigger support (force send all enabled categories)
  */
 
 import * as vscode from 'vscode';
@@ -13,7 +21,38 @@ let autoContinueTimer: NodeJS.Timeout | undefined;
 
 /**
  * Get smart auto-continue message by rotating through enabled categories
- * based on elapsed time since last sent
+ * 
+ * @param context - VS Code extension context for state persistence
+ * @param getConfig - Function that returns current workspace configuration
+ * @param force - If true, sends all enabled categories regardless of interval (default: false)
+ * @returns Promise resolving to combined message string, or empty string if no categories due
+ * 
+ * @remarks
+ * Message generation strategy:
+ * 1. Iterates through all 6 categories (tasks, improvements, coverage, robustness, cleanup, commits)
+ * 2. For each enabled category, checks if interval has elapsed since last sent
+ * 3. Includes category message if interval elapsed OR force=true
+ * 4. Updates last sent timestamp for included categories
+ * 5. Combines messages with newlines if multiple categories due
+ * 6. Returns empty string if no categories ready (prevents unnecessary agent calls)
+ * 
+ * State tracking:
+ * - Last sent times stored in globalState under 'autoContinue.lastSent'
+ * - Timestamps persisted across sessions
+ * - Per-category tracking allows independent intervals
+ * 
+ * @example
+ * ```typescript
+ * // Normal auto-continue (respects intervals)
+ * const message = await getSmartAutoContinueMessage(context, getConfig);
+ * if (message) {
+ *   await sendToAgent(message);
+ * }
+ * 
+ * // Force send all enabled categories (manual trigger)
+ * const message = await getSmartAutoContinueMessage(context, getConfig, true);
+ * await sendToAgent(message);
+ * ```
  */
 export async function getSmartAutoContinueMessage(
 	context: vscode.ExtensionContext,
@@ -62,7 +101,36 @@ export async function getSmartAutoContinueMessage(
 }
 
 /**
- * Start auto-continue feature if enabled
+ * Start auto-continue feature with periodic reminder checks
+ * 
+ * @param context - VS Code extension context for state access
+ * @param getConfig - Function that returns current workspace configuration
+ * @param sendToAgent - Function to send messages to Copilot Chat
+ * 
+ * @remarks
+ * Startup behavior:
+ * - Only starts if autoContinue.enabled is true in configuration
+ * - Runs check every 500ms for responsive countdown
+ * - Re-checks enabled state before each message send
+ * - Automatically stops if disabled during execution
+ * 
+ * Message sending:
+ * - Calls getSmartAutoContinueMessage() to determine if any categories are due
+ * - Only sends if message is non-empty (categories have elapsed intervals)
+ * - Logs successful sends with timestamp and content
+ * - Gracefully handles errors (logs but continues running)
+ * 
+ * Lifecycle:
+ * - Timer stored in module-level variable for stop() access
+ * - Registered with context.subscriptions for automatic cleanup
+ * - Can be manually stopped via stopAutoContinue()
+ * 
+ * @example
+ * ```typescript
+ * startAutoContinue(context, getConfig, sendToAgent);
+ * // Auto-continue now running with 500ms check interval
+ * // Will send reminders when category intervals elapse
+ * ```
  */
 export function startAutoContinue(
 	context: vscode.ExtensionContext,
@@ -114,7 +182,19 @@ export function startAutoContinue(
 }
 
 /**
- * Stop auto-continue timer
+ * Stop auto-continue timer and clean up resources
+ * 
+ * @remarks
+ * - Clears the interval timer if active
+ * - Sets timer reference to undefined
+ * - Safe to call even if timer not running (idempotent)
+ * - Automatically called on extension deactivation
+ * 
+ * @example
+ * ```typescript
+ * stopAutoContinue();
+ * console.log('Auto-continue stopped');
+ * ```
  */
 export function stopAutoContinue(): void {
 	if (autoContinueTimer) {
@@ -126,6 +206,22 @@ export function stopAutoContinue(): void {
 
 /**
  * Restart auto-continue with new configuration
+ * 
+ * @param context - VS Code extension context for state access
+ * @param getConfig - Function that returns current workspace configuration
+ * @param sendToAgent - Function to send messages to Copilot Chat
+ * 
+ * @remarks
+ * - Stops existing timer if running
+ * - Starts new timer with current configuration
+ * - Used when configuration changes to apply new settings
+ * - Internally checks if auto-continue is enabled
+ * 
+ * @example
+ * ```typescript
+ * // Called when configuration changes
+ * restartAutoContinue(context, getConfig, sendToAgent);
+ * ```
  */
 export function restartAutoContinue(
 	context: vscode.ExtensionContext,
@@ -140,15 +236,50 @@ export function restartAutoContinue(
 }
 
 /**
- * Get timer status for debugging
+ * Check if auto-continue timer is currently active
+ * 
+ * @returns true if timer is running, false otherwise
+ * 
+ * @remarks
+ * Used for debugging and status checks
+ * 
+ * @example
+ * ```typescript
+ * if (isAutoContinueActive()) {
+ *   console.log('Auto-continue is running');
+ * }
+ * ```
  */
 export function isAutoContinueActive(): boolean {
 	return autoContinueTimer !== undefined;
 }
 
 /**
- * Get time until next reminder in seconds (for countdown display)
- * Returns the shortest time until any enabled category triggers
+ * Get time until next reminder in seconds
+ * 
+ * @param context - VS Code extension context for state access
+ * @param getConfig - Function that returns current workspace configuration
+ * @returns Seconds until next reminder, or null if no categories enabled
+ * 
+ * @remarks
+ * Calculation strategy:
+ * - Iterates through all enabled categories
+ * - For each category: calculates remaining = interval - elapsed
+ * - Returns the shortest remaining time across all categories
+ * - Returns null if no categories are enabled
+ * 
+ * Used for:
+ * - Live countdown display in status bar
+ * - User feedback about next reminder timing
+ * - Debugging interval configurations
+ * 
+ * @example
+ * ```typescript
+ * const seconds = getTimeUntilNextReminder(context, getConfig);
+ * if (seconds !== null) {
+ *   console.log(`Next reminder in ${seconds} seconds`);
+ * }
+ * ```
  */
 export function getTimeUntilNextReminder(
 	context: vscode.ExtensionContext,
@@ -186,6 +317,27 @@ export function getTimeUntilNextReminder(
 
 /**
  * Format countdown time as human-readable string
+ * 
+ * @param seconds - Time in seconds to format
+ * @returns Formatted string (e.g., "45s", "2m 30s", "1h 15m")
+ * 
+ * @remarks
+ * Format rules:
+ * - Less than 60 seconds: "Xs" (e.g., "45s")
+ * - 60-3599 seconds: "Xm Ys" (e.g., "2m 30s")
+ * - 3600+ seconds: "Xh Ym" (e.g., "1h 15m")
+ * 
+ * Used for:
+ * - Status bar countdown display
+ * - User-facing time formatting
+ * - Tooltip information
+ * 
+ * @example
+ * ```typescript
+ * console.log(formatCountdown(45));    // "45s"
+ * console.log(formatCountdown(150));   // "2m 30s"
+ * console.log(formatCountdown(3900));  // "1h 5m"
+ * ```
  */
 export function formatCountdown(seconds: number): string {
 	if (seconds < 60) {
