@@ -197,6 +197,48 @@ suite('Message Formatter Unit Tests', () => {
 		});
 	});
 
+	suite('Context Handling Edge Cases', () => {
+		test('should handle null context (uses defaults)', () => {
+			const result = formatFeedbackMessage('Test message', null);
+
+			assert.ok(result.includes('# 🤖 AI DEV MODE'), 'Should include header');
+			assert.ok(result.includes('Test message'), 'Should include message');
+			assert.ok(!result.includes('**Context:**'), 'Should not include context section with null');
+		});
+
+		test('should handle undefined context explicitly', () => {
+			const result = formatFeedbackMessage('Test message', undefined);
+
+			assert.ok(result.includes('# 🤖 AI DEV MODE'), 'Should include header');
+			assert.ok(result.includes('Test message'), 'Should include message');
+			assert.ok(!result.includes('**Context:**'), 'Should not include context section with undefined');
+		});
+
+		test('should handle empty object context', () => {
+			const result = formatFeedbackMessage('Test message', {});
+
+			assert.ok(result.includes('# 🤖 AI DEV MODE'), 'Should include header');
+			assert.ok(result.includes('Test message'), 'Should include message');
+			assert.ok(!result.includes('**Context:**'), 'Should not include context section with empty object');
+		});
+
+		test('should handle context with only source (no timestamp)', () => {
+			const context = { source: 'test' };
+			const result = formatFeedbackMessage('Test message', context);
+
+			assert.ok(result.includes('Test message'), 'Should include message');
+			assert.ok(!result.includes('**Context:**'), 'Should not include context with only source');
+		});
+
+		test('should handle context with only timestamp (no source)', () => {
+			const context = { timestamp: '2024-01-01T00:00:00Z' };
+			const result = formatFeedbackMessage('Test message', context);
+
+			assert.ok(result.includes('Test message'), 'Should include message');
+			assert.ok(!result.includes('**Context:**'), 'Should not include context with only timestamp');
+		});
+	});
+
 	suite('Edge Cases', () => {
 		test('should handle context with numeric keys', () => {
 			const context = {
