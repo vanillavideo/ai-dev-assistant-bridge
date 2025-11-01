@@ -270,6 +270,7 @@
 		"test:coverage": "c8 --reporter=html --reporter=text --reporter=lcov --reporter=json-summary --exclude='dist/test/**' --exclude='**/node_modules/**' npm run test:all",
 		"coverage": "npm run test:coverage",
 		"coverage:report": "open coverage/index.html",
+		"coverage:report-detailed": "node scripts/coverage-report.js",
 		"coverage:improve": "node scripts/coverage-improve.js",
 		"coverage:quick-wins": "node scripts/coverage-improve.js --quick-wins",
 		"coverage:untested": "node scripts/coverage-improve.js --untested",
