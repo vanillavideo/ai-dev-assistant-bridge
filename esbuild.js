@@ -58,6 +58,7 @@ async function main() {
 			'src/test/suite/taskValidation.unit.test.ts',
 			'src/test/suite/pathValidation.unit.test.ts',
 			'src/test/suite/numberValidation.unit.test.ts',
+			'src/test/suite/timeFormatting.unit.test.ts',
 			'src/test/suite/autoContinue.test.ts',
 			'src/test/suite/statusBar.test.ts'
 		],

@@ -15,6 +15,7 @@ import * as chatIntegration from './modules/chatIntegration';
 import * as autoContinue from './modules/autoContinue';
 import * as statusBar from './modules/statusBar';
 import * as commands from './modules/commands';
+import { formatCountdown } from './modules/timeFormatting';
 
 let outputChannel: vscode.OutputChannel;
 let currentPort: number = 3737;
@@ -213,7 +214,7 @@ function startCountdownUpdates(context: vscode.ExtensionContext) {
 			
 			const timeUntilNext = autoContinue.getTimeUntilNextReminder(context, getConfig);
 			if (timeUntilNext !== null && timeUntilNext > 0) {
-				const countdown = autoContinue.formatCountdown(timeUntilNext);
+				const countdown = formatCountdown(timeUntilNext);
 				statusBar.updateStatusBar(config, countdown);
 			} else {
 				statusBar.updateStatusBar(config);

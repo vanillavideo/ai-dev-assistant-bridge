@@ -9,12 +9,12 @@ import * as vscode from 'vscode';
 import { 
 	getSmartAutoContinueMessage, 
 	getTimeUntilNextReminder, 
-	formatCountdown,
 	startAutoContinue,
 	stopAutoContinue,
 	restartAutoContinue,
 	isAutoContinueActive
 } from '../../modules/autoContinue';
+import { formatCountdown } from '../../modules/timeFormatting';
 
 suite('Auto-Continue Module Tests', () => {
 	let context: vscode.ExtensionContext;

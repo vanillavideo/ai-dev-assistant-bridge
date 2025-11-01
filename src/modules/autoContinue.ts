@@ -17,6 +17,7 @@ import * as vscode from 'vscode';
 import { LogLevel } from './types';
 import { log, getErrorMessage } from './logging';
 import * as guidingDocuments from './guidingDocuments';
+import { formatCountdown } from './timeFormatting';
 
 let autoContinueTimer: NodeJS.Timeout | undefined;
 
@@ -322,42 +323,4 @@ export function getTimeUntilNextReminder(
 	}
 	
 	return shortestTime;
-}
-
-/**
- * Format countdown seconds into human-readable string (e.g., "5m 30s", "1h 5m")
- * Hides zero values for cleaner output.
- * 
- * @param seconds - Countdown time in seconds
- * @returns Formatted string with appropriate time units
- * 
- * @example
- * ```typescript
- * console.log(formatCountdown(45));    // "45s"
- * console.log(formatCountdown(60));    // "1m"
- * console.log(formatCountdown(150));   // "2m 30s"
- * console.log(formatCountdown(3600));  // "1h"
- * console.log(formatCountdown(3900));  // "1h 5m"
- * console.log(formatCountdown(-10));   // "0s" (negative clamped to 0)
- * ```
- */
-export function formatCountdown(seconds: number): string {
-	// Clamp negative values to 0
-	if (seconds < 0) {
-		return '0s';
-	}
-	
-	if (seconds < 60) {
-		return `${Math.floor(seconds)}s`;
-	} else if (seconds < 3600) {
-		const minutes = Math.floor(seconds / 60);
-		const secs = Math.floor(seconds % 60);
-		// Hide seconds if 0 for cleaner output
-		return secs === 0 ? `${minutes}m` : `${minutes}m ${secs}s`;
-	} else {
-		const hours = Math.floor(seconds / 3600);
-		const minutes = Math.floor((seconds % 3600) / 60);
-		// Hide minutes if 0 for cleaner output
-		return minutes === 0 ? `${hours}h` : `${hours}h ${minutes}m`;
-	}
 }
