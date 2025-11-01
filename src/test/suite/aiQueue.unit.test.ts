@@ -139,6 +139,31 @@ suite('AI Queue Unit Tests (Fast)', () => {
 			aiQueue.setAutoProcess(false);
 			assert.strictEqual(processed, true);
 		});
+
+		test('enqueue should trigger auto-process when enabled', async function() {
+			this.timeout(2000);
+			
+			let processed = false;
+			let processCallback: (() => Promise<boolean>) | null = null;
+			
+			// Set up auto-process before enqueuing
+			aiQueue.setAutoProcess(true, async () => {
+				processed = true;
+				return true;
+			});
+			
+			// Small delay to ensure auto-process is set up
+			await new Promise(resolve => setTimeout(resolve, 100));
+			
+			// Enqueue while auto-process is enabled - should trigger immediately
+			aiQueue.enqueueInstruction('test with auto-process', 'src');
+			
+			// Wait for processing to complete
+			await new Promise(resolve => setTimeout(resolve, 700));
+			
+			aiQueue.setAutoProcess(false);
+			assert.strictEqual(processed, true, 'Auto-process should trigger on enqueue');
+		});
 	});
 
 	suite('Queue Statistics', () => {

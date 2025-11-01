@@ -37,6 +37,7 @@ export interface QueueInstruction {
 let instructionQueue: QueueInstruction[] = [];
 let processingActive = false;
 let autoProcessEnabled = false;
+let autoProcessCallback: ((message: string, context?: unknown) => Promise<boolean>) | undefined;
 
 /**
  * Add instruction to queue
@@ -68,8 +69,8 @@ export function enqueueInstruction(
 	log(LogLevel.INFO, `Enqueued instruction from ${source}`, { id: queueItem.id, priority });
 	
 	// Trigger auto-process if enabled
-	if (autoProcessEnabled) {
-		void processNextInstruction();
+	if (autoProcessEnabled && autoProcessCallback) {
+		void processNextInstruction(autoProcessCallback);
 	}
 	
 	return queueItem;
@@ -228,6 +229,7 @@ export function setAutoProcess(
 	sendToAgent?: (message: string, context?: unknown) => Promise<boolean>
 ): void {
 	autoProcessEnabled = enabled;
+	autoProcessCallback = enabled ? sendToAgent : undefined;
 	log(LogLevel.INFO, `Auto-process ${enabled ? 'enabled' : 'disabled'}`);
 	
 	if (enabled && sendToAgent) {

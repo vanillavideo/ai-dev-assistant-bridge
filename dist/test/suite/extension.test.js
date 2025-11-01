@@ -330,6 +330,7 @@ init_types();
 var instructionQueue = [];
 var processingActive = false;
 var autoProcessEnabled = false;
+var autoProcessCallback;
 function enqueueInstruction(instruction, source, priority = "normal", metadata) {
   const queueItem = {
     id: generateId(),
@@ -343,8 +344,8 @@ function enqueueInstruction(instruction, source, priority = "normal", metadata) 
   instructionQueue.push(queueItem);
   sortQueueByPriority();
   log("INFO" /* INFO */, `Enqueued instruction from ${source}`, { id: queueItem.id, priority });
-  if (autoProcessEnabled) {
-    void processNextInstruction();
+  if (autoProcessEnabled && autoProcessCallback) {
+    void processNextInstruction(autoProcessCallback);
   }
   return queueItem;
 }
@@ -437,6 +438,7 @@ async function processAllInstructions(sendToAgent2) {
 }
 function setAutoProcess(enabled, sendToAgent2) {
   autoProcessEnabled = enabled;
+  autoProcessCallback = enabled ? sendToAgent2 : void 0;
   log("INFO" /* INFO */, `Auto-process ${enabled ? "enabled" : "disabled"}`);
   if (enabled && sendToAgent2) {
     void processAllInstructions(sendToAgent2);

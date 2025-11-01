@@ -343,6 +343,7 @@ init_types();
 var instructionQueue = [];
 var processingActive = false;
 var autoProcessEnabled = false;
+var autoProcessCallback;
 function enqueueInstruction(instruction, source, priority = "normal", metadata) {
   const queueItem = {
     id: generateId(),
@@ -356,8 +357,8 @@ function enqueueInstruction(instruction, source, priority = "normal", metadata) 
   instructionQueue.push(queueItem);
   sortQueueByPriority();
   log("INFO" /* INFO */, `Enqueued instruction from ${source}`, { id: queueItem.id, priority });
-  if (autoProcessEnabled) {
-    void processNextInstruction();
+  if (autoProcessEnabled && autoProcessCallback) {
+    void processNextInstruction(autoProcessCallback);
   }
   return queueItem;
 }
