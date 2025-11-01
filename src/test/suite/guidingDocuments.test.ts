@@ -222,9 +222,11 @@ suite('Guiding Documents Module Test Suite', () => {
 			assert.ok(context.length > 0);
 			assert.ok(context.includes('# Guiding Documents'));
 			assert.ok(context.includes('README.md'));
+			assert.ok(context.includes('Refer to these documents for context:'));
+			assert.ok(context.includes('- '));
 		});
 
-		test('getGuidingDocumentsContext should include file contents', async () => {
+		test('getGuidingDocumentsContext should use concise path references', async () => {
 			if (!testWorkspaceFolder) {
 				console.log('Skipping test - no workspace folder');
 				return;
@@ -234,8 +236,11 @@ suite('Guiding Documents Module Test Suite', () => {
 			
 			const context = await guidingDocuments.getGuidingDocumentsContext();
 
-			// README should contain the extension name
-			assert.ok(context.includes('AI Feedback Bridge') || context.length > 100);
+			// Should contain path reference, not full content
+			assert.ok(context.includes('- '));
+			assert.ok(context.includes('README.md'));
+			// Should NOT contain full file content (was >1000 chars, now <200)
+			assert.ok(context.length < 500, 'Context should be concise, not include full file content');
 		});
 
 		test('getGuidingDocumentsContext should handle read errors gracefully', async () => {
@@ -249,27 +254,28 @@ suite('Guiding Documents Module Test Suite', () => {
 
 			const context = await guidingDocuments.getGuidingDocumentsContext();
 
-			// Should include header but note file couldn't be read
-			assert.ok(context.includes('# Guiding Documents'));
-			assert.ok(context.includes('non-existent-file.md'));
+			// Should not include non-existent file in output
+			assert.ok(!context.includes('non-existent-file.md'));
+			// May be empty or just have header if only non-existent file was added
 		});
 
-		test('getGuidingDocumentsContext should handle large files', async () => {
+		test('getGuidingDocumentsContext should be lightweight', async () => {
 			if (!testWorkspaceFolder) {
 				console.log('Skipping test - no workspace folder');
 				return;
 			}
 
-			// README.md should be reasonably sized
+			// README.md should result in a small reference, not full content
 			guidingDocuments.addGuidingDocument(testFilePath);
 			
 			const context = await guidingDocuments.getGuidingDocumentsContext();
 
 			assert.ok(context.length > 0);
-			assert.ok(context.length < 1000000); // Shouldn't be massive
+			// Should be much smaller now (just paths, not content)
+			assert.ok(context.length < 500, 'Context should be lightweight with just path references');
 		});
 
-		test('getGuidingDocumentsContext should preserve markdown formatting', async () => {
+		test('getGuidingDocumentsContext should list paths as bullet points', async () => {
 			if (!testWorkspaceFolder) {
 				console.log('Skipping test - no workspace folder');
 				return;
@@ -279,8 +285,9 @@ suite('Guiding Documents Module Test Suite', () => {
 			
 			const context = await guidingDocuments.getGuidingDocumentsContext();
 
-			// Should maintain markdown structure
-			assert.ok(context.includes('```') || context.includes('#'));
+			// Should use bullet point format for paths
+			assert.ok(context.includes('- '));
+			assert.ok(context.includes('README.md'));
 		});
 	});
 

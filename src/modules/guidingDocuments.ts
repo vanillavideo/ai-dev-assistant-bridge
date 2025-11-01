@@ -85,7 +85,8 @@ export async function removeGuidingDocument(filePath: string): Promise<void> {
 
 /**
  * Read and format all guiding documents for inclusion in AI context
- * @returns Formatted string with all document contents
+ * Returns concise references instead of full content to reduce token usage
+ * @returns Formatted string with document references
  */
 export async function getGuidingDocumentsContext(): Promise<string> {
 	const docs = getGuidingDocuments();
@@ -94,10 +95,7 @@ export async function getGuidingDocumentsContext(): Promise<string> {
 		return '';
 	}
 	
-	const config = vscode.workspace.getConfiguration('aiFeedbackBridge');
-	const maxSize = config.get<number>('guidingDocuments.maxSize', 50000);
-	
-	const contents: string[] = [];
+	const references: string[] = [];
 	
 	for (const docPath of docs) {
 		try {
@@ -109,28 +107,20 @@ export async function getGuidingDocumentsContext(): Promise<string> {
 				continue;
 			}
 			
-			// Read file
-			const content = fs.readFileSync(absolutePath, 'utf-8');
-			
-			// Truncate if too large
-			const truncated = content.length > maxSize 
-				? content.substring(0, maxSize) + '\n\n[... truncated ...]'
-				: content;
-			
-			const fileName = path.basename(absolutePath);
-			contents.push(`\n--- ${fileName} ---\n${truncated}`);
+			// Use relative path for cleaner reference
+			references.push(`- ${docPath}`);
 			
 		} catch (error) {
-			log(LogLevel.ERROR, `Error reading guiding document ${docPath}: ${error}`);
+			log(LogLevel.ERROR, `Error processing guiding document ${docPath}: ${error}`);
 		}
 	}
 	
-	if (contents.length === 0) {
+	if (references.length === 0) {
 		return '';
 	}
 
-	// Return a markdown-friendly header without emoji (UI uses no-emojis)
-	return '# Guiding Documents\n\n' + contents.join('\n');
+	// Return concise reference format
+	return '\n\n# Guiding Documents\n\nRefer to these documents for context:\n' + references.join('\n');
 }
 
 /**
