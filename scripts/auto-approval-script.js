@@ -125,10 +125,14 @@
                 }
                 
                 // Skip chat UI elements that shouldn't be clicked
-                if (element.closest('.chat-codeblock-pill-widget') ||
+                // Check both if element IS one of these, or is inside one
+                if (element.matches('.chat-codeblock-pill-widget, .chat-attachment, .chat-used-context, .chat-inline-anchor-widget, .chat-request-codemark, .chat-resource-widget') ||
+                    element.closest('.chat-codeblock-pill-widget') ||
                     element.closest('.chat-attachment') ||
                     element.closest('.chat-used-context') ||
                     element.closest('.chat-inline-anchor-widget') ||
+                    element.closest('.chat-request-codemark') ||
+                    element.closest('.chat-resource-widget') ||
                     element.closest('.monaco-toolbar') ||
                     element.closest('.chat-footer-toolbar')) {
                     return;
@@ -137,6 +141,20 @@
                 const text = (element.textContent || '').toLowerCase().trim();
                 const title = (element.title || '').toLowerCase();
                 const ariaLabel = (element.getAttribute('aria-label') || '').toLowerCase();
+                
+                // Skip if text looks like a file name or search result
+                const skipPatterns = [
+                    /\.(ts|js|tsx|jsx|json|md|html|css|py|java|cpp|c|h)(\+\d+-\d+)?$/i, // File extensions with optional +N-N
+                    /\+\d+-\d+$/, // Ends with +7-6 pattern (git diff)
+                    /searched text for/i, // Search result indicators
+                    /\d+\s+results?$/i, // "2 results"
+                    /edited\s+\w+\.\w+/i // "Edited filename.ext"
+                ];
+                
+                const fullText = `${text} ${title} ${ariaLabel}`;
+                if (skipPatterns.some(pattern => pattern.test(fullText))) {
+                    return; // Skip file/search UI elements
+                }
                 
                 // Check if this looks like a button we want to click
                 const isTarget = targetTexts.some(target => 
