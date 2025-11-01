@@ -918,6 +918,43 @@ init_autoApproval();
 var vscode4 = __toESM(require("vscode"));
 init_types();
 init_logging();
+
+// src/modules/messageFormatter.ts
+function formatFeedbackMessage(feedbackMessage, appContext) {
+  const context = appContext || {
+    source: "unknown",
+    timestamp: (/* @__PURE__ */ new Date()).toISOString()
+  };
+  let fullMessage = `# \u{1F916} AI DEV MODE
+
+`;
+  fullMessage += `**User Feedback:**
+${feedbackMessage}
+
+`;
+  const contextKeys = Object.keys(context).filter((k) => k !== "source" && k !== "timestamp");
+  if (contextKeys.length > 0) {
+    fullMessage += `**Context:**
+\`\`\`json
+${JSON.stringify(context, null, 2)}
+\`\`\`
+
+`;
+  }
+  fullMessage += `**Instructions:**
+`;
+  fullMessage += `Analyze feedback, take appropriate action:
+`;
+  fullMessage += `\u2022 If a bug \u2192 find and fix root cause
+`;
+  fullMessage += `\u2022 If a feature \u2192 draft implementation plan
+`;
+  fullMessage += `\u2022 Apply and commit changes
+`;
+  return fullMessage;
+}
+
+// src/modules/chatIntegration.ts
 var chatParticipant;
 var outputChannel2;
 function initChat(channel) {
@@ -971,39 +1008,6 @@ async function handleChatRequest(request, context, stream, token) {
     }
   }
   return { metadata: { command: "process-feedback" } };
-}
-function formatFeedbackMessage(feedbackMessage, appContext) {
-  const context = appContext || {
-    source: "unknown",
-    timestamp: (/* @__PURE__ */ new Date()).toISOString()
-  };
-  let fullMessage = `# \u{1F916} AI DEV MODE
-
-`;
-  fullMessage += `**User Feedback:**
-${feedbackMessage}
-
-`;
-  const contextKeys = Object.keys(context).filter((k) => k !== "source" && k !== "timestamp");
-  if (contextKeys.length > 0) {
-    fullMessage += `**Context:**
-\`\`\`json
-${JSON.stringify(context, null, 2)}
-\`\`\`
-
-`;
-  }
-  fullMessage += `**Instructions:**
-`;
-  fullMessage += `Analyze feedback, take appropriate action:
-`;
-  fullMessage += `\u2022 If a bug \u2192 find and fix root cause
-`;
-  fullMessage += `\u2022 If a feature \u2192 draft implementation plan
-`;
-  fullMessage += `\u2022 Apply and commit changes
-`;
-  return fullMessage;
 }
 async function sendToAgent(feedbackMessage, appContext) {
   try {

@@ -16,6 +16,10 @@
 import * as vscode from 'vscode';
 import { LogLevel } from './types';
 import { log, getErrorMessage } from './logging';
+import { formatFeedbackMessage, type FeedbackContext } from './messageFormatter';
+
+// Re-export for backward compatibility
+export type { FeedbackContext };
 
 let chatParticipant: vscode.ChatParticipant | undefined;
 let outputChannel: vscode.OutputChannel;
@@ -30,18 +34,6 @@ let outputChannel: vscode.OutputChannel;
  */
 export function initChat(channel: vscode.OutputChannel): void {
 	outputChannel = channel;
-}
-
-/**
- * Context object for feedback messages
- * 
- * @property source - Origin of the feedback (e.g., 'http_api', 'auto_continue')
- * @property timestamp - ISO 8601 timestamp of feedback creation
- */
-export interface FeedbackContext {
-	source: string;
-	timestamp: string;
-	[key: string]: unknown;
 }
 
 /**
@@ -143,58 +135,6 @@ async function handleChatRequest(
 	}
 	
 	return { metadata: { command: 'process-feedback' } };
-}
-
-/**
- * Format feedback message with context for AI agent processing
- * 
- * @param feedbackMessage - The core feedback text from user or system
- * @param appContext - Optional context object with source, timestamp, and additional data
- * @returns Formatted markdown string ready for chat submission
- * 
- * @remarks
- * Message structure:
- * - Header: "🤖 AI DEV MODE" for clear identification
- * - User Feedback section with main message
- * - Context section (JSON) if meaningful data beyond source/timestamp exists
- * - Instructions section with action guidelines (bug fixes, features, commits)
- * 
- * Format optimized for:
- * - Minimal token usage (ultra-concise)
- * - Clear action prompts for AI
- * - Structured markdown for readability
- * 
- * @example
- * ```typescript
- * const formatted = formatFeedbackMessage(
- *   'Button click not working',
- *   { source: 'http_api', timestamp: '2024-01-01T00:00:00Z', userId: 123 }
- * );
- * ```
- */
-function formatFeedbackMessage(feedbackMessage: string, appContext?: unknown): string {
-	const context: FeedbackContext = (appContext as FeedbackContext) || { 
-		source: "unknown", 
-		timestamp: new Date().toISOString() 
-	};
-	
-	// Ultra-concise format to minimize token usage
-	let fullMessage = `# 🤖 AI DEV MODE\n\n`;
-	fullMessage += `**User Feedback:**\n${feedbackMessage}\n\n`;
-
-	// Only include context if it has meaningful data beyond source/timestamp
-	const contextKeys = Object.keys(context).filter(k => k !== 'source' && k !== 'timestamp');
-	if (contextKeys.length > 0) {
-		fullMessage += `**Context:**\n\`\`\`json\n${JSON.stringify(context, null, 2)}\n\`\`\`\n\n`;
-	}
-
-	fullMessage += `**Instructions:**\n`;
-	fullMessage += `Analyze feedback, take appropriate action:\n`;
-	fullMessage += `• If a bug → find and fix root cause\n`;
-	fullMessage += `• If a feature → draft implementation plan\n`;
-	fullMessage += `• Apply and commit changes\n`;
-
-	return fullMessage;
 }
 
 /**
