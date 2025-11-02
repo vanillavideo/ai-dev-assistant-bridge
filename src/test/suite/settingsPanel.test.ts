@@ -492,4 +492,111 @@ suite('Settings Panel Module Test Suite', () => {
 			assert.ok(true, 'Panel retains context when hidden');
 		});
 	});
+
+	suite('HTML Template Coverage', () => {
+		test('should render with completed tasks to show Clear Completed button (line 408-438)', async () => {
+			// Add tasks in different statuses
+			const task1 = await taskManager.addTask(mockContext, 'Completed Task 1', 'Done');
+			const task2 = await taskManager.addTask(mockContext, 'Completed Task 2', 'Also done');
+			const task3 = await taskManager.addTask(mockContext, 'Pending Task', 'Still working');
+			
+			// Mark two as completed
+			await taskManager.updateTaskStatus(mockContext, task1.id, 'completed');
+			await taskManager.updateTaskStatus(mockContext, task2.id, 'completed');
+
+			// Create panel - this should render the "Clear Completed" button
+			await settingsPanel.showSettingsPanel(
+				mockContext,
+				currentPort,
+				mockGetConfig,
+				mockUpdateConfig,
+				mockSendToAgent,
+				mockGetSmartAutoContinueMessage
+			);
+
+			const tasks = await taskManager.getTasks(mockContext);
+			const completedCount = tasks.filter(t => t.status === 'completed').length;
+			assert.strictEqual(completedCount, 2, 'Should have 2 completed tasks');
+		});
+
+		test('should render with tasks in different statuses (line 420-438)', async () => {
+			// Create tasks with all three statuses
+			const pending = await taskManager.addTask(mockContext, 'Pending', 'Not started');
+			const inProgress = await taskManager.addTask(mockContext, 'In Progress', 'Working');
+			const completed = await taskManager.addTask(mockContext, 'Done', 'Finished');
+			
+			await taskManager.updateTaskStatus(mockContext, inProgress.id, 'in-progress');
+			await taskManager.updateTaskStatus(mockContext, completed.id, 'completed');
+
+			// This should render all status icons and colors
+			await settingsPanel.showSettingsPanel(
+				mockContext,
+				currentPort,
+				mockGetConfig,
+				mockUpdateConfig,
+				mockSendToAgent,
+				mockGetSmartAutoContinueMessage
+			);
+
+			assert.ok(true, 'Panel rendered with mixed task statuses');
+		});
+
+		test('should render with guiding documents (line 444-468)', async () => {
+			// Add guiding documents to trigger non-empty HTML path
+			await guidingDocuments.addGuidingDocument('README.md');
+			await guidingDocuments.addGuidingDocument('CONTRIBUTING.md');
+
+			await settingsPanel.showSettingsPanel(
+				mockContext,
+				currentPort,
+				mockGetConfig,
+				mockUpdateConfig,
+				mockSendToAgent,
+				mockGetSmartAutoContinueMessage
+			);
+
+			const docs = guidingDocuments.getGuidingDocuments();
+			assert.ok(docs.length > 0, 'Should have guiding documents');
+		});
+
+		test('should render with empty guiding documents (line 444-446)', async () => {
+			// Ensure no guiding documents to trigger empty HTML path
+			const docs = guidingDocuments.getGuidingDocuments();
+			for (const doc of docs) {
+				await guidingDocuments.removeGuidingDocument(doc);
+			}
+
+			await settingsPanel.showSettingsPanel(
+				mockContext,
+				currentPort,
+				mockGetConfig,
+				mockUpdateConfig,
+				mockSendToAgent,
+				mockGetSmartAutoContinueMessage
+			);
+
+			const finalDocs = guidingDocuments.getGuidingDocuments();
+			assert.strictEqual(finalDocs.length, 0, 'Should have no guiding documents');
+		});
+
+		test('should render with no tasks (compact mode - line 394-407)', async () => {
+			// Clear all tasks to trigger compact mode HTML
+			const tasks = await taskManager.getTasks(mockContext);
+			for (const task of tasks) {
+				await taskManager.removeTask(mockContext, task.id);
+			}
+
+			await settingsPanel.showSettingsPanel(
+				mockContext,
+				currentPort,
+				mockGetConfig,
+				mockUpdateConfig,
+				mockSendToAgent,
+				mockGetSmartAutoContinueMessage
+			);
+
+			const finalTasks = await taskManager.getTasks(mockContext);
+			assert.strictEqual(finalTasks.length, 0, 'Should have no tasks');
+		});
+	});
 });

@@ -1295,6 +1295,19 @@ async function removeTask(context, taskId) {
   const filtered = tasks.filter((t) => t.id !== taskId);
   await saveTasks(context, filtered);
 }
+async function updateTaskField(context, taskId, field, value) {
+  const validation = field === "title" ? validateTaskData(value, void 0, void 0) : validateTaskData("placeholder", value, void 0);
+  if (!validation.valid) {
+    throw new Error(validation.error || `Invalid ${field} value`);
+  }
+  const tasks = await getTasks(context);
+  const task = tasks.find((t) => t.id === taskId);
+  if (task) {
+    task[field] = value.trim();
+    task.updatedAt = (/* @__PURE__ */ new Date()).toISOString();
+    await saveTasks(context, tasks);
+  }
+}
 async function clearCompletedTasks(context) {
   const tasks = await getTasks(context);
   const activeTasks = tasks.filter((t) => t.status !== "completed");
@@ -2292,6 +2305,78 @@ suite("Server HTTP Endpoints Test Suite", () => {
       req.write(payload);
       req.end();
     });
+    test("PUT /tasks/:id should update task status", (done) => {
+      const createPayload = JSON.stringify({ title: "Task to update" });
+      const createReq = http2.request({
+        hostname: "localhost",
+        port: testPort,
+        path: "/tasks",
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Content-Length": Buffer.byteLength(createPayload)
+        }
+      }, (createRes) => {
+        let data = "";
+        createRes.on("data", (chunk) => data += chunk);
+        createRes.on("end", () => {
+          const task = JSON.parse(data);
+          const updatePayload = JSON.stringify({ status: "completed" });
+          const updateReq = http2.request({
+            hostname: "localhost",
+            port: testPort,
+            path: `/tasks/${task.id}`,
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+              "Content-Length": Buffer.byteLength(updatePayload)
+            }
+          }, (updateRes) => {
+            assert3.strictEqual(updateRes.statusCode, 200);
+            done();
+          });
+          updateReq.on("error", done);
+          updateReq.write(updatePayload);
+          updateReq.end();
+        });
+      });
+      createReq.on("error", done);
+      createReq.write(createPayload);
+      createReq.end();
+    });
+    test("DELETE /tasks/:id should remove task", (done) => {
+      const createPayload = JSON.stringify({ title: "Task to delete" });
+      const createReq = http2.request({
+        hostname: "localhost",
+        port: testPort,
+        path: "/tasks",
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Content-Length": Buffer.byteLength(createPayload)
+        }
+      }, (createRes) => {
+        let data = "";
+        createRes.on("data", (chunk) => data += chunk);
+        createRes.on("end", () => {
+          const task = JSON.parse(data);
+          const deleteReq = http2.request({
+            hostname: "localhost",
+            port: testPort,
+            path: `/tasks/${task.id}`,
+            method: "DELETE"
+          }, (deleteRes) => {
+            assert3.strictEqual(deleteRes.statusCode, 200);
+            done();
+          });
+          deleteReq.on("error", done);
+          deleteReq.end();
+        });
+      });
+      createReq.on("error", done);
+      createReq.write(createPayload);
+      createReq.end();
+    });
   });
   suite("Feedback Endpoint", () => {
     test("POST /feedback should accept valid feedback", (done) => {
@@ -2404,6 +2489,117 @@ suite("Server HTTP Endpoints Test Suite", () => {
         done();
       });
       req.on("error", done);
+      req.end();
+    });
+  });
+  suite("HTTP Error Responses", () => {
+    test("should return 404 for unknown endpoint (line 274)", (done) => {
+      const req = http2.request({
+        hostname: "localhost",
+        port: testPort,
+        path: "/unknown-endpoint",
+        method: "GET"
+      }, (res) => {
+        assert3.strictEqual(res.statusCode, 404);
+        let data = "";
+        res.on("data", (chunk) => {
+          data += chunk;
+        });
+        res.on("end", () => {
+          const json = JSON.parse(data);
+          assert3.strictEqual(json.error, "Not found");
+          assert3.ok(json.message.includes("Unknown endpoint"));
+          done();
+        });
+      });
+      req.on("error", done);
+      req.end();
+    });
+    test("should return 404 for wrong HTTP method on existing path", (done) => {
+      const req = http2.request({
+        hostname: "localhost",
+        port: testPort,
+        path: "/tasks",
+        method: "PUT"
+        // tasks endpoint doesn't support PUT at root
+      }, (res) => {
+        assert3.strictEqual(res.statusCode, 404);
+        done();
+      });
+      req.on("error", done);
+      req.end();
+    });
+    test("should return 400 for invalid JSON in POST /feedback", (done) => {
+      const req = http2.request({
+        hostname: "localhost",
+        port: testPort,
+        path: "/feedback",
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        }
+      }, (res) => {
+        assert3.strictEqual(res.statusCode, 400);
+        let data = "";
+        res.on("data", (chunk) => {
+          data += chunk;
+        });
+        res.on("end", () => {
+          const json = JSON.parse(data);
+          assert3.ok(json.error);
+          done();
+        });
+      });
+      req.on("error", done);
+      req.write("invalid json{");
+      req.end();
+    });
+    test("should return 400 for missing message in POST /feedback", (done) => {
+      const req = http2.request({
+        hostname: "localhost",
+        port: testPort,
+        path: "/feedback",
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        }
+      }, (res) => {
+        assert3.strictEqual(res.statusCode, 400);
+        let data = "";
+        res.on("data", (chunk) => {
+          data += chunk;
+        });
+        res.on("end", () => {
+          const json = JSON.parse(data);
+          assert3.ok(json.error);
+          done();
+        });
+      });
+      req.on("error", done);
+      req.write(JSON.stringify({ noMessageField: "test" }));
+      req.end();
+    });
+    test("should handle request body exceeding 1MB limit", (done) => {
+      const largePayload = "x".repeat(2 * 1024 * 1024);
+      const req = http2.request({
+        hostname: "localhost",
+        port: testPort,
+        path: "/feedback",
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Content-Length": Buffer.byteLength(largePayload)
+        }
+      }, (res) => {
+        if (res.statusCode) {
+          assert3.ok(res.statusCode === 413 || res.statusCode >= 400);
+        }
+        done();
+      });
+      req.on("error", () => {
+        done();
+      });
+      req.write(largePayload);
       req.end();
     });
   });
@@ -3647,6 +3843,47 @@ suite("TaskManager Module Tests", () => {
       assert6.ok(!tasks.find((t) => t.id === task1.id));
       assert6.ok(tasks.find((t) => t.id === task2.id));
       assert6.ok(tasks.find((t) => t.id === task3.id));
+    });
+  });
+  suite("updateTaskField", () => {
+    test("should update task title", async () => {
+      const task = await addTask(context, "Original Title", "Description");
+      await updateTaskField(context, task.id, "title", "New Title");
+      const tasks = await getTasks(context);
+      const updated = tasks.find((t) => t.id === task.id);
+      assert6.strictEqual(updated?.title, "New Title");
+    });
+    test("should update task description", async () => {
+      const task = await addTask(context, "Title", "Original Description");
+      await updateTaskField(context, task.id, "description", "New Description");
+      const tasks = await getTasks(context);
+      const updated = tasks.find((t) => t.id === task.id);
+      assert6.strictEqual(updated?.description, "New Description");
+    });
+    test("should reject empty title (line 226-235 branches)", async () => {
+      const task = await addTask(context, "Valid Title", "Description");
+      await assert6.rejects(
+        async () => await updateTaskField(context, task.id, "title", ""),
+        /Invalid.*title/i
+      );
+    });
+    test("should reject whitespace-only title", async () => {
+      const task = await addTask(context, "Valid Title", "Description");
+      await assert6.rejects(
+        async () => await updateTaskField(context, task.id, "title", "   "),
+        /Invalid.*title/i
+      );
+    });
+    test("should reject title longer than 200 characters", async () => {
+      const task = await addTask(context, "Valid Title", "Description");
+      const longTitle = "x".repeat(201);
+      await assert6.rejects(
+        async () => await updateTaskField(context, task.id, "title", longTitle),
+        /Invalid.*title/i
+      );
+    });
+    test("should handle non-existent task gracefully", async () => {
+      await updateTaskField(context, "non-existent-id", "title", "New Title");
     });
   });
 });

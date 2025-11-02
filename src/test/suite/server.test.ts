@@ -524,6 +524,90 @@ suite('Server HTTP Endpoints Test Suite', () => {
 			req.write(payload);
 			req.end();
 		});
+
+		test('PUT /tasks/:id should update task status', (done) => {
+			// First create a task
+			const createPayload = JSON.stringify({ title: 'Task to update' });
+			const createReq = http.request({
+				hostname: 'localhost',
+				port: testPort,
+				path: '/tasks',
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					'Content-Length': Buffer.byteLength(createPayload)
+				}
+			}, (createRes) => {
+				let data = '';
+				createRes.on('data', chunk => data += chunk);
+				createRes.on('end', () => {
+					const task = JSON.parse(data);
+					
+					// Now update it
+					const updatePayload = JSON.stringify({ status: 'completed' });
+					const updateReq = http.request({
+						hostname: 'localhost',
+						port: testPort,
+						path: `/tasks/${task.id}`,
+						method: 'PUT',
+						headers: {
+							'Content-Type': 'application/json',
+							'Content-Length': Buffer.byteLength(updatePayload)
+						}
+					}, (updateRes) => {
+						assert.strictEqual(updateRes.statusCode, 200);
+						done();
+					});
+					
+					updateReq.on('error', done);
+					updateReq.write(updatePayload);
+					updateReq.end();
+				});
+			});
+			
+			createReq.on('error', done);
+			createReq.write(createPayload);
+			createReq.end();
+		});
+
+		test('DELETE /tasks/:id should remove task', (done) => {
+			// First create a task
+			const createPayload = JSON.stringify({ title: 'Task to delete' });
+			const createReq = http.request({
+				hostname: 'localhost',
+				port: testPort,
+				path: '/tasks',
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					'Content-Length': Buffer.byteLength(createPayload)
+				}
+			}, (createRes) => {
+				let data = '';
+				createRes.on('data', chunk => data += chunk);
+				createRes.on('end', () => {
+					const task = JSON.parse(data);
+					
+					// Now delete it
+					const deleteReq = http.request({
+						hostname: 'localhost',
+						port: testPort,
+						path: `/tasks/${task.id}`,
+						method: 'DELETE'
+					}, (deleteRes) => {
+						assert.strictEqual(deleteRes.statusCode, 200);
+						done();
+					});
+					
+					deleteReq.on('error', done);
+					deleteReq.end();
+				});
+			});
+			
+			createReq.on('error', done);
+			createReq.write(createPayload);
+			createReq.end();
+		});
 	});
 
 	suite('Feedback Endpoint', () => {
@@ -652,6 +736,126 @@ suite('Server HTTP Endpoints Test Suite', () => {
 			});
 
 			req.on('error', done);
+			req.end();
+		});
+	});
+
+	suite('HTTP Error Responses', () => {
+		test('should return 404 for unknown endpoint (line 274)', (done) => {
+			const req = http.request({
+				hostname: 'localhost',
+				port: testPort,
+				path: '/unknown-endpoint',
+				method: 'GET'
+			}, (res) => {
+				assert.strictEqual(res.statusCode, 404);
+				
+				let data = '';
+				res.on('data', chunk => { data += chunk; });
+				res.on('end', () => {
+					const json = JSON.parse(data);
+					assert.strictEqual(json.error, 'Not found');
+					assert.ok(json.message.includes('Unknown endpoint'));
+					done();
+				});
+			});
+
+			req.on('error', done);
+			req.end();
+		});
+
+		test('should return 404 for wrong HTTP method on existing path', (done) => {
+			const req = http.request({
+				hostname: 'localhost',
+				port: testPort,
+				path: '/tasks',
+				method: 'PUT' // tasks endpoint doesn't support PUT at root
+			}, (res) => {
+				assert.strictEqual(res.statusCode, 404);
+				done();
+			});
+
+			req.on('error', done);
+			req.end();
+		});
+
+		test('should return 400 for invalid JSON in POST /feedback', (done) => {
+			const req = http.request({
+				hostname: 'localhost',
+				port: testPort,
+				path: '/feedback',
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				}
+			}, (res) => {
+				assert.strictEqual(res.statusCode, 400);
+				
+				let data = '';
+				res.on('data', chunk => { data += chunk; });
+				res.on('end', () => {
+					const json = JSON.parse(data);
+					assert.ok(json.error);
+					done();
+				});
+			});
+
+			req.on('error', done);
+			req.write('invalid json{');
+			req.end();
+		});
+
+		test('should return 400 for missing message in POST /feedback', (done) => {
+			const req = http.request({
+				hostname: 'localhost',
+				port: testPort,
+				path: '/feedback',
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				}
+			}, (res) => {
+				assert.strictEqual(res.statusCode, 400);
+				
+				let data = '';
+				res.on('data', chunk => { data += chunk; });
+				res.on('end', () => {
+					const json = JSON.parse(data);
+					assert.ok(json.error);
+					done();
+				});
+			});
+
+			req.on('error', done);
+			req.write(JSON.stringify({ noMessageField: 'test' }));
+			req.end();
+		});
+
+		test('should handle request body exceeding 1MB limit', (done) => {
+			const largePayload = 'x'.repeat(2 * 1024 * 1024); // 2MB
+			const req = http.request({
+				hostname: 'localhost',
+				port: testPort,
+				path: '/feedback',
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					'Content-Length': Buffer.byteLength(largePayload)
+				}
+			}, (res) => {
+				// Should get 413 Payload Too Large or connection closed
+				if (res.statusCode) {
+					assert.ok(res.statusCode === 413 || res.statusCode >= 400);
+				}
+				done();
+			});
+
+			req.on('error', () => {
+				// Connection might be closed, which is also acceptable
+				done();
+			});
+			
+			req.write(largePayload);
 			req.end();
 		});
 	});

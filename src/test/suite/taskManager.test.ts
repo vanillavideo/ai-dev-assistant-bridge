@@ -226,6 +226,62 @@ suite('TaskManager Module Tests', () => {
 			assert.ok(tasks.find(t => t.id === task3.id));
 		});
 	});
+
+	suite('updateTaskField', () => {
+		test('should update task title', async () => {
+			const task = await taskManager.addTask(context, 'Original Title', 'Description');
+			
+			await taskManager.updateTaskField(context, task.id, 'title', 'New Title');
+			
+			const tasks = await taskManager.getTasks(context);
+			const updated = tasks.find(t => t.id === task.id);
+			assert.strictEqual(updated?.title, 'New Title');
+		});
+
+		test('should update task description', async () => {
+			const task = await taskManager.addTask(context, 'Title', 'Original Description');
+			
+			await taskManager.updateTaskField(context, task.id, 'description', 'New Description');
+			
+			const tasks = await taskManager.getTasks(context);
+			const updated = tasks.find(t => t.id === task.id);
+			assert.strictEqual(updated?.description, 'New Description');
+		});
+
+		test('should reject empty title (line 226-235 branches)', async () => {
+			const task = await taskManager.addTask(context, 'Valid Title', 'Description');
+			
+			await assert.rejects(
+				async () => await taskManager.updateTaskField(context, task.id, 'title', ''),
+				/Invalid.*title/i
+			);
+		});
+
+		test('should reject whitespace-only title', async () => {
+			const task = await taskManager.addTask(context, 'Valid Title', 'Description');
+			
+			await assert.rejects(
+				async () => await taskManager.updateTaskField(context, task.id, 'title', '   '),
+				/Invalid.*title/i
+			);
+		});
+
+		test('should reject title longer than 200 characters', async () => {
+			const task = await taskManager.addTask(context, 'Valid Title', 'Description');
+			const longTitle = 'x'.repeat(201);
+			
+			await assert.rejects(
+				async () => await taskManager.updateTaskField(context, task.id, 'title', longTitle),
+				/Invalid.*title/i
+			);
+		});
+
+		test('should handle non-existent task gracefully', async () => {
+			// Should not throw, just do nothing
+			await taskManager.updateTaskField(context, 'non-existent-id', 'title', 'New Title');
+			// No assertion needed, just verify it doesn't crash
+		});
+	});
 });
 
 /**

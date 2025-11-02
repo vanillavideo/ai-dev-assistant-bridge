@@ -434,5 +434,14 @@ suite('numberValidation Module Tests', () => {
 			assert.strictEqual(result.valid, false);
 			assert.strictEqual(result.error, 'Cannot parse string to integer (result is NaN)');
 		});
+
+		test('should reject number beyond safe integer range (line 280 branch)', () => {
+			// This tests the branch where parseInt succeeds but validateInteger fails
+			// parseInt returns Infinity for extremely large numbers, which fails validateInteger
+			const result = parseIntegerString('9'.repeat(1000)); // Huge number string
+			assert.strictEqual(result.valid, false);
+			// Either NaN or outside safe integer range
+			assert.ok(result.error);
+		});
 	});
 });
