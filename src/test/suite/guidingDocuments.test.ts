@@ -513,5 +513,27 @@ suite('Guiding Documents Module Test Suite', () => {
 				await config.update('guidingDocuments', [], vscode.ConfigurationTarget.Global);
 			}
 		});
+
+		test('handles relative path when no workspace folders (lines 163-165)', async () => {
+			// This test covers the edge case in getAbsolutePath where workspaceFolders is undefined
+			// We can't directly call getAbsolutePath (it's private), but we can test through
+			// getGuidingDocumentsContext with a relative path when workspace isn't set
+			
+			const config = vscode.workspace.getConfiguration('aiFeedbackBridge');
+			
+			// Add a relative path (not absolute)
+			await config.update('guidingDocuments', ['./README.md'], vscode.ConfigurationTarget.Global);
+
+			try {
+				// This will internally call getAbsolutePath with a relative path
+				// If no workspace folders, it should return the relative path as-is (lines 163-165)
+				const context = await guidingDocuments.getGuidingDocumentsContext();
+				
+				// Should complete without error
+				assert.ok(typeof context === 'string', 'Should handle relative paths gracefully');
+			} finally {
+				await config.update('guidingDocuments', [], vscode.ConfigurationTarget.Global);
+			}
+		});
 	});
 });

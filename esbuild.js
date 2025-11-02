@@ -58,6 +58,7 @@ async function main() {
 			'src/test/suite/statusBar.test.ts',
 			'src/test/suite/autoApproval.test.ts',
 			'src/test/suite/chatIntegration.test.ts',
+			'src/test/suite/commands.test.ts',
 			'src/test/suite/commands.integration.test.ts',
 			'src/test/suite/guidingDocuments.test.ts',
 			'src/test/suite/portManager.test.ts',

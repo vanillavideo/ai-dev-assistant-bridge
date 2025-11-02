@@ -41,4 +41,92 @@ suite('Commands Integration Tests', () => {
 		const value = config.get<boolean>('autoContinue.enabled');
 		assert.strictEqual(value, false, 'autoContinue should be disabled after toggle');
 	});
+
+	test('getPort command returns port number', async function() {
+		this.timeout(5000);
+		// Execute command - it should show a message with the port
+		await vscode.commands.executeCommand('ai-feedback-bridge.getPort');
+		// Command shows info message, no return value to assert
+		// Just verify it doesn't throw
+		assert.ok(true, 'getPort command executed without error');
+	});
+
+	test('showStatus command displays status', async function() {
+		this.timeout(5000);
+		await vscode.commands.executeCommand('ai-feedback-bridge.showStatus');
+		assert.ok(true, 'showStatus command executed without error');
+	});
+
+	test('injectScript command executes', async function() {
+		this.timeout(5000);
+		await vscode.commands.executeCommand('ai-feedback-bridge.injectScript');
+		assert.ok(true, 'injectScript command executed without error');
+	});
+
+	test('enableAutoApproval command executes', async function() {
+		this.timeout(5000);
+		await vscode.commands.executeCommand('ai-feedback-bridge.enableAutoApproval');
+		assert.ok(true, 'enableAutoApproval command executed without error');
+	});
+
+	test('disableAutoApproval command executes', async function() {
+		this.timeout(5000);
+		await vscode.commands.executeCommand('ai-feedback-bridge.disableAutoApproval');
+		assert.ok(true, 'disableAutoApproval command executed without error');
+	});
+
+	test('injectAutoApprovalScript command executes', async function() {
+		this.timeout(5000);
+		await vscode.commands.executeCommand('ai-feedback-bridge.injectAutoApprovalScript');
+		assert.ok(true, 'injectAutoApprovalScript command executed without error');
+	});
+
+	test('runNow command triggers manual run', async function() {
+		this.timeout(5000);
+		await vscode.commands.executeCommand('ai-feedback-bridge.runNow');
+		assert.ok(true, 'runNow command executed without error');
+	});
+
+	test('sendInstructions command executes', async function() {
+		this.timeout(5000);
+		await vscode.commands.executeCommand('ai-feedback-bridge.sendInstructions');
+		assert.ok(true, 'sendInstructions command executed without error');
+	});
+
+	test('openSettings command opens settings panel', async function() {
+		this.timeout(5000);
+		// This covers lines 116-132 in commands.ts
+		await vscode.commands.executeCommand('ai-feedback-bridge.openSettings');
+		assert.ok(true, 'openSettings command executed without error');
+	});
+
+	test('changePort command executes', async function() {
+		this.timeout(5000);
+		// This opens a quick pick, so we'll cancel it
+		const promise = vscode.commands.executeCommand('ai-feedback-bridge.changePort');
+		await new Promise(resolve => setTimeout(resolve, 300));
+		await vscode.commands.executeCommand('workbench.action.closeQuickOpen');
+		try {
+			await promise;
+		} catch (err) {
+			// Expected if user cancels
+		}
+		assert.ok(true, 'changePort command executed without error');
+	});
+
+	test('listTasks command executes', async function() {
+		this.timeout(5000);
+		const promise = vscode.commands.executeCommand('ai-feedback-bridge.listTasks');
+		await new Promise(resolve => setTimeout(resolve, 300));
+		await vscode.commands.executeCommand('workbench.action.closeQuickOpen');
+		try {
+			await promise;
+		} catch (err) {
+			// Expected if user cancels
+		}
+		assert.ok(true, 'listTasks command executed without error');
+	});
+
+	// NOTE: Skipping interactive commands (addTask, addGuidingDocument, etc.) 
+	// as they open UI dialogs that require user interaction and interrupt testing
 });

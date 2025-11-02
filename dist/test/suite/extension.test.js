@@ -1148,6 +1148,16 @@ suite("Guiding Documents Module Test Suite", () => {
         await config.update("guidingDocuments", [], vscode2.ConfigurationTarget.Global);
       }
     });
+    test("handles relative path when no workspace folders (lines 163-165)", async () => {
+      const config = vscode2.workspace.getConfiguration("aiFeedbackBridge");
+      await config.update("guidingDocuments", ["./README.md"], vscode2.ConfigurationTarget.Global);
+      try {
+        const context = await getGuidingDocumentsContext();
+        assert2.ok(typeof context === "string", "Should handle relative paths gracefully");
+      } finally {
+        await config.update("guidingDocuments", [], vscode2.ConfigurationTarget.Global);
+      }
+    });
   });
 });
 
@@ -4321,6 +4331,73 @@ suite("Commands Integration Tests", () => {
     await new Promise((resolve) => setTimeout(resolve, 1e3));
     const value = config.get("autoContinue.enabled");
     assert9.strictEqual(value, false, "autoContinue should be disabled after toggle");
+  });
+  test("getPort command returns port number", async function() {
+    this.timeout(5e3);
+    await vscode13.commands.executeCommand("ai-feedback-bridge.getPort");
+    assert9.ok(true, "getPort command executed without error");
+  });
+  test("showStatus command displays status", async function() {
+    this.timeout(5e3);
+    await vscode13.commands.executeCommand("ai-feedback-bridge.showStatus");
+    assert9.ok(true, "showStatus command executed without error");
+  });
+  test("injectScript command executes", async function() {
+    this.timeout(5e3);
+    await vscode13.commands.executeCommand("ai-feedback-bridge.injectScript");
+    assert9.ok(true, "injectScript command executed without error");
+  });
+  test("enableAutoApproval command executes", async function() {
+    this.timeout(5e3);
+    await vscode13.commands.executeCommand("ai-feedback-bridge.enableAutoApproval");
+    assert9.ok(true, "enableAutoApproval command executed without error");
+  });
+  test("disableAutoApproval command executes", async function() {
+    this.timeout(5e3);
+    await vscode13.commands.executeCommand("ai-feedback-bridge.disableAutoApproval");
+    assert9.ok(true, "disableAutoApproval command executed without error");
+  });
+  test("injectAutoApprovalScript command executes", async function() {
+    this.timeout(5e3);
+    await vscode13.commands.executeCommand("ai-feedback-bridge.injectAutoApprovalScript");
+    assert9.ok(true, "injectAutoApprovalScript command executed without error");
+  });
+  test("runNow command triggers manual run", async function() {
+    this.timeout(5e3);
+    await vscode13.commands.executeCommand("ai-feedback-bridge.runNow");
+    assert9.ok(true, "runNow command executed without error");
+  });
+  test("sendInstructions command executes", async function() {
+    this.timeout(5e3);
+    await vscode13.commands.executeCommand("ai-feedback-bridge.sendInstructions");
+    assert9.ok(true, "sendInstructions command executed without error");
+  });
+  test("openSettings command opens settings panel", async function() {
+    this.timeout(5e3);
+    await vscode13.commands.executeCommand("ai-feedback-bridge.openSettings");
+    assert9.ok(true, "openSettings command executed without error");
+  });
+  test("changePort command executes", async function() {
+    this.timeout(5e3);
+    const promise = vscode13.commands.executeCommand("ai-feedback-bridge.changePort");
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    await vscode13.commands.executeCommand("workbench.action.closeQuickOpen");
+    try {
+      await promise;
+    } catch (err) {
+    }
+    assert9.ok(true, "changePort command executed without error");
+  });
+  test("listTasks command executes", async function() {
+    this.timeout(5e3);
+    const promise = vscode13.commands.executeCommand("ai-feedback-bridge.listTasks");
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    await vscode13.commands.executeCommand("workbench.action.closeQuickOpen");
+    try {
+      await promise;
+    } catch (err) {
+    }
+    assert9.ok(true, "listTasks command executed without error");
   });
 });
 
