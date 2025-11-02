@@ -13,7 +13,26 @@ This extension auto-approves everything so you can just vibe while GitHub Copilo
 
 ---
 
-## 💡 Why This Extension?
+## � Screenshots
+
+### Settings Overview
+![Settings Overview](screenshots/settings-overview.png)
+
+### Auto-Continue Reminders
+Configure intelligent periodic nudges to keep your AI focused:
+![Auto-Continue Settings](screenshots/settings-auto-continue.png)
+
+### Task Management
+Track what your AI should work on next:
+![Task Management](screenshots/settings-tasks-management.png)
+
+### Guiding Documents (AI Context)
+Feed project guidelines to every AI prompt:
+![Guiding Documents](screenshots/settings-guiding-documents.png)
+
+---
+
+## �💡 Why This Extension?
 
 **Problem:** AI assistants (GitHub Copilot, Claude, ChatGPT) lose focus during long coding sessions, forget pending tasks, and require constant manual approval clicks.
 
