@@ -1,7 +1,17 @@
 # 🌉 AI Dev Assistant Bridge
 
-[![Version](https://img.shields.io/badge/version-0.9.5-blue.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.9.6-blue.svg)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+
+## 🎸 Super Vibe Coding Mode
+
+**Tired of clicking "Allow" 47 times while your AI codes?** Yeah, us too.
+
+This extension auto-approves everything so you can just vibe while GitHub Copilot/Claude/ChatGPT does the work. Your AI gets periodic reminders to keep coding (because even AI needs a nudge sometimes), and you get to feel like a tech CEO who "manages" instead of "works."
+
+**TL;DR:** Click nothing. Code everything. Maximum vibes. 😎
+
+---
 
 ## 💡 Why This Extension?
 
