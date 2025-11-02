@@ -103,7 +103,7 @@ export interface CommandDependencies {
  * const deps: CommandDependencies = {
  *   context,
  *   currentPort: 3737,
- *   getConfig: () => vscode.workspace.getConfiguration('aiFeedbackBridge'),
+ *   getConfig: () => vscode.workspace.getConfiguration('aiDevAssistantBridge'),
  *   updateConfig: async (key, value) => { ... },
  *   sendToAgent: async (msg) => { ... },
  *   // ... other dependencies
@@ -117,7 +117,7 @@ export function registerCommands(deps: CommandDependencies): void {
 
 	// Settings command
 	context.subscriptions.push(
-		vscode.commands.registerCommand('ai-feedback-bridge.openSettings', async () => {
+		vscode.commands.registerCommand('ai-dev-assistant-bridge.openSettings', async () => {
 			settingsPanelModule.showSettingsPanel(
 				deps.context,
 				deps.currentPort,
@@ -132,7 +132,7 @@ export function registerCommands(deps: CommandDependencies): void {
 
 	// Run now command - manually trigger reminder check
 	context.subscriptions.push(
-		vscode.commands.registerCommand('ai-feedback-bridge.runNow', async () => {
+		vscode.commands.registerCommand('ai-dev-assistant-bridge.runNow', async () => {
 			try {
 				const message = await autoContinue.getSmartAutoContinueMessage(
 					deps.context,
@@ -157,21 +157,21 @@ export function registerCommands(deps: CommandDependencies): void {
 
 	// Inject script command
 	context.subscriptions.push(
-		vscode.commands.registerCommand('ai-feedback-bridge.injectScript', async () => {
+		vscode.commands.registerCommand('ai-dev-assistant-bridge.injectScript', async () => {
 			deps.autoInjectScript(deps.context);
 		})
 	);
 
 	// Get port command - returns the current port for this window
 	context.subscriptions.push(
-		vscode.commands.registerCommand('ai-feedback-bridge.getPort', () => {
+		vscode.commands.registerCommand('ai-dev-assistant-bridge.getPort', () => {
 			return deps.currentPort;
 		})
 	);
 
 	// Add task command
 	context.subscriptions.push(
-		vscode.commands.registerCommand('ai-feedback-bridge.addTask', async () => {
+		vscode.commands.registerCommand('ai-dev-assistant-bridge.addTask', async () => {
 			const title = await vscode.window.showInputBox({ prompt: 'Task title' });
 			if (!title) {
 				return;
@@ -201,7 +201,7 @@ export function registerCommands(deps: CommandDependencies): void {
 
 	// List tasks command
 	context.subscriptions.push(
-		vscode.commands.registerCommand('ai-feedback-bridge.listTasks', async () => {
+		vscode.commands.registerCommand('ai-dev-assistant-bridge.listTasks', async () => {
 			const tasks = await taskManager.getTasks(deps.context);
 			if (tasks.length === 0) {
 				vscode.window.showInformationMessage('No tasks found');
@@ -267,7 +267,7 @@ export function registerCommands(deps: CommandDependencies): void {
 
 	// Toggle auto-continue command
 	context.subscriptions.push(
-		vscode.commands.registerCommand('ai-feedback-bridge.toggleAutoContinue', async () => {
+		vscode.commands.registerCommand('ai-dev-assistant-bridge.toggleAutoContinue', async () => {
 			const cfg = deps.getConfig();
 			const currentState = cfg.get<boolean>('autoContinue.enabled', false);
 			await deps.updateConfig('autoContinue.enabled', !currentState);
@@ -291,7 +291,7 @@ export function registerCommands(deps: CommandDependencies): void {
 
 	// Change port command
 	context.subscriptions.push(
-		vscode.commands.registerCommand('ai-feedback-bridge.changePort', async () => {
+		vscode.commands.registerCommand('ai-dev-assistant-bridge.changePort', async () => {
 			const newPort = await vscode.window.showInputBox({
 				prompt: 'Enter new port number',
 				value: deps.currentPort.toString(),
@@ -321,13 +321,13 @@ export function registerCommands(deps: CommandDependencies): void {
 
 	// Show status command
 	context.subscriptions.push(
-		vscode.commands.registerCommand('ai-feedback-bridge.showStatus', () => {
+		vscode.commands.registerCommand('ai-dev-assistant-bridge.showStatus', () => {
 			const cfg = deps.getConfig();
 			const autoInterval = cfg.get<number>('autoContinue.interval', 300);
 			const autoEnabled = cfg.get<boolean>('autoContinue.enabled', false);
 			const workspaceName = vscode.workspace.name || 'No Workspace';
 			const msg =
-				`🌉 AI Feedback Bridge Status\n\n` +
+				`🌉 AI Dev Assistant Bridge Status\n\n` +
 				`Window: ${workspaceName}\n` +
 				`Port: ${deps.currentPort}\n` +
 				`Server: ${deps.server ? 'Running ✅' : 'Stopped ❌'}\n` +
@@ -363,21 +363,21 @@ export function registerCommands(deps: CommandDependencies): void {
 	// Guiding documents commands
 	context.subscriptions.push(
 		vscode.commands.registerCommand(
-			'ai-feedback-bridge.addGuidingDocument',
+			'ai-dev-assistant-bridge.addGuidingDocument',
 			() => guidingDocuments.showAddDocumentPicker()
 		)
 	);
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand(
-			'ai-feedback-bridge.removeGuidingDocument',
+			'ai-dev-assistant-bridge.removeGuidingDocument',
 			() => guidingDocuments.showRemoveDocumentPicker()
 		)
 	);
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand(
-			'ai-feedback-bridge.listGuidingDocuments',
+			'ai-dev-assistant-bridge.listGuidingDocuments',
 			() => guidingDocuments.showGuidingDocumentsList()
 		)
 	);

@@ -32,8 +32,8 @@ export async function showSettingsPanel(
 	}
 	
 	const panel = vscode.window.createWebviewPanel(
-		'aiFeedbackBridgeSettings',
-		'AI Feedback Bridge Settings',
+		'aiDevAssistantBridgeSettings',
+		'AI Dev Assistant Bridge Settings',
 		vscode.ViewColumn.One,
 		{
 			enableScripts: true,
@@ -128,7 +128,7 @@ async function handleWebviewMessage(
 			break;
 			
 		case 'openTaskManager':
-			await vscode.commands.executeCommand('ai-feedback-bridge.listTasks');
+			await vscode.commands.executeCommand('ai-dev-assistant-bridge.listTasks');
 			break;
 			
 		case 'clearCompleted':
@@ -136,7 +136,7 @@ async function handleWebviewMessage(
 			break;
 			
 		case 'addGuidingDocument':
-			await vscode.commands.executeCommand('ai-feedback-bridge.addGuidingDocument');
+			await vscode.commands.executeCommand('ai-dev-assistant-bridge.addGuidingDocument');
 			// Refresh panel after adding
 			const addedDocs = guidingDocuments.getGuidingDocuments();
 			const addedTasks = await taskManager.getTasks(context);
@@ -152,7 +152,7 @@ async function handleWebviewMessage(
 			break;
 			
 		case 'manageGuidingDocuments':
-			await vscode.commands.executeCommand('ai-feedback-bridge.listGuidingDocuments');
+			await vscode.commands.executeCommand('ai-dev-assistant-bridge.listGuidingDocuments');
 			break;
 	}
 }
@@ -192,7 +192,7 @@ async function handleSendInstructions(
 	sendToAgent: (message: string, context?: unknown) => Promise<boolean>
 ): Promise<void> {
 	try {
-		const instructions = '📋 AI Feedback Bridge - Usage Instructions\\n\\n' +
+		const instructions = '📋 AI Dev Assistant Bridge - Usage Instructions\\n\\n' +
 			'This extension helps coordinate between external apps and AI agents in VS Code.\\n\\n' +
 			'🎯 Key Features:\\n' +
 			'1. **Task Management** - Create and track workspace-specific tasks\\n' +
@@ -227,7 +227,7 @@ async function handleSendInstructions(
 			'- Add tasks inline by clicking "Add Task"\\n' +
 			'- Configure auto-continue in settings below\\n' +
 			'- External apps can POST to http://localhost:' + currentPort + '/tasks\\n' +
-			'- Check Command Palette for "AI Feedback Bridge" commands\\n\\n' +
+			'- Check Command Palette for "AI Dev Assistant Bridge" commands\\n\\n' +
 			'📖 For full API docs, visit: http://localhost:' + currentPort + '/help';
 		
 		await sendToAgent(instructions, {
@@ -318,7 +318,7 @@ async function handleCreateTask(
 	currentPort: number,
 	getConfig: () => vscode.WorkspaceConfiguration
 ): Promise<void> {
-	await vscode.commands.executeCommand('ai-feedback-bridge.addTask');
+	await vscode.commands.executeCommand('ai-dev-assistant-bridge.addTask');
 	const taskListAfterCreate = await taskManager.getTasks(context);
 	const docsAfterCreate = guidingDocuments.getGuidingDocuments();
 	panel.webview.html = await getSettingsHtml(getConfig(), currentPort, taskListAfterCreate, docsAfterCreate);
@@ -485,7 +485,7 @@ async function getSettingsHtml(config: vscode.WorkspaceConfiguration, actualPort
 </head>
 <body>
 	<div class="header">
-		<h1>🌉 AI Feedback Bridge</h1>
+		<h1>🌉 AI Dev Assistant Bridge</h1>
 		<button onclick="runNow()">Run Now</button>
 		<button onclick="injectScript()">Inject Script</button>
 		<button onclick="sendInstructions()">Send Instructions</button>

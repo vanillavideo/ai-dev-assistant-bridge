@@ -22,7 +22,7 @@ suite('Auto-Continue Module Tests', () => {
 
 	setup(async () => {
 		// Get extension context
-		const ext = vscode.extensions.getExtension('local.ai-feedback-bridge');
+		const ext = vscode.extensions.getExtension('local.ai-dev-assistant-bridge');
 		assert.ok(ext, 'Extension should be available for testing');
 		
 		if (!ext!.isActive) {
@@ -280,7 +280,7 @@ suite('Auto-Continue Module Tests', () => {
 		assert.doesNotThrow(() => {
 			startAutoContinue(
 				context,
-				() => vscode.workspace.getConfiguration('aiFeedbackBridge'),
+				() => vscode.workspace.getConfiguration('aiDevAssistantBridge'),
 				mockSendToAgent
 			);
 		}, 'startAutoContinue should not throw');
@@ -700,7 +700,7 @@ suite('Auto-Continue Module Tests', () => {
 		
 		try {
 			// Actually set the VS Code configuration (guidingDocuments module reads from real config)
-			const config = vscode.workspace.getConfiguration('aiFeedbackBridge');
+			const config = vscode.workspace.getConfiguration('aiDevAssistantBridge');
 			await config.update('guidingDocuments', [testFile], vscode.ConfigurationTarget.Global);
 			
 			// Also enable tasks category
@@ -730,7 +730,7 @@ suite('Auto-Continue Module Tests', () => {
 			assert.ok(message.includes('Guiding Documents'), 'Should include guiding documents section');
 		} finally {
 			// Cleanup configuration
-			const config = vscode.workspace.getConfiguration('aiFeedbackBridge');
+			const config = vscode.workspace.getConfiguration('aiDevAssistantBridge');
 			await config.update('guidingDocuments', [], vscode.ConfigurationTarget.Global);
 			
 			// Cleanup file

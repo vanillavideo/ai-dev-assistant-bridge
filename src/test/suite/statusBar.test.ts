@@ -14,7 +14,7 @@ suite('Status Bar Module Tests', () => {
 
 	setup(async () => {
 		// Get extension context
-		const ext = vscode.extensions.getExtension('local.ai-feedback-bridge');
+		const ext = vscode.extensions.getExtension('local.ai-dev-assistant-bridge');
 		assert.ok(ext, 'Extension should be available for testing');
 		
 		if (!ext!.isActive) {

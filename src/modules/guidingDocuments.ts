@@ -18,7 +18,7 @@ import { validatePath } from './pathValidation';
  * @returns Array of absolute file paths
  */
 export function getGuidingDocuments(): string[] {
-	const config = vscode.workspace.getConfiguration('aiFeedbackBridge');
+	const config = vscode.workspace.getConfiguration('aiDevAssistantBridge');
 	const docs = config.get<string[]>('guidingDocuments', []);
 	return docs;
 }
@@ -28,7 +28,7 @@ export function getGuidingDocuments(): string[] {
  * @param filePath - Absolute path to the document
  */
 export async function addGuidingDocument(filePath: string): Promise<void> {
-	const config = vscode.workspace.getConfiguration('aiFeedbackBridge');
+	const config = vscode.workspace.getConfiguration('aiDevAssistantBridge');
 	const docs = config.get<string[]>('guidingDocuments', []);
 
 	// Validate path using pathValidation module
@@ -60,7 +60,7 @@ export async function addGuidingDocument(filePath: string): Promise<void> {
  * @param filePath - Path to remove (can be relative or absolute)
  */
 export async function removeGuidingDocument(filePath: string): Promise<void> {
-	const config = vscode.workspace.getConfiguration('aiFeedbackBridge');
+	const config = vscode.workspace.getConfiguration('aiDevAssistantBridge');
 	const docs = config.get<string[]>('guidingDocuments', []);
 
 	// Normalize provided path to match stored entries (which may be relative or absolute)

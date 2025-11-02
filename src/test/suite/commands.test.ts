@@ -45,7 +45,7 @@ suite('Commands Module Unit Tests', () => {
 		const deps: CommandDependencies = {
 			context: mockContext,
 			currentPort: 3737,
-			getConfig: () => vscode.workspace.getConfiguration('aiFeedbackBridge'),
+			getConfig: () => vscode.workspace.getConfiguration('aiDevAssistantBridge'),
 			updateConfig: async () => {},
 			sendToAgent: async () => true,
 			autoInjectScript: () => {},
@@ -65,22 +65,22 @@ suite('Commands Module Unit Tests', () => {
 
 		// Verify all commands registered
 		assert.strictEqual(commandsRegistered.size, 16, 'Should register 16 commands');
-		assert.ok(commandsRegistered.has('ai-feedback-bridge.openSettings'));
-		assert.ok(commandsRegistered.has('ai-feedback-bridge.runNow'));
-		assert.ok(commandsRegistered.has('ai-feedback-bridge.injectScript'));
-		assert.ok(commandsRegistered.has('ai-feedback-bridge.getPort'));
-		assert.ok(commandsRegistered.has('ai-feedback-bridge.addTask'));
-		assert.ok(commandsRegistered.has('ai-feedback-bridge.listTasks'));
+		assert.ok(commandsRegistered.has('ai-dev-assistant-bridge.openSettings'));
+		assert.ok(commandsRegistered.has('ai-dev-assistant-bridge.runNow'));
+		assert.ok(commandsRegistered.has('ai-dev-assistant-bridge.injectScript'));
+		assert.ok(commandsRegistered.has('ai-dev-assistant-bridge.getPort'));
+		assert.ok(commandsRegistered.has('ai-dev-assistant-bridge.addTask'));
+		assert.ok(commandsRegistered.has('ai-dev-assistant-bridge.listTasks'));
 		assert.ok(commandsRegistered.has('ai-agent-feedback-bridge.sendToCopilotChat'));
-		assert.ok(commandsRegistered.has('ai-feedback-bridge.toggleAutoContinue'));
-		assert.ok(commandsRegistered.has('ai-feedback-bridge.changePort'));
-		assert.ok(commandsRegistered.has('ai-feedback-bridge.showStatus'));
+		assert.ok(commandsRegistered.has('ai-dev-assistant-bridge.toggleAutoContinue'));
+		assert.ok(commandsRegistered.has('ai-dev-assistant-bridge.changePort'));
+		assert.ok(commandsRegistered.has('ai-dev-assistant-bridge.showStatus'));
 		assert.ok(commandsRegistered.has('ai-agent-feedback-bridge.enableAutoApproval'));
 		assert.ok(commandsRegistered.has('ai-agent-feedback-bridge.disableAutoApproval'));
 		assert.ok(commandsRegistered.has('ai-agent-feedback-bridge.injectAutoApprovalScript'));
-		assert.ok(commandsRegistered.has('ai-feedback-bridge.addGuidingDocument'));
-		assert.ok(commandsRegistered.has('ai-feedback-bridge.removeGuidingDocument'));
-		assert.ok(commandsRegistered.has('ai-feedback-bridge.listGuidingDocuments'));
+		assert.ok(commandsRegistered.has('ai-dev-assistant-bridge.addGuidingDocument'));
+		assert.ok(commandsRegistered.has('ai-dev-assistant-bridge.removeGuidingDocument'));
+		assert.ok(commandsRegistered.has('ai-dev-assistant-bridge.listGuidingDocuments'));
 	});
 
 	test('getPort command should return current port', async () => {
@@ -88,7 +88,7 @@ suite('Commands Module Unit Tests', () => {
 		const deps: CommandDependencies = {
 			context: mockContext,
 			currentPort: testPort,
-			getConfig: () => vscode.workspace.getConfiguration('aiFeedbackBridge'),
+			getConfig: () => vscode.workspace.getConfiguration('aiDevAssistantBridge'),
 			updateConfig: async () => {},
 			sendToAgent: async () => true,
 			autoInjectScript: () => {},
@@ -103,7 +103,7 @@ suite('Commands Module Unit Tests', () => {
 
 		registerCommands(deps);
 
-		const getPortCmd = commandsRegistered.get('ai-feedback-bridge.getPort');
+		const getPortCmd = commandsRegistered.get('ai-dev-assistant-bridge.getPort');
 		assert.ok(getPortCmd, 'getPort command should be registered');
 
 		const port = getPortCmd!();
@@ -147,14 +147,14 @@ suite('Commands Module Unit Tests', () => {
 
 		registerCommands(deps);
 
-		const showStatusCmd = commandsRegistered.get('ai-feedback-bridge.showStatus');
+		const showStatusCmd = commandsRegistered.get('ai-dev-assistant-bridge.showStatus');
 		assert.ok(showStatusCmd, 'showStatus command should be registered');
 
 		showStatusCmd!();
 
 		assert.ok(outputLines.length > 0, 'Should output status lines');
 		assert.ok(showCalled, 'Should show output channel');
-		assert.ok(outputLines[0].includes('AI Feedback Bridge Status'), 'Should include header');
+		assert.ok(outputLines[0].includes('AI Dev Assistant Bridge Status'), 'Should include header');
 		assert.ok(outputLines[0].includes('3737'), 'Should include port');
 	});
 
@@ -164,7 +164,7 @@ suite('Commands Module Unit Tests', () => {
 		const deps: CommandDependencies = {
 			context: mockContext,
 			currentPort: 3737,
-			getConfig: () => vscode.workspace.getConfiguration('aiFeedbackBridge'),
+			getConfig: () => vscode.workspace.getConfiguration('aiDevAssistantBridge'),
 			updateConfig: async () => {},
 			sendToAgent: async () => true,
 			autoInjectScript: () => {},
@@ -182,7 +182,7 @@ suite('Commands Module Unit Tests', () => {
 
 		registerCommands(deps);
 
-		const showStatusCmd = commandsRegistered.get('ai-feedback-bridge.showStatus');
+		const showStatusCmd = commandsRegistered.get('ai-dev-assistant-bridge.showStatus');
 		showStatusCmd!();
 
 		assert.ok(outputLines[0].includes('Stopped ❌'), 'Should show server stopped');
@@ -224,7 +224,7 @@ suite('Commands Module Unit Tests', () => {
 
 		registerCommands(deps);
 
-		const toggleCmd = commandsRegistered.get('ai-feedback-bridge.toggleAutoContinue');
+		const toggleCmd = commandsRegistered.get('ai-dev-assistant-bridge.toggleAutoContinue');
 		await toggleCmd!();
 
 		assert.strictEqual(currentValue, false, 'Should toggle to disabled');
@@ -268,7 +268,7 @@ suite('Commands Module Unit Tests', () => {
 
 		registerCommands(deps);
 
-		const toggleCmd = commandsRegistered.get('ai-feedback-bridge.toggleAutoContinue');
+		const toggleCmd = commandsRegistered.get('ai-dev-assistant-bridge.toggleAutoContinue');
 		await toggleCmd!();
 
 		assert.strictEqual(currentValue, true, 'Should toggle to enabled');
@@ -282,7 +282,7 @@ suite('Commands Module Unit Tests', () => {
 		const deps: CommandDependencies = {
 			context: mockContext,
 			currentPort: 3737,
-			getConfig: () => vscode.workspace.getConfiguration('aiFeedbackBridge'),
+			getConfig: () => vscode.workspace.getConfiguration('aiDevAssistantBridge'),
 			updateConfig: async () => {},
 			sendToAgent: async () => true,
 			autoInjectScript: () => { injected = true; },
@@ -297,7 +297,7 @@ suite('Commands Module Unit Tests', () => {
 
 		registerCommands(deps);
 
-		const injectCmd = commandsRegistered.get('ai-feedback-bridge.injectScript');
+		const injectCmd = commandsRegistered.get('ai-dev-assistant-bridge.injectScript');
 		injectCmd!();
 
 		assert.strictEqual(injected, true, 'Should call autoInjectScript');
@@ -309,7 +309,7 @@ suite('Commands Module Unit Tests', () => {
 		const deps: CommandDependencies = {
 			context: mockContext,
 			currentPort: 3737,
-			getConfig: () => vscode.workspace.getConfiguration('aiFeedbackBridge'),
+			getConfig: () => vscode.workspace.getConfiguration('aiDevAssistantBridge'),
 			updateConfig: async () => {},
 			sendToAgent: async () => true,
 			autoInjectScript: () => {},
@@ -336,7 +336,7 @@ suite('Commands Module Unit Tests', () => {
 		const deps: CommandDependencies = {
 			context: mockContext,
 			currentPort: 3737,
-			getConfig: () => vscode.workspace.getConfiguration('aiFeedbackBridge'),
+			getConfig: () => vscode.workspace.getConfiguration('aiDevAssistantBridge'),
 			updateConfig: async () => {},
 			sendToAgent: async () => true,
 			autoInjectScript: () => {},
@@ -363,7 +363,7 @@ suite('Commands Module Unit Tests', () => {
 		const deps: CommandDependencies = {
 			context: mockContext,
 			currentPort: 3737,
-			getConfig: () => vscode.workspace.getConfiguration('aiFeedbackBridge'),
+			getConfig: () => vscode.workspace.getConfiguration('aiDevAssistantBridge'),
 			updateConfig: async () => {},
 			sendToAgent: async () => true,
 			autoInjectScript: () => {},

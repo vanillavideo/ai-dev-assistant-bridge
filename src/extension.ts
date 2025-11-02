@@ -29,7 +29,7 @@ let extensionContext: vscode.ExtensionContext | undefined;
  */
 function getConfig(): vscode.WorkspaceConfiguration {
 	// Get workspace-specific configuration
-	return vscode.workspace.getConfiguration('aiFeedbackBridge');
+	return vscode.workspace.getConfiguration('aiDevAssistantBridge');
 }
 
 /**
@@ -69,7 +69,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	const config = getConfig();
 	
 	// MIGRATION: Clear any old Global settings to force workspace scope
-	const globalConfig = vscode.workspace.getConfiguration('aiFeedbackBridge');
+	const globalConfig = vscode.workspace.getConfiguration('aiDevAssistantBridge');
 	const globalEnabled = globalConfig.inspect<boolean>('autoContinue.enabled');
 	if (globalEnabled?.globalValue !== undefined) {
 		log(LogLevel.WARN, 'Detected old Global settings, clearing to use Workspace scope');
@@ -136,18 +136,18 @@ export async function activate(context: vscode.ExtensionContext) {
 	// Watch for configuration changes (window-scoped)
 	context.subscriptions.push(
 		vscode.workspace.onDidChangeConfiguration((e) => {
-			if (e.affectsConfiguration('aiFeedbackBridge')) {
+			if (e.affectsConfiguration('aiDevAssistantBridge')) {
 				const cfg = getConfig();
 				
 				log(LogLevel.DEBUG, 'Configuration changed', { 
 					workspace: vscode.workspace.name,
 					affectedKeys: ['port', 'autoContinue'].filter(k => 
-						e.affectsConfiguration(`aiFeedbackBridge.${k}`)
+						e.affectsConfiguration(`aiDevAssistantBridge.${k}`)
 					)
 				});
 				
 				// Check for port change
-				if (e.affectsConfiguration('aiFeedbackBridge.port')) {
+				if (e.affectsConfiguration('aiDevAssistantBridge.port')) {
 					const newPort = cfg.get<number>('port', 3737);
 					if (newPort !== currentPort) {
 						log(LogLevel.INFO, `Port change detected: ${currentPort} → ${newPort}. Reloading window...`);
@@ -158,7 +158,7 @@ export async function activate(context: vscode.ExtensionContext) {
 				// Update status bar buttons
 				statusBar.updateStatusBar(cfg);
 				
-				if (e.affectsConfiguration('aiFeedbackBridge.autoContinue')) {
+				if (e.affectsConfiguration('aiDevAssistantBridge.autoContinue')) {
 					autoContinue.restartAutoContinue(context, getConfig, chatIntegration.sendToAgent);
 					
 					// Restart countdown updates if auto-continue is enabled
@@ -244,7 +244,7 @@ function initializeAutoApproval() {
 	const autoInjectEnabled = config.get<boolean>('autoApproval.autoInject', false);
 	
 	if (autoApprovalEnabled) {
-		log(LogLevel.INFO, 'Auto-approval enabled. Use "AI Feedback Bridge: Copy Auto-Approval Script" command to get the script.');
+		log(LogLevel.INFO, 'Auto-approval enabled. Use "AI Dev Assistant Bridge: Copy Auto-Approval Script" command to get the script.');
 		
 		// Auto-inject if enabled
 		if (autoInjectEnabled) {
@@ -254,7 +254,7 @@ function initializeAutoApproval() {
 			const workspaceHasValue = !!(inspect && (inspect.workspaceValue || inspect.workspaceFolderValue));
 			if (!workspaceHasValue) {
 				log(LogLevel.INFO, 'Skipping auto-inject because autoApproval.autoInject is not set at workspace scope.');
-				log(LogLevel.INFO, 'To enable auto-inject for this workspace, set "aiFeedbackBridge.autoApproval.autoInject" in Workspace Settings.');
+				log(LogLevel.INFO, 'To enable auto-inject for this workspace, set "aiDevAssistantBridge.autoApproval.autoInject" in Workspace Settings.');
 				return;
 			}
 
@@ -308,7 +308,7 @@ function enableAutoApproval(context: vscode.ExtensionContext) {
 		}
 	});
 
-	log(LogLevel.INFO, 'Auto-approval enabled. Use "AI Feedback Bridge: Copy Auto-Approval Script" command to get the script.');
+	log(LogLevel.INFO, 'Auto-approval enabled. Use "AI Dev Assistant Bridge: Copy Auto-Approval Script" command to get the script.');
 }
 
 /**

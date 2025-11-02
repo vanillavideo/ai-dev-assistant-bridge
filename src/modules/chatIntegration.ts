@@ -56,7 +56,7 @@ export function initChat(channel: vscode.OutputChannel): void {
  */
 export function createChatParticipant(context: vscode.ExtensionContext): vscode.ChatParticipant {
 	chatParticipant = vscode.chat.createChatParticipant(
-		'ai-agent-feedback-bridge.agent', 
+		'ai-dev-assistant-bridge.agent', 
 		handleChatRequest
 	);
 	chatParticipant.iconPath = vscode.Uri.file(context.asAbsolutePath('icon.png'));
@@ -159,7 +159,7 @@ async function handleChatRequest(
  * - Auto-submit failure: Logs warning, user can submit manually (still returns true)
  * 
  * Auto-submission details:
- * - Requires 'aiFeedbackBridge.autoSubmit' setting enabled
+ * - Requires 'aiDevAssistantBridge.autoSubmit' setting enabled
  * - Uses 'workbench.action.chat.submitInput' command
  * - 300ms delay ensures chat UI is ready
  * - Gracefully handles failures without blocking

@@ -1,5 +1,5 @@
 /**
- * HTTP Server module for AI Feedback Bridge
+ * HTTP Server module for AI Dev Assistant Bridge
  * 
  * Provides REST API endpoints for external communication with the extension.
  * Handles health checks, feedback submission, task management, and port queries.
@@ -278,7 +278,7 @@ async function handleRequest(
  */
 function handleHelp(res: http.ServerResponse, port: number): void {
 	const helpText = `
-AI Feedback Bridge - API Documentation
+AI Dev Assistant Bridge - API Documentation
 =======================================
 
 Base URL: http://localhost:${port}

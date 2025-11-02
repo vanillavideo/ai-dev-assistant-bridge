@@ -1,5 +1,5 @@
 /**
- * Shared type definitions for the AI Feedback Bridge extension
+ * Shared type definitions for the AI Dev Assistant Bridge extension
  */
 
 /**

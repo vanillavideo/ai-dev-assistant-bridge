@@ -27,19 +27,19 @@ export function initializeStatusBar(
 	// Create 3 separate status bar buttons (adjacent with same priority base)
 	// Button 1: Settings/Info - shows port and opens settings
 	statusBarSettings = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
-	statusBarSettings.command = 'ai-feedback-bridge.openSettings';
+	statusBarSettings.command = 'ai-dev-assistant-bridge.openSettings';
 	statusBarSettings.show();
 	context.subscriptions.push(statusBarSettings);
 	
 	// Button 2: Toggle Auto-Continue (Start/Stop) - right next to settings
 	statusBarToggle = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 99);
-	statusBarToggle.command = 'ai-feedback-bridge.toggleAutoContinue';
+	statusBarToggle.command = 'ai-dev-assistant-bridge.toggleAutoContinue';
 	statusBarToggle.show();
 	context.subscriptions.push(statusBarToggle);
 	
 	// Button 3: Inject Script - quick access to copy script
 	statusBarInject = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 98);
-	statusBarInject.command = 'ai-feedback-bridge.injectScript';
+	statusBarInject.command = 'ai-dev-assistant-bridge.injectScript';
 	statusBarInject.text = '$(clippy) Inject';
 	statusBarInject.tooltip = 'Copy auto-approval script to clipboard';
 	statusBarInject.show();
@@ -63,7 +63,7 @@ export function updateStatusBar(config: vscode.WorkspaceConfiguration, countdown
 	
 	// Settings button shows port and bridge name
 	statusBarSettings.text = `AI Dev: ${currentPortRef}`;
-	statusBarSettings.tooltip = 'Click to configure AI Feedback Bridge';
+	statusBarSettings.tooltip = 'Click to configure AI Dev Assistant Bridge';
 	
 	// Toggle button shows Start/Stop with spinning icon when active
 	if (autoEnabled) {

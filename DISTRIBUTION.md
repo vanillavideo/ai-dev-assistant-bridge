@@ -1,6 +1,6 @@
 # Distribution Guide
 
-This guide explains how to package and distribute the AI Feedback Bridge extension to other users.
+This guide explains how to package and distribute the AI Dev Assistant Bridge extension to other users.
 
 ## Quick Distribution (Share with Anyone)
 
@@ -18,7 +18,7 @@ npm run compile
 npx @vscode/vsce package
 ```
 
-This creates `ai-feedback-bridge-0.9.4.vsix` in the project root.
+This creates `ai-dev-assistant-bridge-0.9.4.vsix` in the project root.
 
 ### 2. Share the VSIX File
 
@@ -47,7 +47,7 @@ Users can install the `.vsix` file in two ways:
 
 **Via Command Line:**
 ```bash
-code --install-extension ai-feedback-bridge-0.9.4.vsix
+code --install-extension ai-dev-assistant-bridge-0.9.4.vsix
 ```
 
 ## Publishing to VS Code Marketplace
@@ -76,12 +76,12 @@ Edit `package.json`:
   "publisher": "your-publisher-id",  // Change from "local"
   "repository": {
     "type": "git",
-    "url": "https://github.com/your-username/ai-feedback-bridge.git"
+    "url": "https://github.com/your-username/ai-dev-assistant-bridge.git"
   },
   "bugs": {
-    "url": "https://github.com/your-username/ai-feedback-bridge/issues"
+    "url": "https://github.com/your-username/ai-dev-assistant-bridge/issues"
   },
-  "homepage": "https://github.com/your-username/ai-feedback-bridge#readme"
+  "homepage": "https://github.com/your-username/ai-dev-assistant-bridge#readme"
 }
 ```
 
@@ -103,8 +103,8 @@ npx @vscode/vsce publish major  # 0.9.4 → 1.0.0
 
 ### Post-Publication
 
-- Extension appears at: `https://marketplace.visualstudio.com/items?itemName=your-publisher-id.ai-feedback-bridge`
-- Users can install via: Extensions search → "AI Feedback Bridge"
+- Extension appears at: `https://marketplace.visualstudio.com/items?itemName=your-publisher-id.ai-dev-assistant-bridge`
+- Users can install via: Extensions search → "AI Dev Assistant Bridge"
 - Updates publish automatically (users notified in VS Code)
 
 ## Enterprise Distribution
@@ -132,7 +132,7 @@ Add to `.vscode/extensions.json` in project repositories:
 ```json
 {
   "recommendations": [
-    "local.ai-feedback-bridge"
+    "local.ai-dev-assistant-bridge"
   ]
 }
 ```
@@ -145,15 +145,15 @@ Deploy via Group Policy or MDM:
 
 ```powershell
 # Windows PowerShell script
-$vsixPath = "\\fileserver\extensions\ai-feedback-bridge-0.9.4.vsix"
+$vsixPath = "\\fileserver\extensions\ai-dev-assistant-bridge-0.9.4.vsix"
 code --install-extension $vsixPath
 ```
 
 ```bash
 # Linux/Mac deployment script
-VSIX_URL="https://internal-server.com/extensions/ai-feedback-bridge-0.9.4.vsix"
+VSIX_URL="https://internal-server.com/extensions/ai-dev-assistant-bridge-0.9.4.vsix"
 curl -O $VSIX_URL
-code --install-extension ai-feedback-bridge-0.9.4.vsix
+code --install-extension ai-dev-assistant-bridge-0.9.4.vsix
 ```
 
 ### Method 4: Settings Sync
@@ -193,7 +193,7 @@ Follow semver: `MAJOR.MINOR.PATCH`
    npm test  # Run tests
    npx @vscode/vsce package
    # Install and test locally
-   code --install-extension ai-feedback-bridge-X.Y.Z.vsix
+   code --install-extension ai-dev-assistant-bridge-X.Y.Z.vsix
    ```
 
 4. **Distribute**

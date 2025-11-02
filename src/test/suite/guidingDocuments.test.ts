@@ -482,7 +482,7 @@ suite('Guiding Documents Module Test Suite', () => {
 			}
 
 			// Add only non-existent files
-			const config = vscode.workspace.getConfiguration('aiFeedbackBridge');
+			const config = vscode.workspace.getConfiguration('aiDevAssistantBridge');
 			await config.update('guidingDocuments', ['/nonexistent/file1.md', '/nonexistent/file2.md'], vscode.ConfigurationTarget.Global);
 
 			try {
@@ -499,7 +499,7 @@ suite('Guiding Documents Module Test Suite', () => {
 		test('getGuidingDocumentsContext should handle errors during processing (line 117)', async () => {
 			// This test ensures the catch block is exercised by adding an invalid path
 			// that might cause errors during getAbsolutePath or other operations
-			const config = vscode.workspace.getConfiguration('aiFeedbackBridge');
+			const config = vscode.workspace.getConfiguration('aiDevAssistantBridge');
 			
 			// Add a path that exists but might cause processing issues
 			const testPath = path.join(__dirname, '../../../README.md');
@@ -519,7 +519,7 @@ suite('Guiding Documents Module Test Suite', () => {
 			// We can't directly call getAbsolutePath (it's private), but we can test through
 			// getGuidingDocumentsContext with a relative path when workspace isn't set
 			
-			const config = vscode.workspace.getConfiguration('aiFeedbackBridge');
+			const config = vscode.workspace.getConfiguration('aiDevAssistantBridge');
 			
 			// Add a relative path (not absolute)
 			await config.update('guidingDocuments', ['./README.md'], vscode.ConfigurationTarget.Global);

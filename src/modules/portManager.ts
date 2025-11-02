@@ -16,7 +16,7 @@ import * as http from 'http';
 import { log } from './logging';
 import { LogLevel } from './types';
 
-const PORT_REGISTRY_KEY = 'aiFeedbackBridge.portRegistry';
+const PORT_REGISTRY_KEY = 'aiDevAssistantBridge.portRegistry';
 const BASE_PORT = 3737;
 const MAX_PORT_SEARCH = 50; // Try up to 50 ports (3737-3787)
 

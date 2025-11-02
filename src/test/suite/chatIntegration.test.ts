@@ -17,7 +17,7 @@ suite('Chat Integration Module Tests', () => {
 		outputChannel = vscode.window.createOutputChannel('Test Chat Integration');
 		
 		// Get extension context
-		const ext = vscode.extensions.getExtension('local.ai-feedback-bridge');
+		const ext = vscode.extensions.getExtension('local.ai-dev-assistant-bridge');
 		assert.ok(ext, 'Extension should be available for testing');
 		context = ext!.exports?.context || {
 			subscriptions: [],

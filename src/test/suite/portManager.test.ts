@@ -13,7 +13,7 @@ suite('PortManager Module Tests', () => {
 	let context: vscode.ExtensionContext;
 
 	suiteSetup(async () => {
-		const ext = vscode.extensions.getExtension('local.ai-feedback-bridge');
+		const ext = vscode.extensions.getExtension('local.ai-dev-assistant-bridge');
 		assert.ok(ext, 'Extension should be available');
 		await ext.activate();
 		context = (ext.exports as any)?.context || createMockContext();

@@ -119,7 +119,7 @@ suite('Server HTTP Endpoints Test Suite', () => {
 				let data = '';
 				res.on('data', chunk => data += chunk);
 				res.on('end', () => {
-					assert.ok(data.includes('AI Feedback Bridge'));
+					assert.ok(data.includes('AI Dev Assistant Bridge'));
 					assert.ok(data.includes('API Documentation'));
 					done();
 				});

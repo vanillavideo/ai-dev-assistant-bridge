@@ -1,19 +1,31 @@
-# 🌉 AI Feedback Bridge
+# 🌉 AI Dev Assistant Bridge
 
-[![Version](https://img.shields.io/badge/version-0.9.4-blue.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.9.5-blue.svg)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-A powerful VS Code extension that creates a seamless bridge between your development environment and AI agents, featuring comprehensive task management, external API integration, and intelligent auto-approval capabilities.
+## 💡 Why This Extension?
 
-## ✨ Features
+**Problem:** AI assistants (GitHub Copilot, Claude, ChatGPT) lose focus during long coding sessions, forget pending tasks, and require constant manual approval clicks.
 
-### 🤖 AI Agent Integration
+**Solution:** AI Dev Assistant Bridge keeps your AI coding assistant on track with:
+- ⏰ **Auto-reminders** that nudge AI to continue working every 5-15 minutes
+- 🤖 **Auto-approval** that eliminates "Allow"/"Keep" button clicking
+- 📋 **Task management** so AI always knows what to work on next
+- 🔌 **HTTP API** for external tools to control your AI workflow
+- 📄 **Context injection** that feeds project guidelines to every AI prompt
+
+**Result:** Your AI assistant stays focused, productive, and aligned with your project goals—without constant babysitting.
+
+---
+
+## ✨ Core Features
+
+### 🤖 AI Workflow Automation
 - **Auto-Continue System**: Intelligent periodic reminders with live countdown (HH:MM:SS)
 - **Smart Categorization**: Tasks, improvements, coverage, robustness, cleanup, commits
 - **Guiding Documents**: Include project docs (ARCHITECTURE.md, etc.) in AI context automatically
 - **AI Communication Queue**: Async instruction queue for external AI systems to send commands
-- **Feedback Bridge**: HTTP server for external app feedback integration
-- **Chat Participant**: Dedicated `@ai-feedback-bridge` participant for AI interactions
+- **Chat Participant**: Dedicated `@ai-dev-assistant-bridge` participant for AI interactions
 - **Auto-Approval**: Browser script auto-clicks "Allow"/"Keep" buttons (Chat panel scoped)
 
 ### 📋 Task Management System
@@ -48,11 +60,11 @@ A powerful VS Code extension that creates a seamless bridge between your develop
    - Type "Install from VSIX" and select the command
    - Choose the downloaded `.vsix` file
 3. **Automatic Activation**: The extension starts automatically and shows the server port in the status bar
-4. **Access Settings**: Click the status bar item or run "AI Feedback Bridge: Show Status" command
+4. **Access Settings**: Click the status bar item or run "AI Dev Assistant Bridge: Show Status" command
 
 ### First Steps
 
-1. **Check Status**: Click the status bar (shows port like `🌉 3737`) or run `AI Feedback Bridge: Show Status`
+1. **Check Status**: Click the status bar (shows port like `🌉 3737`) or run `AI Dev Assistant Bridge: Show Status`
 2. **Configure Auto-Continue**: Enable categories you want (Tasks, Improvements, Coverage, etc.)
 3. **Add Guiding Documents**: Include project documentation for better AI context
 4. **Create Tasks**: Use the command palette or REST API to add tasks
@@ -560,7 +572,7 @@ For detailed testing instructions, coverage analysis tools, and best practices, 
 
 **Option 2: Command Line**
 ```bash
-code --install-extension ai-feedback-bridge-0.9.4.vsix
+code --install-extension ai-dev-assistant-bridge-0.9.4.vsix
 ```
 
 ### For Developers
@@ -579,7 +591,7 @@ npm run compile
 npx @vscode/vsce package
 
 # Install locally
-code --install-extension ai-feedback-bridge-0.9.4.vsix
+code --install-extension ai-dev-assistant-bridge-0.9.4.vsix
 ```
 
 **Publishing to VS Code Marketplace:**
@@ -617,7 +629,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ### Getting Help
 
-- **Status Check**: Run `AI Feedback Bridge: Show Status` command to see server status and configuration
+- **Status Check**: Run `AI Dev Assistant Bridge: Show Status` command to see server status and configuration
 - **API Documentation**: Visit `http://localhost:3737/help` when extension is running for complete API reference
 - **Debug Logs**: Open Output Panel (View → Output) → Select "AI Agent Feedback" channel
 - **Demo Scripts**: 
@@ -628,7 +640,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 **Server Not Starting?**
 - Check Output panel for error messages
-- Try changing port: `AI Feedback Bridge: Change Port`
+- Try changing port: `AI Dev Assistant Bridge: Change Port`
 - Ensure no port conflicts (check other running services)
 
 **Auto-Approval Not Working?**
