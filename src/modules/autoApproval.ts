@@ -7,20 +7,33 @@ import * as path from 'path';
 import { log, getErrorMessage } from './logging';
 import { LogLevel } from './types';
 
+type ClipboardLike = Pick<typeof vscode.env.clipboard, 'writeText'>;
+type ExecuteCommand = typeof vscode.commands.executeCommand;
+
+interface AutoInjectOverrides {
+	clipboard?: ClipboardLike;
+	executeCommand?: ExecuteCommand;
+}
+
 /**
  * Copy auto-approval script to clipboard and optionally toggle dev tools
  */
-export async function autoInjectScript(extensionContext: vscode.ExtensionContext): Promise<void> {
+export async function autoInjectScript(
+	extensionContext: vscode.ExtensionContext,
+	overrides: AutoInjectOverrides = {}
+): Promise<void> {
 	try {
 		const script = getAutoApprovalScript(extensionContext);
+		const clipboard: ClipboardLike = overrides.clipboard ?? vscode.env.clipboard;
+		const executeCommand: ExecuteCommand = overrides.executeCommand ?? vscode.commands.executeCommand;
 		
 		// Copy script to clipboard
-		await vscode.env.clipboard.writeText(script);
+		await clipboard.writeText(script);
 		log(LogLevel.INFO, '📋 Auto-approval script copied to clipboard');
 		
 		// Optionally open developer tools
 		try {
-			await vscode.commands.executeCommand('workbench.action.toggleDevTools');
+			await executeCommand('workbench.action.toggleDevTools');
 			log(LogLevel.INFO, '🛠️ Developer Tools toggled');
 		} catch (error) {
 			log(LogLevel.WARN, 'Could not toggle Developer Tools', getErrorMessage(error));

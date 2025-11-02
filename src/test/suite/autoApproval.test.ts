@@ -86,12 +86,44 @@ suite('Auto-Approval Module Test Suite', () => {
 		});
 
 		test('should handle dev tools toggle errors gracefully', async () => {
-			// This test verifies that errors from toggleDevTools don't break the function
-			// The function should complete successfully even if dev tools toggle fails
-			await assert.doesNotReject(
-				async () => await autoApproval.autoInjectScript(mockContext),
-				'Should not throw error even if dev tools toggle fails'
-			);
+			let callCount = 0;
+			const failingExecuteCommand: typeof vscode.commands.executeCommand = async (..._args: any[]) => {
+				callCount++;
+				throw new Error('Dev tools unavailable');
+			};
+
+			await autoApproval.autoInjectScript(mockContext, {
+				executeCommand: failingExecuteCommand
+			});
+
+			assert.ok(callCount > 0, 'Should attempt to toggle dev tools');
+		});
+
+		test('should handle clipboard write failures gracefully', async () => {
+			let clipboardAttempted = false;
+			let devToolsCalled = false;
+			let caughtError: unknown;
+
+			try {
+				await autoApproval.autoInjectScript(mockContext, {
+					clipboard: {
+						writeText: async () => {
+							clipboardAttempted = true;
+							throw new Error('Clipboard failure');
+						}
+					},
+					executeCommand: (async (..._args: any[]) => {
+						devToolsCalled = true;
+						return undefined as unknown;
+					}) as typeof vscode.commands.executeCommand
+				});
+			} catch (error) {
+				caughtError = error;
+			}
+
+			assert.strictEqual(caughtError, undefined, 'Should not throw even when clipboard fails');
+			assert.ok(clipboardAttempted, 'Clipboard write should be attempted');
+			assert.strictEqual(devToolsCalled, false, 'Should skip dev tools when clipboard write fails');
 		});
 
 		test('should still copy script even when context is invalid', async () => {
