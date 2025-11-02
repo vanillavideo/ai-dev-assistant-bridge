@@ -1041,4 +1041,101 @@ suite('Auto-Continue Module Tests', () => {
 		assert.ok(seconds! <= 55, 'Should be approximately 50 seconds or less');
 		assert.ok(seconds! >= 45, 'Should be approximately 50 seconds');
 	});
+
+	test('startAutoContinue when disabled', () => {
+		const mockConfig = {
+			get: (key: string, defaultValue: any) => {
+				if (key === 'autoContinue.enabled') {
+					return false; // Auto-continue disabled
+				}
+				return defaultValue;
+			}
+		} as any;
+
+		const mockSendToAgent = async () => true;
+
+		// Should exit early and log that it's disabled (line 189-190 branch)
+		startAutoContinue(context, () => mockConfig, mockSendToAgent);
+		
+		// Timer should not be active
+		assert.strictEqual(isAutoContinueActive(), false, 'Timer should not be active when disabled');
+	});
+
+	test('stopAutoContinue when timer is running', () => {
+		// First start the timer
+		const mockConfig = {
+			get: (key: string, defaultValue: any) => {
+				if (key === 'autoContinue.enabled') {
+					return true;
+				}
+				if (key === 'autoContinue.tasks.enabled') {
+					return true;
+				}
+				if (key === 'autoContinue.tasks.message') {
+					return 'Test message';
+				}
+				if (key === 'autoContinue.tasks.interval') {
+					return 60;
+				}
+				return defaultValue;
+			}
+		} as any;
+
+		const mockSendToAgent = async () => true;
+
+		startAutoContinue(context, () => mockConfig, mockSendToAgent);
+		assert.strictEqual(isAutoContinueActive(), true, 'Timer should be active after start');
+
+		// Now stop it (line 211 branch: if (autoContinueTimer))
+		stopAutoContinue();
+		assert.strictEqual(isAutoContinueActive(), false, 'Timer should be inactive after stop');
+	});
+
+	test('getTimeUntilNextReminder with first category (shortestTime === null)', () => {
+		const now = Date.now();
+		const lastSentKey = 'autoContinue.lastSent';
+		
+		// Clear any previous state
+		mockGlobalState.clear();
+		
+		// Set up ONLY tasks category enabled with message
+		// This will be the FIRST category in the loop where shortestTime is still null
+		mockGlobalState.set(lastSentKey, {
+			tasks: now - 30000 // 30 seconds ago
+		});
+
+		const mockConfig = {
+			get: (key: string, defaultValue: any) => {
+				// Enable ONLY tasks category
+				if (key === 'autoContinue.tasks.enabled') {
+					return true;
+				}
+				if (key === 'autoContinue.tasks.message') {
+					return 'Check tasks';  // MUST have message or it will continue
+				}
+				if (key === 'autoContinue.tasks.interval') {
+					return 60; // 60 second interval, 30 remaining
+				}
+				// Disable ALL other categories explicitly
+				if (key === 'autoContinue.improvements.enabled' || 
+				    key === 'autoContinue.coverage.enabled' ||
+				    key === 'autoContinue.robustness.enabled' ||
+				    key === 'autoContinue.cleanup.enabled' ||
+				    key === 'autoContinue.commits.enabled') {
+					return false;
+				}
+				if (key.includes('enabled')) {
+					return false;
+				}
+				return defaultValue;
+			}
+		} as any;
+
+		const seconds = getTimeUntilNextReminder(context, () => mockConfig);
+
+		// Line 316: First iteration should hit (shortestTime === null) branch
+		// This should set shortestTime = remaining (30 seconds)
+		assert.ok(seconds !== null, 'Should return a time for first category');
+		assert.ok(seconds! >= 25 && seconds! <= 35, `Should be approximately 30 seconds, got ${seconds}`);
+	});
 });

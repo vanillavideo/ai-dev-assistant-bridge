@@ -4016,6 +4016,75 @@ suite("Auto-Continue Module Tests", () => {
     assert5.ok(seconds <= 55, "Should be approximately 50 seconds or less");
     assert5.ok(seconds >= 45, "Should be approximately 50 seconds");
   });
+  test("startAutoContinue when disabled", () => {
+    const mockConfig = {
+      get: (key, defaultValue) => {
+        if (key === "autoContinue.enabled") {
+          return false;
+        }
+        return defaultValue;
+      }
+    };
+    const mockSendToAgent = async () => true;
+    startAutoContinue(context, () => mockConfig, mockSendToAgent);
+    assert5.strictEqual(isAutoContinueActive(), false, "Timer should not be active when disabled");
+  });
+  test("stopAutoContinue when timer is running", () => {
+    const mockConfig = {
+      get: (key, defaultValue) => {
+        if (key === "autoContinue.enabled") {
+          return true;
+        }
+        if (key === "autoContinue.tasks.enabled") {
+          return true;
+        }
+        if (key === "autoContinue.tasks.message") {
+          return "Test message";
+        }
+        if (key === "autoContinue.tasks.interval") {
+          return 60;
+        }
+        return defaultValue;
+      }
+    };
+    const mockSendToAgent = async () => true;
+    startAutoContinue(context, () => mockConfig, mockSendToAgent);
+    assert5.strictEqual(isAutoContinueActive(), true, "Timer should be active after start");
+    stopAutoContinue();
+    assert5.strictEqual(isAutoContinueActive(), false, "Timer should be inactive after stop");
+  });
+  test("getTimeUntilNextReminder with first category (shortestTime === null)", () => {
+    const now = Date.now();
+    const lastSentKey = "autoContinue.lastSent";
+    mockGlobalState.clear();
+    mockGlobalState.set(lastSentKey, {
+      tasks: now - 3e4
+      // 30 seconds ago
+    });
+    const mockConfig = {
+      get: (key, defaultValue) => {
+        if (key === "autoContinue.tasks.enabled") {
+          return true;
+        }
+        if (key === "autoContinue.tasks.message") {
+          return "Check tasks";
+        }
+        if (key === "autoContinue.tasks.interval") {
+          return 60;
+        }
+        if (key === "autoContinue.improvements.enabled" || key === "autoContinue.coverage.enabled" || key === "autoContinue.robustness.enabled" || key === "autoContinue.cleanup.enabled" || key === "autoContinue.commits.enabled") {
+          return false;
+        }
+        if (key.includes("enabled")) {
+          return false;
+        }
+        return defaultValue;
+      }
+    };
+    const seconds = getTimeUntilNextReminder(context, () => mockConfig);
+    assert5.ok(seconds !== null, "Should return a time for first category");
+    assert5.ok(seconds >= 25 && seconds <= 35, `Should be approximately 30 seconds, got ${seconds}`);
+  });
 });
 
 // src/test/suite/taskManager.test.ts
