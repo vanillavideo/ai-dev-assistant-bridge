@@ -1,6 +1,6 @@
 # 🌉 AI Dev Assistant Bridge
 
-[![Version](https://img.shields.io/badge/version-0.9.6-blue.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.9.7-blue.svg)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 ## 🎸 Super Vibe Coding Mode
