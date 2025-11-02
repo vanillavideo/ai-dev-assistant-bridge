@@ -13,10 +13,22 @@ This extension auto-approves everything so you can just vibe while GitHub Copilo
 
 ---
 
-## � Screenshots
+##  Why This Extension?
 
-### Settings Overview
-![Settings Overview](screenshots/settings-overview.png)
+**Problem:** AI assistants (GitHub Copilot, Claude, ChatGPT) lose focus during long coding sessions, forget pending tasks, and require constant manual approval clicks.
+
+**Solution:** AI Dev Assistant Bridge keeps your AI coding assistant on track with:
+- ⏰ **Auto-reminders** that nudge AI to continue working every 5-15 minutes
+- 🤖 **Auto-approval** that eliminates "Allow"/"Keep" button clicking
+- 📋 **Task management** so AI always knows what to work on next
+- 🔌 **HTTP API** for external tools to control your AI workflow
+- 📄 **Context injection** that feeds project guidelines to every AI prompt
+
+**Result:** Your AI assistant stays focused, productive, and aligned with your project goals—without constant babysitting.
+
+---
+
+## 📸 Screenshots
 
 ### Auto-Continue Reminders
 Configure intelligent periodic nudges to keep your AI focused:
@@ -29,21 +41,6 @@ Track what your AI should work on next:
 ### Guiding Documents (AI Context)
 Feed project guidelines to every AI prompt:
 ![Guiding Documents](screenshots/settings-guiding-documents.png)
-
----
-
-## �💡 Why This Extension?
-
-**Problem:** AI assistants (GitHub Copilot, Claude, ChatGPT) lose focus during long coding sessions, forget pending tasks, and require constant manual approval clicks.
-
-**Solution:** AI Dev Assistant Bridge keeps your AI coding assistant on track with:
-- ⏰ **Auto-reminders** that nudge AI to continue working every 5-15 minutes
-- 🤖 **Auto-approval** that eliminates "Allow"/"Keep" button clicking
-- 📋 **Task management** so AI always knows what to work on next
-- 🔌 **HTTP API** for external tools to control your AI workflow
-- 📄 **Context injection** that feeds project guidelines to every AI prompt
-
-**Result:** Your AI assistant stays focused, productive, and aligned with your project goals—without constant babysitting.
 
 ---
 
