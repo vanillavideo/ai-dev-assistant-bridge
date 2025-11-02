@@ -1,9 +1,9 @@
 # 🌉 AI Feedback Bridge
 
-[![Version](https://img.shields.io/badge/version-0.9.1-blue.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.9.4-blue.svg)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-A powerful VS Code extension that creates a seamless bridge between your development environment and AI agents, featuring comprehensive task management and external API integration.
+A powerful VS Code extension that creates a seamless bridge between your development environment and AI agents, featuring comprehensive task management, external API integration, and intelligent auto-approval capabilities.
 
 ## ✨ Features
 
@@ -39,39 +39,184 @@ A powerful VS Code extension that creates a seamless bridge between your develop
 
 ## 🚀 Quick Start
 
-1. **Install the Extension**: Search for "AI Feedback Bridge" in VS Code extensions
-2. **Configure Settings**: Open Command Palette → "AI Feedback Bridge: Show Status"
-3. **Start Using**: The extension activates automatically and shows port in status bar
+### Installation
 
-## 📊 External Task API
+1. **Download the Extension**: Get the latest `.vsix` file from the releases
+2. **Install in VS Code**: 
+   - Open VS Code
+   - Press `Ctrl+Shift+P` (or `Cmd+Shift+P` on Mac)
+   - Type "Install from VSIX" and select the command
+   - Choose the downloaded `.vsix` file
+3. **Automatic Activation**: The extension starts automatically and shows the server port in the status bar
+4. **Access Settings**: Click the status bar item or run "AI Feedback Bridge: Show Status" command
 
-The extension provides a complete REST API for external task management:
+### First Steps
 
-### Endpoints
+1. **Check Status**: Click the status bar (shows port like `🌉 3737`) or run `AI Feedback Bridge: Show Status`
+2. **Configure Auto-Continue**: Enable categories you want (Tasks, Improvements, Coverage, etc.)
+3. **Add Guiding Documents**: Include project documentation for better AI context
+4. **Create Tasks**: Use the command palette or REST API to add tasks
+5. **Enable Auto-Approval**: (Optional) Let the extension auto-approve AI suggestions in Chat
 
+### Commands
+
+Access via Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+P`):
+
+- **Show Status**: View server status, port, and configuration
+- **Toggle Auto-Continue**: Enable/disable periodic AI reminders
+- **Run Now**: Manually trigger auto-continue immediately
+- **Get Current Port**: Display the active HTTP server port
+- **Change Port**: Assign a different port for the HTTP server
+- **Add Task**: Create a new task interactively
+- **Manage Tasks**: View, update, and delete tasks
+- **Add Guiding Document**: Include project documentation for AI context
+- **Remove Guiding Document**: Remove a document from AI context
+- **List Guiding Documents**: View all included documents
+
+## 📊 REST API Reference
+
+The extension provides a complete REST API for external integration. All endpoints are available at `http://localhost:<port>` (default port shown in status bar).
+
+### Task Management Endpoints
+
+#### List All Tasks
 ```bash
-# List all tasks
-GET http://localhost:3737/tasks
-
-# Create new task
-POST http://localhost:3737/tasks
-Content-Type: application/json
-{
-  "title": "Fix database issue",
-  "description": "Connection timeout on login",
-  "category": "bug"
-}
-
-# Update task status
-PUT http://localhost:3737/tasks/{id}
-Content-Type: application/json
-{
-  "status": "in-progress"
-}
-
-# Delete task
-DELETE http://localhost:3737/tasks/{id}
+GET /tasks
 ```
+Returns array of all tasks with their current status.
+
+#### Create Task
+```bash
+POST /tasks
+Content-Type: application/json
+
+{
+  "title": "Fix authentication bug",           # Required, max 200 chars
+  "description": "Users unable to login",      # Optional, max 5000 chars
+  "category": "bug"                            # Optional: bug|feature|improvement|documentation|testing|other
+}
+```
+
+#### Get Single Task
+```bash
+GET /tasks/:id
+```
+
+#### Update Task
+```bash
+PUT /tasks/:id
+Content-Type: application/json
+
+{
+  "title": "Updated title",                    # Optional
+  "description": "Updated description",        # Optional
+  "status": "in-progress",                     # Optional: pending|in-progress|completed
+  "category": "feature"                        # Optional
+}
+```
+
+#### Delete Task
+```bash
+DELETE /tasks/:id
+```
+
+### AI Communication Queue Endpoints
+
+#### Add Instruction to Queue
+```bash
+POST /ai/queue
+Content-Type: application/json
+
+{
+  "instruction": "Analyze code for performance issues",  # Required
+  "source": "external-agent",                            # Optional, identifies sender
+  "priority": "high",                                     # Optional: urgent|high|normal|low
+  "metadata": { "project": "main-app" }                  # Optional, any JSON data
+}
+```
+
+#### Get Queue Contents
+```bash
+GET /ai/queue
+```
+Returns all pending and processed instructions.
+
+#### Process Next Instruction
+```bash
+POST /ai/queue/process
+```
+Marks next instruction as processed and returns it.
+
+#### Get Queue Statistics
+```bash
+GET /ai/queue/stats
+```
+Returns counts by status and priority.
+
+#### Remove Specific Instruction
+```bash
+DELETE /ai/queue/:id
+```
+
+#### Clear Processed Instructions
+```bash
+POST /ai/queue/clear
+```
+Removes all processed instructions from queue.
+
+### Utility Endpoints
+
+#### Server Status
+```bash
+GET /status
+```
+Returns server health, uptime, and configuration.
+
+#### Restart Server
+```bash
+POST /restart
+```
+Restarts the HTTP server (useful after configuration changes).
+
+#### API Documentation
+```bash
+GET /help
+```
+Returns complete API documentation in HTML format.
+
+### Response Formats
+
+**Success Response:**
+```json
+{
+  "success": true,
+  "data": { /* response data */ }
+}
+```
+
+**Error Response:**
+```json
+{
+  "success": false,
+  "error": "Error message description"
+}
+```
+
+### Status Codes
+
+- `200` - Success
+- `201` - Created (new resource)
+- `400` - Bad Request (validation error)
+- `404` - Not Found
+- `500` - Internal Server Error
+
+### Security Features
+
+- **Request Size Limit**: 1MB maximum payload
+- **Timeout**: 30 second request timeout
+- **CORS Enabled**: Cross-origin requests allowed
+- **Input Validation**: All inputs sanitized and validated
+- **Rate Limiting**: Connection limits per workspace
 
 ### Integration Examples
 
@@ -79,80 +224,199 @@ DELETE http://localhost:3737/tasks/{id}
 ```python
 import requests
 
-# Create a task from your Python project
-requests.post('http://localhost:3737/tasks', json={
+BASE_URL = 'http://localhost:3737'
+
+# Create a task
+response = requests.post(f'{BASE_URL}/tasks', json={
     'title': 'Memory leak in user service',
+    'description': 'Investigation required',
     'category': 'bug'
+})
+task = response.json()['data']
+print(f"Created task: {task['id']}")
+
+# Queue AI instruction
+requests.post(f'{BASE_URL}/ai/queue', json={
+    'instruction': 'Review the user service for memory leaks',
+    'priority': 'high',
+    'source': 'python-monitor'
 })
 ```
 
 **Node.js:**
 ```javascript
-// Assign task from your Node.js app
-await fetch('http://localhost:3737/tasks', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-        title: 'Add user authentication',
-        category: 'feature'
-    })
-});
+const BASE_URL = 'http://localhost:3737';
+
+// Create and track a task
+async function createTask() {
+    const response = await fetch(`${BASE_URL}/tasks`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            title: 'Add user authentication',
+            category: 'feature',
+            description: 'Implement OAuth2 flow'
+        })
+    });
+    const { data } = await response.json();
+    console.log(`Task created: ${data.id}`);
+    return data.id;
+}
+
+// Update task status
+async function updateTask(id, status) {
+    await fetch(`${BASE_URL}/tasks/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status })
+    });
+}
 ```
 
-**Shell Script:**
+**Shell Script / CI/CD:**
 ```bash
+#!/bin/bash
+BASE_URL="http://localhost:3737"
+
 # Create task from CI/CD pipeline
-curl -X POST http://localhost:3737/tasks \
-  -H "Content-Type: application/json" \
-  -d '{"title":"Deploy failed","category":"bug"}'
+create_task() {
+    curl -X POST "${BASE_URL}/tasks" \
+        -H "Content-Type: application/json" \
+        -d "{
+            \"title\": \"Build failed on commit $CI_COMMIT_SHA\",
+            \"description\": \"Check logs at $CI_JOB_URL\",
+            \"category\": \"bug\"
+        }"
+}
+
+# Queue AI analysis
+queue_analysis() {
+    curl -X POST "${BASE_URL}/ai/queue" \
+        -H "Content-Type: application/json" \
+        -d "{
+            \"instruction\": \"Analyze failed build and suggest fixes\",
+            \"priority\": \"urgent\",
+            \"metadata\": {\"commit\": \"$CI_COMMIT_SHA\", \"job\": \"$CI_JOB_ID\"}
+        }"
+}
+
+# Check if build failed and create task
+if [ "$CI_BUILD_STATUS" != "success" ]; then
+    create_task
+    queue_analysis
+fi
 ```
 
-**📖 Complete API Documentation**: Visit `http://localhost:3737/help` when the extension is running for full API documentation.
+**Go:**
+```go
+package main
+
+import (
+    "bytes"
+    "encoding/json"
+    "net/http"
+)
+
+const baseURL = "http://localhost:3737"
+
+type Task struct {
+    Title       string `json:"title"`
+    Description string `json:"description"`
+    Category    string `json:"category"`
+}
+
+func createTask(task Task) error {
+    body, _ := json.Marshal(task)
+    resp, err := http.Post(
+        baseURL+"/tasks",
+        "application/json",
+        bytes.NewBuffer(body),
+    )
+    if err != nil {
+        return err
+    }
+    defer resp.Body.Close()
+    return nil
+}
+
+func main() {
+    task := Task{
+        Title:       "Database connection pool exhausted",
+        Description: "Investigate connection leaks",
+        Category:    "bug",
+    }
+    createTask(task)
+}
+```
 
 ## 🤖 AI Communication Queue
 
-The extension provides an asynchronous queue system for external AI systems to send instructions to the VS Code AI agent.
-
-### Queue API Endpoints
-
-```bash
-# Enqueue an instruction for the AI agent
-POST http://localhost:3737/ai/queue
-Content-Type: application/json
-{
-  "instruction": "Analyze the codebase for performance issues",
-  "source": "external-ai-agent",
-  "priority": "high",
-  "metadata": { "project": "main-app" }
-}
-
-# Get all queued instructions
-GET http://localhost:3737/ai/queue
-
-# Process next instruction
-POST http://localhost:3737/ai/queue/process
-
-# Get queue statistics
-GET http://localhost:3737/ai/queue/stats
-
-# Remove instruction by ID
-DELETE http://localhost:3737/ai/queue/{id}
-
-# Clear processed instructions
-POST http://localhost:3737/ai/queue/clear
-```
-
-### Priority Levels
-- **`urgent`**: Immediate processing
-- **`high`**: Next in line after urgent
-- **`normal`**: Standard priority (default)
-- **`low`**: Background processing
+The extension provides an asynchronous queue system for coordinating multiple AI agents and external automation systems.
 
 ### Use Cases
-- **Multi-Agent Systems**: Coordinate multiple AI agents
-- **External Automation**: CI/CD pipelines trigger AI analysis
-- **Cross-Application**: Other apps send instructions to VS Code AI
-- **Workflow Orchestration**: Queue sequential AI tasks
+
+**Multi-Agent Coordination**
+- Orchestrate multiple AI agents working on different aspects
+- Queue sequential tasks with priority ordering
+- Track instruction execution and results
+
+**CI/CD Integration**
+- Failed builds trigger AI analysis automatically
+- Security scans queue vulnerability reviews
+- Performance tests request optimization suggestions
+
+**Cross-Application Workflows**
+- External apps send instructions to VS Code AI
+- Background services queue periodic analysis
+- Project management tools assign AI tasks
+
+**Development Automation**
+- Queue code reviews after commits
+- Schedule periodic refactoring suggestions
+- Automate documentation updates
+
+### Priority System
+
+Instructions are processed in priority order:
+
+1. **`urgent`** - Immediate attention (e.g., production issues, security alerts)
+2. **`high`** - Next in queue after urgent (e.g., failed builds, critical bugs)
+3. **`normal`** - Standard priority (default, e.g., feature requests, reviews)
+4. **`low`** - Background processing (e.g., cleanup, optimization suggestions)
+
+### Workflow Example
+
+```bash
+# 1. External service detects issue
+curl -X POST http://localhost:3737/ai/queue \
+  -H "Content-Type: application/json" \
+  -d '{
+    "instruction": "Investigate authentication failures in production",
+    "priority": "urgent",
+    "source": "monitoring-system",
+    "metadata": {"incident": "INC-12345", "service": "auth-api"}
+  }'
+
+# 2. Check queue status
+curl http://localhost:3737/ai/queue/stats
+# Returns: {"pending": 5, "processed": 12, "by_priority": {"urgent": 1, "high": 2, "normal": 2}}
+
+# 3. AI agent processes next instruction
+curl -X POST http://localhost:3737/ai/queue/process
+# Returns the urgent instruction for processing
+
+# 4. After completion, create task for tracking
+curl -X POST http://localhost:3737/tasks \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "Fix auth API timeouts",
+    "category": "bug",
+    "description": "Related to INC-12345"
+  }'
+
+# 5. Clean up processed instructions periodically
+curl -X POST http://localhost:3737/ai/queue/clear
+```
 
 ## 🎯 Use Cases
 
@@ -285,17 +549,112 @@ For detailed testing instructions, coverage analysis tools, and best practices, 
 4. Push to branch: `git push origin feature/amazing-feature`
 5. Open Pull Request
 
+## 📦 Distribution
+
+### For End Users
+
+**Option 1: Direct VSIX Installation**
+1. Download the `.vsix` file from releases
+2. In VS Code: Extensions view → `...` menu → "Install from VSIX..."
+3. Select the downloaded file
+
+**Option 2: Command Line**
+```bash
+code --install-extension ai-feedback-bridge-0.9.4.vsix
+```
+
+### For Developers
+
+**Building from Source:**
+```bash
+# Clone repository
+git clone https://github.com/coreyolson/vscode-extension.git
+cd vscode-extension
+
+# Install dependencies
+npm install
+
+# Compile and package
+npm run compile
+npx @vscode/vsce package
+
+# Install locally
+code --install-extension ai-feedback-bridge-0.9.4.vsix
+```
+
+**Publishing to VS Code Marketplace:**
+```bash
+# Create publisher account at https://marketplace.visualstudio.com/manage
+# Get Personal Access Token from Azure DevOps
+
+# Login with vsce
+npx @vscode/vsce login <your-publisher-name>
+
+# Publish (requires updating 'publisher' field in package.json)
+npx @vscode/vsce publish
+
+# Or publish with version bump
+npx @vscode/vsce publish patch  # 0.9.4 → 0.9.5
+npx @vscode/vsce publish minor  # 0.9.4 → 0.10.0
+npx @vscode/vsce publish major  # 0.9.4 → 1.0.0
+```
+
+**Sharing via GitHub Releases:**
+1. Create a new release on GitHub
+2. Upload the `.vsix` file as a release asset
+3. Users can download and install from the release page
+
+**Enterprise Distribution:**
+- Host the `.vsix` file on internal servers
+- Use VS Code's `extensions.json` for workspace recommendations
+- Deploy via Group Policy or configuration management tools
+
 ## 📝 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## 🆘 Support
 
-- **API Documentation**: Visit `http://localhost:3737/help` when extension is running
-- **Demo**: Run `./task-api-demo.sh` for live API demonstration  
-- **Discoverability**: Run `./test-discoverability.sh` to test AI agent discovery features
-- **Issues**: Use VS Code Command Palette → "AI Feedback Bridge: Show Status"
-- **Debug**: Check Output Panel → "AI Agent Feedback" for logs
+### Getting Help
+
+- **Status Check**: Run `AI Feedback Bridge: Show Status` command to see server status and configuration
+- **API Documentation**: Visit `http://localhost:3737/help` when extension is running for complete API reference
+- **Debug Logs**: Open Output Panel (View → Output) → Select "AI Agent Feedback" channel
+- **Demo Scripts**: 
+  - `./task-api-demo.sh` - Interactive API demonstration
+  - `./test-discoverability.sh` - Test AI agent discovery features
+
+### Common Issues
+
+**Server Not Starting?**
+- Check Output panel for error messages
+- Try changing port: `AI Feedback Bridge: Change Port`
+- Ensure no port conflicts (check other running services)
+
+**Auto-Approval Not Working?**
+- Ensure GitHub Copilot Chat is open
+- Check that auto-approval is enabled in settings
+- Verify the Chat panel is visible (not minimized)
+- Review safety filters in auto-approval logs
+
+**Tasks Not Syncing?**
+- Verify server is running (check status bar)
+- Test API endpoint: `curl http://localhost:3737/tasks`
+- Check request body format matches API documentation
+
+**Guiding Documents Not Loading?**
+- Ensure files exist in workspace
+- Check file paths are relative to workspace root
+- Verify files are within configured size limits
+
+### Reporting Issues
+
+When reporting issues, please include:
+1. VS Code version (`Help → About`)
+2. Extension version (from status bar or settings)
+3. Relevant logs from Output panel
+4. Steps to reproduce
+5. Expected vs actual behavior
 
 ---
 
