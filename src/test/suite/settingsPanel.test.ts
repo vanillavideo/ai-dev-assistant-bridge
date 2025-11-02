@@ -598,5 +598,59 @@ suite('Settings Panel Module Test Suite', () => {
 			const finalTasks = await taskManager.getTasks(mockContext);
 			assert.strictEqual(finalTasks.length, 0, 'Should have no tasks');
 		});
+
+		test('should render with exactly 1 completed task (singular text - line 403-404)', async () => {
+			// Clear existing tasks
+			const tasks = await taskManager.getTasks(mockContext);
+			for (const task of tasks) {
+				await taskManager.removeTask(mockContext, task.id);
+			}
+
+			// Add one completed task (with no active tasks to trigger compact mode)
+			const completedTask = await taskManager.addTask(mockContext, 'Completed Task', 'Done');
+			await taskManager.updateTaskStatus(mockContext, completedTask.id, 'completed');
+
+			// This should render "1 completed task" (singular) not "1 completed tasks"
+			await settingsPanel.showSettingsPanel(
+				mockContext,
+				currentPort,
+				mockGetConfig,
+				mockUpdateConfig,
+				mockSendToAgent,
+				mockGetSmartAutoContinueMessage
+			);
+
+			const finalTasks = await taskManager.getTasks(mockContext);
+			const completed = finalTasks.filter(t => t.status === 'completed');
+			assert.strictEqual(completed.length, 1, 'Should have exactly 1 completed task');
+		});
+
+		test('should render with multiple completed tasks (plural text)', async () => {
+			// Clear existing tasks
+			const tasks = await taskManager.getTasks(mockContext);
+			for (const task of tasks) {
+				await taskManager.removeTask(mockContext, task.id);
+			}
+
+			// Add multiple completed tasks
+			const task1 = await taskManager.addTask(mockContext, 'Task 1', 'Done');
+			const task2 = await taskManager.addTask(mockContext, 'Task 2', 'Also done');
+			await taskManager.updateTaskStatus(mockContext, task1.id, 'completed');
+			await taskManager.updateTaskStatus(mockContext, task2.id, 'completed');
+
+			// This should render "2 completed tasks" (plural)
+			await settingsPanel.showSettingsPanel(
+				mockContext,
+				currentPort,
+				mockGetConfig,
+				mockUpdateConfig,
+				mockSendToAgent,
+				mockGetSmartAutoContinueMessage
+			);
+
+			const finalTasks = await taskManager.getTasks(mockContext);
+			const completed = finalTasks.filter(t => t.status === 'completed');
+			assert.ok(completed.length > 1, 'Should have multiple completed tasks');
+		});
 	});
 });

@@ -2251,6 +2251,35 @@ suite("Server HTTP Endpoints Test Suite", () => {
       req.write(payload);
       req.end();
     });
+    test("POST /tasks should reject whitespace-only title", (done) => {
+      const payload = JSON.stringify({
+        title: "   ",
+        category: "feature"
+      });
+      const req = http2.request({
+        hostname: "localhost",
+        port: testPort,
+        path: "/tasks",
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Content-Length": Buffer.byteLength(payload)
+        }
+      }, (res) => {
+        assert3.strictEqual(res.statusCode, 400);
+        let data = "";
+        res.on("data", (chunk) => data += chunk);
+        res.on("end", () => {
+          const response = JSON.parse(data);
+          assert3.ok(response.error);
+          assert3.ok(response.error.includes("empty"));
+          done();
+        });
+      });
+      req.on("error", done);
+      req.write(payload);
+      req.end();
+    });
     test("POST /tasks should reject title over 200 chars", (done) => {
       const payload = JSON.stringify({
         title: "a".repeat(201),
@@ -2273,6 +2302,36 @@ suite("Server HTTP Endpoints Test Suite", () => {
           const response = JSON.parse(data);
           assert3.ok(response.error);
           assert3.ok(response.error.includes("too long"));
+          done();
+        });
+      });
+      req.on("error", done);
+      req.write(payload);
+      req.end();
+    });
+    test("POST /tasks should reject description over 5000 chars", (done) => {
+      const payload = JSON.stringify({
+        title: "Valid Title",
+        description: "a".repeat(5001),
+        category: "feature"
+      });
+      const req = http2.request({
+        hostname: "localhost",
+        port: testPort,
+        path: "/tasks",
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Content-Length": Buffer.byteLength(payload)
+        }
+      }, (res) => {
+        assert3.strictEqual(res.statusCode, 400);
+        let data = "";
+        res.on("data", (chunk) => data += chunk);
+        res.on("end", () => {
+          const response = JSON.parse(data);
+          assert3.ok(response.error);
+          assert3.ok(response.error.includes("Description too long"));
           done();
         });
       });
@@ -2377,6 +2436,200 @@ suite("Server HTTP Endpoints Test Suite", () => {
       createReq.write(createPayload);
       createReq.end();
     });
+    test("PATCH /tasks/:id should update task status", (done) => {
+      const createPayload = JSON.stringify({
+        title: "Test Task for PATCH",
+        category: "bug"
+      });
+      const createReq = http2.request({
+        hostname: "localhost",
+        port: testPort,
+        path: "/tasks",
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Content-Length": Buffer.byteLength(createPayload)
+        }
+      }, (createRes) => {
+        let data = "";
+        createRes.on("data", (chunk) => data += chunk);
+        createRes.on("end", () => {
+          const task = JSON.parse(data);
+          const updatePayload = JSON.stringify({ status: "in-progress" });
+          const patchReq = http2.request({
+            hostname: "localhost",
+            port: testPort,
+            path: `/tasks/${task.id}`,
+            method: "PATCH",
+            headers: {
+              "Content-Type": "application/json",
+              "Content-Length": Buffer.byteLength(updatePayload)
+            }
+          }, (patchRes) => {
+            assert3.strictEqual(patchRes.statusCode, 200);
+            let patchData = "";
+            patchRes.on("data", (chunk) => patchData += chunk);
+            patchRes.on("end", () => {
+              const updatedTask = JSON.parse(patchData);
+              assert3.strictEqual(updatedTask.status, "in-progress");
+              done();
+            });
+          });
+          patchReq.on("error", done);
+          patchReq.write(updatePayload);
+          patchReq.end();
+        });
+      });
+      createReq.on("error", done);
+      createReq.write(createPayload);
+      createReq.end();
+    });
+    test("PATCH /tasks/:id should reject invalid status", (done) => {
+      const createPayload = JSON.stringify({
+        title: "Test Task for Invalid Status",
+        category: "bug"
+      });
+      const createReq = http2.request({
+        hostname: "localhost",
+        port: testPort,
+        path: "/tasks",
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Content-Length": Buffer.byteLength(createPayload)
+        }
+      }, (createRes) => {
+        let data = "";
+        createRes.on("data", (chunk) => data += chunk);
+        createRes.on("end", () => {
+          const task = JSON.parse(data);
+          const updatePayload = JSON.stringify({ status: "invalid-status" });
+          const patchReq = http2.request({
+            hostname: "localhost",
+            port: testPort,
+            path: `/tasks/${task.id}`,
+            method: "PATCH",
+            headers: {
+              "Content-Type": "application/json",
+              "Content-Length": Buffer.byteLength(updatePayload)
+            }
+          }, (patchRes) => {
+            assert3.strictEqual(patchRes.statusCode, 400);
+            let patchData = "";
+            patchRes.on("data", (chunk) => patchData += chunk);
+            patchRes.on("end", () => {
+              const response = JSON.parse(patchData);
+              assert3.ok(response.error);
+              assert3.ok(response.error.includes("status"));
+              done();
+            });
+          });
+          patchReq.on("error", done);
+          patchReq.write(updatePayload);
+          patchReq.end();
+        });
+      });
+      createReq.on("error", done);
+      createReq.write(createPayload);
+      createReq.end();
+    });
+    test("PATCH /tasks/:id should reject missing status", (done) => {
+      const createPayload = JSON.stringify({
+        title: "Test Task for Missing Status",
+        category: "bug"
+      });
+      const createReq = http2.request({
+        hostname: "localhost",
+        port: testPort,
+        path: "/tasks",
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Content-Length": Buffer.byteLength(createPayload)
+        }
+      }, (createRes) => {
+        let data = "";
+        createRes.on("data", (chunk) => data += chunk);
+        createRes.on("end", () => {
+          const task = JSON.parse(data);
+          const updatePayload = JSON.stringify({ otherField: "value" });
+          const patchReq = http2.request({
+            hostname: "localhost",
+            port: testPort,
+            path: `/tasks/${task.id}`,
+            method: "PATCH",
+            headers: {
+              "Content-Type": "application/json",
+              "Content-Length": Buffer.byteLength(updatePayload)
+            }
+          }, (patchRes) => {
+            assert3.strictEqual(patchRes.statusCode, 400);
+            let patchData = "";
+            patchRes.on("data", (chunk) => patchData += chunk);
+            patchRes.on("end", () => {
+              const response = JSON.parse(patchData);
+              assert3.ok(response.error);
+              done();
+            });
+          });
+          patchReq.on("error", done);
+          patchReq.write(updatePayload);
+          patchReq.end();
+        });
+      });
+      createReq.on("error", done);
+      createReq.write(createPayload);
+      createReq.end();
+    });
+    test("PATCH /tasks/:id should handle invalid JSON", (done) => {
+      const createPayload = JSON.stringify({
+        title: "Test Task for Invalid JSON",
+        category: "bug"
+      });
+      const createReq = http2.request({
+        hostname: "localhost",
+        port: testPort,
+        path: "/tasks",
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Content-Length": Buffer.byteLength(createPayload)
+        }
+      }, (createRes) => {
+        let data = "";
+        createRes.on("data", (chunk) => data += chunk);
+        createRes.on("end", () => {
+          const task = JSON.parse(data);
+          const invalidPayload = "not-valid-json{";
+          const patchReq = http2.request({
+            hostname: "localhost",
+            port: testPort,
+            path: `/tasks/${task.id}`,
+            method: "PATCH",
+            headers: {
+              "Content-Type": "application/json",
+              "Content-Length": Buffer.byteLength(invalidPayload)
+            }
+          }, (patchRes) => {
+            assert3.strictEqual(patchRes.statusCode, 400);
+            let patchData = "";
+            patchRes.on("data", (chunk) => patchData += chunk);
+            patchRes.on("end", () => {
+              const response = JSON.parse(patchData);
+              assert3.ok(response.error);
+              assert3.ok(response.error.includes("JSON"));
+              done();
+            });
+          });
+          patchReq.on("error", done);
+          patchReq.write(invalidPayload);
+          patchReq.end();
+        });
+      });
+      createReq.on("error", done);
+      createReq.write(createPayload);
+      createReq.end();
+    });
   });
   suite("Feedback Endpoint", () => {
     test("POST /feedback should accept valid feedback", (done) => {
@@ -2434,6 +2687,62 @@ suite("Server HTTP Endpoints Test Suite", () => {
       req.write(payload);
       req.end();
     });
+    test("POST /feedback should reject whitespace-only message", (done) => {
+      const payload = JSON.stringify({
+        message: "   \n	   "
+      });
+      const req = http2.request({
+        hostname: "localhost",
+        port: testPort,
+        path: "/feedback",
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Content-Length": Buffer.byteLength(payload)
+        }
+      }, (res) => {
+        assert3.strictEqual(res.statusCode, 400);
+        let data = "";
+        res.on("data", (chunk) => data += chunk);
+        res.on("end", () => {
+          const response = JSON.parse(data);
+          assert3.ok(response.error);
+          assert3.ok(response.error.includes("empty"));
+          done();
+        });
+      });
+      req.on("error", done);
+      req.write(payload);
+      req.end();
+    });
+    test("POST /feedback should reject message over 50000 chars", (done) => {
+      const payload = JSON.stringify({
+        message: "a".repeat(50001)
+      });
+      const req = http2.request({
+        hostname: "localhost",
+        port: testPort,
+        path: "/feedback",
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Content-Length": Buffer.byteLength(payload)
+        }
+      }, (res) => {
+        assert3.strictEqual(res.statusCode, 400);
+        let data = "";
+        res.on("data", (chunk) => data += chunk);
+        res.on("end", () => {
+          const response = JSON.parse(data);
+          assert3.ok(response.error);
+          assert3.ok(response.error.includes("too long"));
+          done();
+        });
+      });
+      req.on("error", done);
+      req.write(payload);
+      req.end();
+    });
     test("POST /feedback should reject missing message field", (done) => {
       const payload = JSON.stringify({
         context: { test: true }
@@ -2475,6 +2784,45 @@ suite("Server HTTP Endpoints Test Suite", () => {
           done();
         });
       }).on("error", done);
+    });
+    test("POST /restart-app should accept restart request", (done) => {
+      const req = http2.request({
+        hostname: "localhost",
+        port: testPort,
+        path: "/restart-app",
+        method: "POST"
+      }, (res) => {
+        assert3.strictEqual(res.statusCode, 200);
+        let data = "";
+        res.on("data", (chunk) => data += chunk);
+        res.on("end", () => {
+          const response = JSON.parse(data);
+          assert3.strictEqual(response.success, true);
+          assert3.ok(response.message.includes("restart"));
+          done();
+        });
+      });
+      req.on("error", done);
+      req.end();
+    });
+    test("GET /restart-app with delay parameter", (done) => {
+      const req = http2.request({
+        hostname: "localhost",
+        port: testPort,
+        path: "/restart-app?delay=5",
+        method: "GET"
+      }, (res) => {
+        assert3.strictEqual(res.statusCode, 200);
+        let data = "";
+        res.on("data", (chunk) => data += chunk);
+        res.on("end", () => {
+          const response = JSON.parse(data);
+          assert3.strictEqual(response.success, true);
+          done();
+        });
+      });
+      req.on("error", done);
+      req.end();
     });
     test("OPTIONS request should return 200 with CORS headers", (done) => {
       const req = http2.request({
