@@ -2,11 +2,11 @@
 	"name": "ai-feedback-bridge",
 	"displayName": "AI Feedback Bridge",
 	"description": "Bridge for AI coding assistants to receive feedback from terminals, tests, and other tools",
-	"version": "0.9.4",
-	"publisher": "local",
+	"version": "0.9.5",
+	"publisher": "VanillaVideo",
 	"repository": {
 		"type": "git",
-		"url": "https://github.com/coreyolson/vscode-extension.git"
+		"url": "https://github.com/vanillavideo/ai-feedback-bridge.git"
 	},
 	"engines": {
 		"vscode": "^1.96.0"
