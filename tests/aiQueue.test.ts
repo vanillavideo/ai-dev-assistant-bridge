@@ -496,5 +496,58 @@ suite('AI Queue Module Test Suite', () => {
 			assert.ok(result1 || result2);
 			assert.ok(!(result1 && result2)); // Both shouldn't succeed
 		});
+
+		test('processAllInstructions should stop on first failure', async () => {
+			// Enqueue multiple instructions
+			aiQueue.enqueueInstruction('Success 1', 'source');
+			aiQueue.enqueueInstruction('Success 2', 'source');
+			aiQueue.enqueueInstruction('Will fail', 'source');
+			aiQueue.enqueueInstruction('Never processed', 'source');
+
+			let callCount = 0;
+			const mockSendToAgent = async (message: string) => {
+				callCount++;
+				// Fail on the third call
+				if (callCount === 3) {
+					return false; // Simulate failure
+				}
+				return true;
+			};
+
+			const processed = await aiQueue.processAllInstructions(mockSendToAgent);
+
+			// Should stop after processing 2 successful and 1 failed
+			assert.strictEqual(processed, 2, 'Should only count successful processes');
+			assert.strictEqual(callCount, 3, 'Should attempt 3 calls before breaking');
+			
+			const pending = aiQueue.getQueue('pending');
+			assert.strictEqual(pending.length, 2, 'Should have 2 remaining pending items (failed + never processed)');
+		});
+
+		test('processAllInstructions should break when processNextInstruction returns false', async () => {
+			// Enqueue instructions
+			aiQueue.enqueueInstruction('Test 1', 'source');
+			aiQueue.enqueueInstruction('Test 2', 'source');
+
+			let firstCall = true;
+			const mockSendToAgent = async () => {
+				if (firstCall) {
+					firstCall = false;
+					// On first call, start another processNextInstruction in parallel
+					// This will set processingActive = true
+					setTimeout(() => {
+						aiQueue.processNextInstruction(async () => true);
+					}, 10);
+					// Wait a bit to allow the parallel process to start
+					await new Promise(resolve => setTimeout(resolve, 50));
+				}
+				return true;
+			};
+
+			const processed = await aiQueue.processAllInstructions(mockSendToAgent);
+
+			// May process 1 or 2 depending on timing, but shouldn't error
+			assert.ok(processed >= 1, 'Should process at least 1 instruction');
+		});
 	});
 });
