@@ -1,16 +1,8 @@
 import * as assert from 'assert';
 import * as vscode from 'vscode';
 
-// Include additional unit tests so they are bundled into the test runner
-import './aiQueue.test';
-import './guidingDocuments.test';
-import './server.test';
-import './statusBar.test';
-import './autoContinue.test';
-import './taskManager.test';
-import './portManager.test';
-import './chatIntegration.test';
-import './commands.test';
+// Note: Other test files are loaded automatically by the test runner glob pattern
+// No need to import them here
 
 suite('AI Dev Assistant Bridge Extension Test Suite', () => {
 	vscode.window.showInformationMessage('Start all tests.');

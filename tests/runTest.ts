@@ -6,8 +6,8 @@ async function main() {
 		// The folder containing the Extension Manifest package.json
 		const extensionDevelopmentPath = path.resolve(__dirname, '../../');
 
-		// The path to test runner
-		const extensionTestsPath = path.resolve(__dirname, './suite/index');
+		// The path to test runner (flattened structure - no suite/ subdirectory)
+		const extensionTestsPath = path.resolve(__dirname, './index');
 
 		// Download VS Code, unzip it and run the integration test
 		await runTests({ extensionDevelopmentPath, extensionTestsPath });
