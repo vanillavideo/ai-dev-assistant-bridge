@@ -164,6 +164,17 @@ suite('Status Bar Module Tests', () => {
 		}, 'Should still work after port update');
 	});
 
+	test('updatePort should handle being called before initialization', () => {
+		// Explicitly dispose status bar to ensure it's not initialized
+		disposeStatusBar();
+		
+		// Call updatePort without initializing first
+		// Should handle gracefully (line 85-86 if branch when statusBarSettings is undefined)
+		assert.doesNotThrow(() => {
+			updatePort(9999);
+		}, 'Should handle being called before initialization');
+	});
+
 	test('disposeStatusBar should clean up all status bar items', () => {
 		const mockConfig = {
 			get: (key: string, defaultValue: any) => {
