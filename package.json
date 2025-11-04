@@ -3,10 +3,10 @@
 	"displayName": "AI Dev Assistant Bridge",
 	"description": "Supercharge AI-assisted coding with auto-continue reminders, auto-approval, task management, and context injection for GitHub Copilot and other AI tools",
 	"version": "0.9.7",
-	"publisher": "VanillaVideo",
+	"publisher": "coreyolson",
 	"repository": {
 		"type": "git",
-		"url": "https://github.com/vanillavideo/ai-dev-assistant-bridge.git"
+		"url": "https://github.com/coreyolson/ai-dev-assistant-bridge.git"
 	},
 	"engines": {
 		"vscode": "^1.96.0"
