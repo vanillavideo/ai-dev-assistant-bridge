@@ -6,7 +6,7 @@
 
 import * as assert from 'assert';
 import * as vscode from 'vscode';
-import * as portManager from '../../src/modules/portManager';
+import * as portManager from '../src/modules/portManager';
 import * as net from 'net';
 
 suite('PortManager Module Tests', () => {

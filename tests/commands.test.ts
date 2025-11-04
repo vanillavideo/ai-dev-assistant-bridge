@@ -7,7 +7,7 @@
 
 import * as assert from 'assert';
 import * as vscode from 'vscode';
-import { registerCommands, CommandDependencies } from '../../src/modules/commands';
+import { registerCommands, CommandDependencies } from '../src/modules/commands';
 
 suite('Commands Module Unit Tests', () => {
 	let mockContext: vscode.ExtensionContext;

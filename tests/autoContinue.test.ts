@@ -13,9 +13,9 @@ import {
 	stopAutoContinue,
 	restartAutoContinue,
 	isAutoContinueActive
-} from '../../src/modules/autoContinue';
-import { formatCountdown } from '../../src/modules/timeFormatting';
-import * as taskManager from '../../src/modules/taskManager';
+} from '../src/modules/autoContinue';
+import { formatCountdown } from '../src/modules/timeFormatting';
+import * as taskManager from '../src/modules/taskManager';
 
 suite('Auto-Continue Module Tests', () => {
 	let context: vscode.ExtensionContext;
@@ -407,7 +407,7 @@ suite('Auto-Continue Module Tests', () => {
 		startAutoContinue(context, () => mockConfig, mockSendToAgent);
 
 		// Verify no timer was started
-		const { isAutoContinueActive } = require('../../src/modules/autoContinue');
+		const { isAutoContinueActive } = require('../src/modules/autoContinue');
 		assert.strictEqual(isAutoContinueActive(), false, 'Timer should not be active when disabled');
 	});
 
@@ -430,7 +430,7 @@ suite('Auto-Continue Module Tests', () => {
 		startAutoContinue(context, () => mockConfig, mockSendToAgent);
 
 		// Verify timer was started
-		const { isAutoContinueActive } = require('../../src/modules/autoContinue');
+		const { isAutoContinueActive } = require('../src/modules/autoContinue');
 		assert.strictEqual(isAutoContinueActive(), true, 'Timer should be active when enabled');
 
 		// Cleanup
@@ -438,7 +438,7 @@ suite('Auto-Continue Module Tests', () => {
 	});
 
 	test('restartAutoContinue should stop and restart timer', () => {
-		const { restartAutoContinue, isAutoContinueActive } = require('../../src/modules/autoContinue');
+		const { restartAutoContinue, isAutoContinueActive } = require('../src/modules/autoContinue');
 
 		const mockConfig = {
 			get: (key: string, defaultValue: any) => {
@@ -467,7 +467,7 @@ suite('Auto-Continue Module Tests', () => {
 	});
 
 	test('isAutoContinueActive should return correct state', () => {
-		const { isAutoContinueActive } = require('../../src/modules/autoContinue');
+		const { isAutoContinueActive } = require('../src/modules/autoContinue');
 
 		// Initially should be false
 		stopAutoContinue();

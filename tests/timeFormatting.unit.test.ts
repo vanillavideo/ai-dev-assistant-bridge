@@ -6,7 +6,7 @@
  */
 
 import * as assert from 'assert';
-import { formatCountdown } from '../../src/modules/timeFormatting';
+import { formatCountdown } from '../src/modules/timeFormatting';
 
 suite('Time Formatting Unit Tests', () => {
 	

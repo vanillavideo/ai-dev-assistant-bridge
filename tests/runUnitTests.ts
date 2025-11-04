@@ -49,3 +49,11 @@ async function run(): Promise<void> {
 }
 
 export { run };
+
+// Run if executed directly
+if (require.main === module) {
+	run().catch((err) => {
+		console.error(err);
+		process.exit(1);
+	});
+}
