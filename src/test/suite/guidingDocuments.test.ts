@@ -535,5 +535,32 @@ suite('Guiding Documents Module Test Suite', () => {
 				await config.update('guidingDocuments', [], vscode.ConfigurationTarget.Global);
 			}
 		});
+
+		test('getGuidingDocumentsContext returns empty string when files missing', async () => {
+			const config = vscode.workspace.getConfiguration('aiDevAssistantBridge');
+			
+			// Add paths that don't exist
+			await config.update('guidingDocuments', ['/nonexistent/file1.md', '/nonexistent/file2.md'], vscode.ConfigurationTarget.Global);
+
+			try {
+				const context = await guidingDocuments.getGuidingDocumentsContext();
+				
+				// Should return empty string when all files are missing (line 121)
+				assert.strictEqual(context, '', 'Should return empty string when all files missing');
+			} finally {
+				await config.update('guidingDocuments', [], vscode.ConfigurationTarget.Global);
+			}
+		});
+
+		test('showRemoveDocumentPicker handles empty list', async () => {
+			// Clear all documents first
+			const config = vscode.workspace.getConfiguration('aiDevAssistantBridge');
+			await config.update('guidingDocuments', [], vscode.ConfigurationTarget.Global);
+			
+			// Should not throw and should return silently (lines 201-205)
+			await assert.doesNotReject(async () => {
+				await guidingDocuments.showRemoveDocumentPicker();
+			}, 'Should handle empty list gracefully');
+		});
 	});
 });
