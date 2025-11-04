@@ -10,7 +10,7 @@ import './autoContinue.test';
 import './taskManager.test';
 import './portManager.test';
 import './chatIntegration.test';
-import './commands.integration.test';
+import './commands.test';
 
 suite('AI Dev Assistant Bridge Extension Test Suite', () => {
 	vscode.window.showInformationMessage('Start all tests.');

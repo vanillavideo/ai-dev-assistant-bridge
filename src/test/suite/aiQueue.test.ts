@@ -2,6 +2,7 @@
  * Tests for AI Queue module
  * 
  * Comprehensive test coverage for the AI communication queue system
+ * Consolidated from integration and unit tests
  */
 
 import * as assert from 'assert';
@@ -215,6 +216,18 @@ suite('AI Queue Module Test Suite', () => {
 			assert.ok(found.error?.includes('Test error'));
 		});
 
+		test('processNextInstruction handles non-Error thrown values', async () => {
+			const inst = aiQueue.enqueueInstruction('test with string error', 'src');
+			await aiQueue.processNextInstruction(async () => {
+				// eslint-disable-next-line no-throw-literal
+				throw 'String error instead of Error object'; // Non-Error throw
+			});
+			
+			const item = aiQueue.getInstruction(inst.id);
+			assert.strictEqual(item?.status, 'failed');
+			assert.ok(item?.error?.includes('String error'), 'Should convert non-Error to string');
+		});
+
 		test('processNextInstruction without sendToAgent should mark as completed', async () => {
 			const inst = aiQueue.enqueueInstruction('Test', 'source');
 
@@ -238,21 +251,24 @@ suite('AI Queue Module Test Suite', () => {
 			assert.strictEqual(completed.length, 3);
 		});
 
-		test('processAllInstructions should stop on first failure', async () => {
-			aiQueue.enqueueInstruction('Test 1', 'source');
-			aiQueue.enqueueInstruction('Test 2', 'source');
-
+		test('processAllInstructions processes all regardless of failures', async () => {
+			aiQueue.enqueueInstruction('test1', 'src');
+			aiQueue.enqueueInstruction('test2', 'src');
+			aiQueue.enqueueInstruction('test3', 'src');
+			
 			let callCount = 0;
-			const mockSendToAgent = async () => {
+			const processed = await aiQueue.processAllInstructions(async () => {
 				callCount++;
-				return callCount === 1; // First succeeds, second fails
-			};
-
-			await aiQueue.processAllInstructions(mockSendToAgent);
-
-			// Should process both even if one fails
-			assert.strictEqual(aiQueue.getQueue('completed').length, 1);
-			assert.strictEqual(aiQueue.getQueue('failed').length, 1);
+				return callCount !== 2; // Fail on second
+			});
+			
+			// All 3 get processed (returns 3), but statuses differ
+			const completed = aiQueue.getQueue('completed');
+			const failed = aiQueue.getQueue('failed');
+			
+			assert.strictEqual(processed, 3, 'Should process all 3');
+			assert.strictEqual(completed.length, 2, 'Should have 2 completed');
+			assert.strictEqual(failed.length, 1, 'Should have 1 failed');
 		});
 	});
 
@@ -269,6 +285,39 @@ suite('AI Queue Module Test Suite', () => {
 			assert.strictEqual(queue[1].priority, 'high');
 			assert.strictEqual(queue[2].priority, 'normal');
 			assert.strictEqual(queue[3].priority, 'low');
+		});
+
+		test('sorts pending status before completed status', async () => {
+			// Create multiple items and process some to create a mix
+			aiQueue.enqueueInstruction('first', 'src', 'urgent');
+			aiQueue.enqueueInstruction('second', 'src', 'high');
+			aiQueue.enqueueInstruction('third', 'src', 'normal');
+			
+			// Process first two to mark them as completed
+			await aiQueue.processNextInstruction(async () => true);
+			await aiQueue.processNextInstruction(async () => true);
+			
+			// Now we have: [pending-normal, completed-urgent, completed-high]
+			// Add more pending items to force sorting comparisons
+			aiQueue.enqueueInstruction('fourth', 'src', 'low');
+			aiQueue.enqueueInstruction('fifth', 'src', 'urgent');
+			
+			const queue = aiQueue.getQueue();
+			
+			// All pending items should come before all completed items
+			const pendingCount = queue.filter(i => i.status === 'pending').length;
+			const completedCount = queue.filter(i => i.status === 'completed').length;
+			
+			assert.strictEqual(pendingCount, 3, 'Should have 3 pending items');
+			assert.strictEqual(completedCount, 2, 'Should have 2 completed items');
+			
+			// Check that all pending come before all completed
+			for (let i = 0; i < pendingCount; i++) {
+				assert.strictEqual(queue[i].status, 'pending', `Item ${i} should be pending`);
+			}
+			for (let i = pendingCount; i < queue.length; i++) {
+				assert.strictEqual(queue[i].status, 'completed', `Item ${i} should be completed`);
+			}
 		});
 
 		test('Pending instructions should come before completed', () => {
@@ -303,6 +352,48 @@ suite('AI Queue Module Test Suite', () => {
 
 			const stats = aiQueue.getQueueStats();
 			assert.strictEqual(stats.autoProcessEnabled, false);
+		});
+
+		test('setAutoProcess with callback processes pending items', async function() {
+			this.timeout(2000);
+			
+			aiQueue.enqueueInstruction('test', 'src');
+			
+			let processed = false;
+			aiQueue.setAutoProcess(true, async () => {
+				processed = true;
+				return true;
+			});
+			
+			// Wait for processing
+			await new Promise(resolve => setTimeout(resolve, 600));
+			
+			aiQueue.setAutoProcess(false);
+			assert.strictEqual(processed, true);
+		});
+
+		test('enqueue should trigger auto-process when enabled', async function() {
+			this.timeout(2000);
+			
+			let processed = false;
+			
+			// Set up auto-process before enqueuing
+			aiQueue.setAutoProcess(true, async () => {
+				processed = true;
+				return true;
+			});
+			
+			// Small delay to ensure auto-process is set up
+			await new Promise(resolve => setTimeout(resolve, 100));
+			
+			// Enqueue while auto-process is enabled - should trigger immediately
+			aiQueue.enqueueInstruction('test with auto-process', 'src');
+			
+			// Wait for processing to complete
+			await new Promise(resolve => setTimeout(resolve, 700));
+			
+			aiQueue.setAutoProcess(false);
+			assert.strictEqual(processed, true, 'Auto-process should trigger on enqueue');
 		});
 	});
 
