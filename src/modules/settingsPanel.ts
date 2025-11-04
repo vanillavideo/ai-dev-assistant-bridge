@@ -7,6 +7,7 @@ import { log, getErrorMessage } from './logging';
 import * as taskManager from './taskManager';
 import * as guidingDocuments from './guidingDocuments';
 import { autoInjectScript } from './autoApproval';
+import * as customCategories from './customCategories';
 
 let settingsPanel: vscode.WebviewPanel | undefined;
 
@@ -153,6 +154,90 @@ async function handleWebviewMessage(
 			
 		case 'manageGuidingDocuments':
 			await vscode.commands.executeCommand('ai-dev-assistant-bridge.listGuidingDocuments');
+			break;
+			
+		case 'addCustomCategory':
+			await vscode.commands.executeCommand('ai-dev-assistant-bridge.addCustomCategory');
+			// Refresh panel after adding
+			const addedCatDocs = guidingDocuments.getGuidingDocuments();
+			const addedCatTasks = await taskManager.getTasks(context);
+			panel.webview.html = await getSettingsHtml(getConfig(), currentPort, addedCatTasks, addedCatDocs);
+			break;
+			
+		case 'manageCustomCategories':
+			await vscode.commands.executeCommand('ai-dev-assistant-bridge.manageCustomCategories');
+			// Refresh panel after managing
+			const managedCatDocs = guidingDocuments.getGuidingDocuments();
+			const managedCatTasks = await taskManager.getTasks(context);
+			panel.webview.html = await getSettingsHtml(getConfig(), currentPort, managedCatTasks, managedCatDocs);
+			break;
+			
+		case 'editCustomCategory':
+			// Get the category and show edit dialog
+			const categories = customCategories.getCustomCategories();
+			const catToEdit = categories.find(c => c.id === message.categoryId);
+			if (catToEdit) {
+				await customCategories.showEditCustomCategoryDialog(catToEdit);
+				// Refresh panel after editing
+				const editedCatDocs = guidingDocuments.getGuidingDocuments();
+				const editedCatTasks = await taskManager.getTasks(context);
+				panel.webview.html = await getSettingsHtml(getConfig(), currentPort, editedCatTasks, editedCatDocs);
+			}
+			break;
+			
+		case 'updateCustomCategory':
+			// Handle inline custom category updates
+			const updateField = message.field;
+			const updateValue = message.value;
+			const updates: any = {};
+			updates[updateField] = updateValue;
+			
+			await customCategories.updateCustomCategory(message.categoryId, updates);
+			log(LogLevel.INFO, `Custom category ${message.categoryId} updated: ${updateField} = ${updateValue}`);
+			break;
+			
+		case 'editCustomCategoryField':
+			// Handle click-to-edit for name and emoji
+			const field = message.field;
+			const currentValue = message.currentValue;
+			let newValue: string | undefined;
+			
+			if (field === 'name') {
+				newValue = await vscode.window.showInputBox({
+					prompt: 'Enter category name',
+					value: currentValue,
+					validateInput: (value) => {
+						if (!value || value.trim().length === 0) {
+							return 'Name cannot be empty';
+						}
+						if (value.length > 50) {
+							return 'Name must be 50 characters or less';
+						}
+						return null;
+					}
+				});
+			} else if (field === 'emoji') {
+				newValue = await vscode.window.showInputBox({
+					prompt: 'Enter emoji (optional, max 4 characters)',
+					value: currentValue,
+					validateInput: (value) => {
+						if (value && value.length > 4) {
+							return 'Emoji must be 4 characters or less';
+						}
+						return null;
+					}
+				});
+			}
+			
+			if (newValue !== undefined && newValue !== currentValue) {
+				const fieldUpdates: any = {};
+				fieldUpdates[field] = newValue;
+				await customCategories.updateCustomCategory(message.categoryId, fieldUpdates);
+				// Refresh panel
+				const refreshDocs = guidingDocuments.getGuidingDocuments();
+				const refreshTasks = await taskManager.getTasks(context);
+				panel.webview.html = await getSettingsHtml(getConfig(), currentPort, refreshTasks, refreshDocs);
+			}
 			break;
 	}
 }
@@ -360,6 +445,7 @@ async function getSettingsHtml(config: vscode.WorkspaceConfiguration, actualPort
 	const autoContinueEnabled = config.get<boolean>('autoContinue.enabled', false);
 	const autoApprovalEnabled = config.get<boolean>('autoApproval.enabled', true);
 	const autoInjectEnabled = config.get<boolean>('autoApproval.autoInject', false);
+	const includeTasksEnabled = config.get<boolean>('autoContinue.includeTasks', true);
 
 	let categoriesRows = '';
 	for (const cat of categories) {
@@ -385,6 +471,33 @@ async function getSettingsHtml(config: vscode.WorkspaceConfiguration, actualPort
 					<input type="checkbox" data-key="autoContinue.${cat.key}.enabled" ${enabled ? 'checked' : ''} 
 					       class="toggle-cb" id="cb-${cat.key}" data-auto-approved="skip">
 					<label for="cb-${cat.key}" class="toggle-label" data-auto-approved="skip"></label>
+				</td>
+			</tr>
+		`;
+	}
+
+	// Add custom categories
+	const customCats = customCategories.getCustomCategories();
+	for (const cat of customCats) {
+		const emoji = cat.emoji || '⭐';
+		categoriesRows += `
+			<tr class="${cat.enabled ? '' : 'disabled'}" data-custom-id="${cat.id}">
+				<td class="cat-icon" style="cursor: pointer;" onclick="editCustomCategoryEmoji('${cat.id}', '${emoji}')" title="Click to change emoji">${emoji}</td>
+				<td class="cat-name" style="color: var(--vscode-textLink-foreground); cursor: pointer; font-weight: 500;" onclick="editCustomCategoryName('${cat.id}', '${cat.name}')" title="Click to rename">${cat.name}</td>
+				<td class="cat-message">
+					<input type="text" value="${cat.message}" data-custom-id="${cat.id}" data-custom-field="message" 
+					       placeholder="Enter message..." 
+					       style="width: 100%; padding: 4px 8px; font-size: 13px; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border); border-radius: 2px;" 
+					       ${cat.enabled ? '' : 'disabled'} data-auto-approved="skip">
+				</td>
+				<td class="cat-interval">
+					<input type="number" value="${cat.interval}" data-custom-id="${cat.id}" data-custom-field="interval" 
+					       min="60" max="86400" step="60" style="width: 70px;" ${cat.enabled ? '' : 'disabled'} data-auto-approved="skip">s
+				</td>
+				<td class="cat-toggle">
+					<input type="checkbox" data-custom-id="${cat.id}" data-custom-field="enabled" ${cat.enabled ? 'checked' : ''} 
+					       class="toggle-cb" id="cb-custom-${cat.id}" data-auto-approved="skip">
+					<label for="cb-custom-${cat.id}" class="toggle-label" data-auto-approved="skip"></label>
 				</td>
 			</tr>
 		`;
@@ -529,6 +642,14 @@ async function getSettingsHtml(config: vscode.WorkspaceConfiguration, actualPort
 				<label for="cb-autocontinue" class="toggle-label" data-auto-approved="skip"></label>
 			</div>
 		</div>
+		<div class="row" style="margin-bottom: 12px;">
+			<label>Include tasks in reminders</label>
+			<div style="display: flex; align-items: center; gap: 8px;">
+				<input type="checkbox" data-key="autoContinue.includeTasks" ${includeTasksEnabled ? 'checked' : ''} 
+				       class="toggle-cb" id="cb-includetasks" ${autoContinueEnabled ? '' : 'disabled'} data-auto-approved="skip">
+				<label for="cb-includetasks" class="toggle-label" data-auto-approved="skip"></label>
+			</div>
+		</div>
 		<table>
 			<thead>
 				<tr>
@@ -543,6 +664,10 @@ async function getSettingsHtml(config: vscode.WorkspaceConfiguration, actualPort
 				${categoriesRows}
 			</tbody>
 		</table>
+		<div class="row" style="margin-top: 12px;">
+			<button onclick="addCustomCategory()">Add Custom Category</button>
+			<button onclick="manageCustomCategories()">Manage Custom Categories</button>
+		</div>
 	</div>
 	
 	<div class="section">
@@ -710,6 +835,37 @@ function getSettingsScript(): string {
 		// Handle all input changes
 		document.querySelectorAll('input').forEach(el => {
 			el.addEventListener('change', (e) => {
+				// Check if this is a custom category input
+				const customId = e.target.dataset.customId;
+				const customField = e.target.dataset.customField;
+				
+				if (customId && customField) {
+					// Handle custom category update
+					let value = e.target.type === 'checkbox' ? e.target.checked : 
+					           e.target.type === 'number' ? parseInt(e.target.value) : 
+					           e.target.value;
+					
+					vscode.postMessage({
+						command: 'updateCustomCategory',
+						categoryId: customId,
+						field: customField,
+						value: value
+					});
+					
+					// Update row state for custom category enabled toggle
+					if (customField === 'enabled') {
+						const row = e.target.closest('tr');
+						if (row) {
+							row.classList.toggle('disabled', !value);
+							const messageInput = row.querySelector('input[type="text"]');
+							if (messageInput) messageInput.disabled = !value;
+							const intervalInput = row.querySelector('input[type="number"]');
+							if (intervalInput) intervalInput.disabled = !value;
+						}
+					}
+					return;
+				}
+				
 				const key = e.target.dataset.key;
 				if (!key) return;
 				
@@ -878,6 +1034,36 @@ function getSettingsScript(): string {
 		
 		function manageGuidingDocuments() {
 			vscode.postMessage({ command: 'manageGuidingDocuments' });
+		}
+		
+		function addCustomCategory() {
+			vscode.postMessage({ command: 'addCustomCategory' });
+		}
+		
+		function manageCustomCategories() {
+			vscode.postMessage({ command: 'manageCustomCategories' });
+		}
+		
+		function editCustomCategory(categoryId) {
+			vscode.postMessage({ command: 'editCustomCategory', categoryId });
+		}
+		
+		function editCustomCategoryName(categoryId, currentName) {
+			vscode.postMessage({ 
+				command: 'editCustomCategoryField', 
+				categoryId, 
+				field: 'name',
+				currentValue: currentName
+			});
+		}
+		
+		function editCustomCategoryEmoji(categoryId, currentEmoji) {
+			vscode.postMessage({ 
+				command: 'editCustomCategoryField', 
+				categoryId, 
+				field: 'emoji',
+				currentValue: currentEmoji
+			});
 		}
 	`;
 }

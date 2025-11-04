@@ -17,14 +17,12 @@ suite('Message Formatter Unit Tests', () => {
 				timestamp: '2024-01-01T00:00:00Z'
 			};
 
-			const result = formatFeedbackMessage(message, context);
+		const result = formatFeedbackMessage(message, context);
 
-			// Should include header and message
-			assert.ok(result.includes('# 🤖 AI DEV MODE'), 'Should include header');
-			assert.ok(result.includes('Test feedback message'), 'Should include message');
-			assert.ok(result.includes('**Instructions:**'), 'Should include instructions');
-			
-			// Should NOT include context section (only source/timestamp)
+		// Should include header and message
+		assert.ok(result.includes('**AI Dev Instructions:**'), 'Should include header');
+		assert.ok(result.includes('Test feedback message'), 'Should include message');
+		assert.ok(result.includes('**Instructions:**'), 'Should include instructions');			// Should NOT include context section (only source/timestamp)
 			assert.ok(!result.includes('**Context:**'), 'Should not include context section for minimal context');
 			assert.ok(!result.includes('```json'), 'Should not include JSON block');
 		});
@@ -40,7 +38,7 @@ suite('Message Formatter Unit Tests', () => {
 		};
 
 		const result = formatFeedbackMessage(message, context);			// Should include all standard sections
-			assert.ok(result.includes('# 🤖 AI DEV MODE'), 'Should include header');
+			assert.ok(result.includes('**AI Dev Instructions:**'), 'Should include header');
 			assert.ok(result.includes('Feature request'), 'Should include message');
 			assert.ok(result.includes('**Instructions:**'), 'Should include instructions');
 			
@@ -62,27 +60,23 @@ suite('Message Formatter Unit Tests', () => {
 		test('should handle message without context (defaults)', () => {
 			const message = 'Bug report';
 
-			const result = formatFeedbackMessage(message);
 
-			// Should include standard sections
-			assert.ok(result.includes('# 🤖 AI DEV MODE'), 'Should include header');
-			assert.ok(result.includes('Bug report'), 'Should include message');
-			assert.ok(result.includes('**Instructions:**'), 'Should include instructions');
-			
-			// Should NOT include context section (defaults are filtered)
+		const result = formatFeedbackMessage(message);
+
+		// Should include standard sections
+		assert.ok(result.includes('**AI Dev Instructions:**'), 'Should include header');
+		assert.ok(result.includes('Bug report'), 'Should include message');
+		assert.ok(result.includes('**Instructions:**'), 'Should include instructions');			// Should NOT include context section (defaults are filtered)
 			assert.ok(!result.includes('**Context:**'), 'Should not include context section');
 		});
 
 		test('should handle empty message', () => {
-			const result = formatFeedbackMessage('');
+		const result = formatFeedbackMessage('');
 
-			// Should still include structure
-			assert.ok(result.includes('# 🤖 AI DEV MODE'), 'Should include header');
-			assert.ok(result.includes('**User Feedback:**'), 'Should include feedback label');
-			assert.ok(result.includes('**Instructions:**'), 'Should include instructions');
-		});
-
-		test('should handle special characters in message', () => {
+		// Should still include structure
+		assert.ok(result.includes('**AI Dev Instructions:**'), 'Should include header');
+		assert.ok(result.includes('**Instructions:**'), 'Should include instructions');
+	});		test('should handle special characters in message', () => {
 			const message = 'Test with special chars: @#$%^&*()_+{}[]|\\:";\'<>?,./\n\t';
 			const result = formatFeedbackMessage(message);
 
@@ -196,31 +190,27 @@ suite('Message Formatter Unit Tests', () => {
 	});
 
 	suite('Context Handling Edge Cases', () => {
-		test('should handle null context (uses defaults)', () => {
-			const result = formatFeedbackMessage('Test message', null);
+	test('should handle null context (uses defaults)', () => {
+		const result = formatFeedbackMessage('Test message', null);
 
-			assert.ok(result.includes('# 🤖 AI DEV MODE'), 'Should include header');
-			assert.ok(result.includes('Test message'), 'Should include message');
-			assert.ok(!result.includes('**Context:**'), 'Should not include context section with null');
-		});
+		assert.ok(result.includes('**AI Dev Instructions:**'), 'Should include header');
+		assert.ok(result.includes('Test message'), 'Should include message');
+		assert.ok(!result.includes('**Context:**'), 'Should not include context section with null');
+	});	test('should handle undefined context explicitly', () => {
+		const result = formatFeedbackMessage('Test message', undefined);
 
-		test('should handle undefined context explicitly', () => {
-			const result = formatFeedbackMessage('Test message', undefined);
-
-			assert.ok(result.includes('# 🤖 AI DEV MODE'), 'Should include header');
-			assert.ok(result.includes('Test message'), 'Should include message');
+		assert.ok(result.includes('**AI Dev Instructions:**'), 'Should include header');
+		assert.ok(result.includes('Test message'), 'Should include message');
 			assert.ok(!result.includes('**Context:**'), 'Should not include context section with undefined');
 		});
 
-		test('should handle empty object context', () => {
-			const result = formatFeedbackMessage('Test message', {});
+	test('should handle empty object context', () => {
+		const result = formatFeedbackMessage('Test message', {});
 
-			assert.ok(result.includes('# 🤖 AI DEV MODE'), 'Should include header');
-			assert.ok(result.includes('Test message'), 'Should include message');
-			assert.ok(!result.includes('**Context:**'), 'Should not include context section with empty object');
-		});
-
-		test('should handle context with only source (no timestamp)', () => {
+		assert.ok(result.includes('**AI Dev Instructions:**'), 'Should include header');
+		assert.ok(result.includes('Test message'), 'Should include message');
+		assert.ok(!result.includes('**Context:**'), 'Should not include context section with empty object');
+	});		test('should handle context with only source (no timestamp)', () => {
 			const context = { source: 'test' };
 			const result = formatFeedbackMessage('Test message', context);
 
@@ -279,13 +269,11 @@ suite('Message Formatter Unit Tests', () => {
 		});
 
 		test('should handle context with falsy appContext (triggers OR operator)', () => {
-			// Explicitly test the || operator branch
-			const result = formatFeedbackMessage('Test', 0);
-			assert.ok(result.includes('# 🤖 AI DEV MODE'), 'Should include header');
-			assert.ok(!result.includes('**Context:**'), 'Should not include context for falsy value');
-		});
-
-		test('should handle context with false boolean', () => {
+		// Explicitly test the || operator branch
+		const result = formatFeedbackMessage('Test', 0);
+		assert.ok(result.includes('**AI Dev Instructions:**'), 'Should include header');
+		assert.ok(!result.includes('**Context:**'), 'Should not include context for falsy value');
+	});		test('should handle context with false boolean', () => {
 			const result = formatFeedbackMessage('Test', false);
 			assert.ok(result.includes('Test'), 'Should include message');
 			assert.ok(!result.includes('**Context:**'), 'Should not include context for false');
@@ -307,9 +295,9 @@ suite('Message Formatter Unit Tests', () => {
 			assert.ok(result.includes('ownProp'), 'Should include own properties');
 		});
 
-		test('should handle empty string as feedback message', () => {
-			const result = formatFeedbackMessage('', { userId: 123 });
-			assert.ok(result.includes('**User Feedback:**'), 'Should include feedback section');
+	test('should handle empty string as feedback message', () => {
+		const result = formatFeedbackMessage('', { userId: 123 });
+		assert.ok(result.includes('**AI Dev Instructions:**'), 'Should include AI Dev Instructions section');
 			assert.ok(result.includes('**Context:**'), 'Should include context');
 			assert.ok(result.includes('userId'), 'Should include context data');
 		});

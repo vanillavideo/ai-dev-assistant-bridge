@@ -189,9 +189,9 @@ export async function sendToAgent(feedbackMessage: string, appContext?: unknown)
 			if (model) {
 				outputChannel.appendLine('✅ AI Agent processing request...');
 				
-				// Send directly to chat with the @agent prefix to use the participant
+				// Send directly to chat without the @agent prefix
 				await vscode.commands.executeCommand('workbench.action.chat.open', {
-					query: `@agent ${fullMessage}`
+					query: fullMessage
 				});
 				
 				// Auto-submit by sending the submit command

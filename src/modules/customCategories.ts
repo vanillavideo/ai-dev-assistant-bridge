@@ -268,7 +268,7 @@ export async function showManageCustomCategoriesDialog(): Promise<void> {
 /**
  * Show UI to edit a custom category
  */
-async function showEditCustomCategoryDialog(category: CustomCategory): Promise<void> {
+export async function showEditCustomCategoryDialog(category: CustomCategory): Promise<void> {
 	const field = await vscode.window.showQuickPick(
 		['Name', 'Emoji', 'Message', 'Interval', 'Cancel'],
 		{ placeHolder: 'What would you like to edit?' }

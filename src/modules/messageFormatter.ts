@@ -49,8 +49,7 @@ export function formatFeedbackMessage(feedbackMessage: string, appContext?: unkn
 	const context = resolveContext(appContext);
 
 	// Ultra-concise format to minimize token usage
-	let fullMessage = `# 🤖 AI DEV MODE\n\n`;
-	fullMessage += `**User Feedback:**\n${feedbackMessage}\n\n`;
+	let fullMessage = `**AI Dev Instructions:**\n${feedbackMessage}\n\n`;
 
 	const filteredContext = extractContextDetails(context);
 	if (filteredContext) {
