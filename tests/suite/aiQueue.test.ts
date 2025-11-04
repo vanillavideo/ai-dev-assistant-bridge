@@ -6,7 +6,7 @@
  */
 
 import * as assert from 'assert';
-import * as aiQueue from '../../modules/aiQueue';
+import * as aiQueue from '../../src/modules/aiQueue';
 
 suite('AI Queue Module Test Suite', () => {
 	

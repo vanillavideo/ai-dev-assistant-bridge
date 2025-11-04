@@ -6,7 +6,7 @@
 
 import * as assert from 'assert';
 import * as vscode from 'vscode';
-import { initChat, createChatParticipant, getChatParticipant, sendToAgent, disposeChat } from '../../modules/chatIntegration';
+import { initChat, createChatParticipant, getChatParticipant, sendToAgent, disposeChat } from '../../src/modules/chatIntegration';
 
 suite('Chat Integration Module Tests', () => {
 	let outputChannel: vscode.OutputChannel;

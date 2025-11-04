@@ -7,9 +7,9 @@
 import * as assert from 'assert';
 import * as http from 'http';
 import * as vscode from 'vscode';
-import * as server from '../../modules/server';
-import * as aiQueue from '../../modules/aiQueue';
-import * as taskManager from '../../modules/taskManager';
+import * as server from '../../src/modules/server';
+import * as aiQueue from '../../src/modules/aiQueue';
+import * as taskManager from '../../src/modules/taskManager';
 
 suite('Server Validation Tests', () => {
 	let mockContext: vscode.ExtensionContext;

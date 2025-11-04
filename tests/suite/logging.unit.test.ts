@@ -3,8 +3,8 @@
  */
 
 import * as assert from 'assert';
-import * as logging from '../../modules/logging';
-import { LogLevel } from '../../modules/types';
+import * as logging from '../../src/modules/logging';
+import { LogLevel } from '../../src/modules/types';
 
 suite('Logging Unit Tests (Fast)', () => {
 	// Mock output channel

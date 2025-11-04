@@ -3,9 +3,9 @@
  */
 import * as assert from 'assert';
 import * as vscode from 'vscode';
-import * as settingsPanel from '../../modules/settingsPanel';
-import * as taskManager from '../../modules/taskManager';
-import * as guidingDocuments from '../../modules/guidingDocuments';
+import * as settingsPanel from '../../src/modules/settingsPanel';
+import * as taskManager from '../../src/modules/taskManager';
+import * as guidingDocuments from '../../src/modules/guidingDocuments';
 
 suite('Settings Panel Module Test Suite', () => {
 	let mockContext: vscode.ExtensionContext;

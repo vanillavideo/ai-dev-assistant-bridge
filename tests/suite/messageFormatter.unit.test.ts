@@ -6,7 +6,7 @@
  */
 
 import * as assert from 'assert';
-import { formatFeedbackMessage, hasRichContext, type FeedbackContext } from '../../modules/messageFormatter';
+import { formatFeedbackMessage, hasRichContext, type FeedbackContext } from '../../src/modules/messageFormatter';
 
 suite('Message Formatter Unit Tests', () => {
 	suite('formatFeedbackMessage', () => {

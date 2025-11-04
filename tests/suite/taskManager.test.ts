@@ -6,8 +6,8 @@
 
 import * as assert from 'assert';
 import * as vscode from 'vscode';
-import * as taskManager from '../../modules/taskManager';
-import { Task } from '../../modules/types';
+import * as taskManager from '../../src/modules/taskManager';
+import { Task } from '../../src/modules/types';
 
 suite('TaskManager Module Tests', () => {
 	let context: vscode.ExtensionContext;

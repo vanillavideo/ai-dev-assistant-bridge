@@ -14,7 +14,7 @@ import {
 	validateNonNegativeInteger,
 	parseIntegerString,
 	type ValidationResult
-} from '../../modules/numberValidation';
+} from '../../src/modules/numberValidation';
 
 suite('numberValidation Module Tests', () => {
 	

@@ -11,7 +11,7 @@ import {
 	validateTaskCategory,
 	validateTaskData,
 	normalizeTaskData
-} from '../../modules/taskValidation';
+} from '../../src/modules/taskValidation';
 
 suite('Task Validation Unit Tests', () => {
 	

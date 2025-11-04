@@ -6,7 +6,7 @@
 
 import * as assert from 'assert';
 import * as vscode from 'vscode';
-import { initializeStatusBar, updateStatusBar, updatePort, disposeStatusBar } from '../../modules/statusBar';
+import { initializeStatusBar, updateStatusBar, updatePort, disposeStatusBar } from '../../src/modules/statusBar';
 
 suite('Status Bar Module Tests', () => {
 	let context: vscode.ExtensionContext;

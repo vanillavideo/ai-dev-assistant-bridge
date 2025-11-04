@@ -11,7 +11,7 @@ import {
 	validateRelativePath,
 	validateFileExtension,
 	normalizePath
-} from '../../modules/pathValidation';
+} from '../../src/modules/pathValidation';
 
 suite('Path Validation Unit Tests', () => {
 	
