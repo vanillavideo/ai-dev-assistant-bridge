@@ -354,6 +354,7 @@ export function getTimeUntilNextReminder(
 	const lastSentKey = 'autoContinue.lastSent';
 	const lastSent = context.globalState.get<Record<string, number>>(lastSentKey, {});
 	
+	// Check built-in categories
 	for (const category of categories) {
 		const enabled = config.get<boolean>(`autoContinue.${category}.enabled`, true);
 		const interval = config.get<number>(`autoContinue.${category}.interval`, 300);
@@ -366,6 +367,23 @@ export function getTimeUntilNextReminder(
 		const lastSentTime = lastSent[category] || 0;
 		const elapsed = (now - lastSentTime) / 1000; // seconds
 		const remaining = Math.max(0, interval - elapsed);
+		
+		if (shortestTime === null || remaining < shortestTime) {
+			shortestTime = remaining;
+		}
+	}
+	
+	// Check custom categories
+	const customCategories = getCustomCategories();
+	for (const category of customCategories) {
+		if (!category.enabled) {
+			continue;
+		}
+		
+		const categoryKey = `custom_${category.id}`;
+		const lastSentTime = lastSent[categoryKey] || 0;
+		const elapsed = (now - lastSentTime) / 1000;
+		const remaining = Math.max(0, category.interval - elapsed);
 		
 		if (shortestTime === null || remaining < shortestTime) {
 			shortestTime = remaining;

@@ -1138,4 +1138,73 @@ suite('Auto-Continue Module Tests', () => {
 		assert.ok(seconds !== null, 'Should return a time for first category');
 		assert.ok(seconds! >= 25 && seconds! <= 35, `Should be approximately 30 seconds, got ${seconds}`);
 	});
+
+	test('getTimeUntilNextReminder should include custom categories in countdown calculation', async () => {
+		const now = Date.now();
+		const lastSentKey = 'autoContinue.lastSent';
+		
+		// Clear any previous state
+		mockGlobalState.clear();
+		
+		// Set up: built-in category with 100s remaining, custom category with 20s remaining
+		mockGlobalState.set(lastSentKey, {
+			tasks: now - 200000, // 200 seconds ago
+			custom_test123: now - 40000 // 40 seconds ago
+		});
+
+		// Mock built-in category config
+		const mockConfig = {
+			get: (key: string, defaultValue: any) => {
+				// Enable tasks with 300s interval (100s remaining from last sent)
+				if (key === 'autoContinue.tasks.enabled') {
+					return true;
+				}
+				if (key === 'autoContinue.tasks.message') {
+					return 'Check tasks';
+				}
+				if (key === 'autoContinue.tasks.interval') {
+					return 300; // 300s interval, sent 200s ago = 100s remaining
+				}
+				// Disable other built-in categories
+				if (key.includes('enabled') && key.includes('autoContinue')) {
+					return false;
+				}
+				return defaultValue;
+			}
+		} as any;
+
+		// Mock custom category (60s interval, sent 40s ago = 20s remaining - should be shortest)
+		const originalGetConfig = vscode.workspace.getConfiguration;
+		const configStub = {
+			get: (key: string, defaultValue?: any) => {
+				if (key === 'autoContinue.custom') {
+					return [{
+						id: 'test123',
+						name: 'Test Custom',
+						message: 'Test custom message',
+						interval: 60, // 60s interval, 20s remaining
+						enabled: true,
+						emoji: '🧪'
+					}];
+				}
+				return defaultValue;
+			},
+			update: async () => {},
+			has: () => false,
+			inspect: () => undefined
+		};
+		
+		(vscode.workspace as any).getConfiguration = () => configStub;
+
+		try {
+			const seconds = getTimeUntilNextReminder(context, () => mockConfig);
+
+			// Should return the shortest time (20s from custom category, not 100s from tasks)
+			assert.ok(seconds !== null, 'Should return a time when custom categories present');
+			assert.ok(seconds! >= 15 && seconds! <= 25, `Should be approximately 20 seconds (custom category shortest), got ${seconds}`);
+		} finally {
+			// Restore original getConfiguration
+			(vscode.workspace as any).getConfiguration = originalGetConfig;
+		}
+	});
 });
