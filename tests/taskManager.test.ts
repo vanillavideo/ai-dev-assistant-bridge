@@ -150,6 +150,24 @@ suite('TaskManager Module Tests', () => {
 				await (taskManager as any).saveTasks(context, {} as any);
 			}, /Tasks must be an array/);
 		});
+
+		test('saveTasks should handle workspace state update errors', async () => {
+			// Create a context that throws an error on update
+			const errorContext = {
+				workspaceState: {
+					get: (key: string) => undefined,
+					update: async (key: string, value: any) => {
+						throw new Error('Storage write error');
+					},
+					keys: () => []
+				}
+			} as any;
+
+			// Should throw the storage error
+			await assert.rejects(async () => {
+				await (taskManager as any).saveTasks(errorContext, []);
+			}, /Storage write error/);
+		});
 	});
 
 	suite('updateTaskStatus', () => {
