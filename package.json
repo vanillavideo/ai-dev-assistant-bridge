@@ -2,7 +2,7 @@
 	"name": "ai-dev-assistant-bridge",
 	"displayName": "AI Dev Assistant Bridge",
 	"description": "Supercharge AI-assisted coding with auto-continue reminders, auto-approval, task management, and context injection for GitHub Copilot and other AI tools",
-	"version": "0.9.8",
+	"version": "0.9.9",
 	"publisher": "coreyolson",
 	"repository": {
 		"type": "git",
