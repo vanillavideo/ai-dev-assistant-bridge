@@ -384,6 +384,168 @@ suite('Commands Module Unit Tests', () => {
 
 		assert.strictEqual(injected, true, 'Should call injectAutoApprovalScript');
 	});
+
+	test('runNow command should handle no enabled categories', async () => {
+		let messageShown = false;
+		const originalShowInfo = vscode.window.showInformationMessage;
+		(vscode.window.showInformationMessage as any) = (msg: string) => {
+			messageShown = msg.includes('No enabled categories');
+			return Promise.resolve();
+		};
+
+		const deps: CommandDependencies = {
+			context: mockContext,
+			currentPort: 3737,
+			getConfig: () => vscode.workspace.getConfiguration('aiDevAssistantBridge'),
+			updateConfig: async () => {},
+			sendToAgent: async () => true,
+			autoInjectScript: () => {},
+			enableAutoApproval: () => {},
+			disableAutoApproval: () => {},
+			injectAutoApprovalScript: () => {},
+			startCountdownUpdates: () => {},
+			stopCountdownUpdates: () => {},
+			outputChannel: { appendLine: () => {}, show: () => {} } as any,
+			server: null
+		};
+
+		registerCommands(deps);
+
+		const runNowCmd = commandsRegistered.get('ai-dev-assistant-bridge.runNow');
+		await runNowCmd!();
+
+		vscode.window.showInformationMessage = originalShowInfo;
+		assert.strictEqual(messageShown, true, 'Should show no categories message');
+	});
+
+	test('runNow command should handle errors gracefully', async () => {
+		let errorShown = false;
+		const originalShowError = vscode.window.showErrorMessage;
+		(vscode.window.showErrorMessage as any) = (msg: string) => {
+			errorShown = msg.includes('Failed to send reminders');
+			return Promise.resolve();
+		};
+
+		const deps: CommandDependencies = {
+			context: mockContext,
+			currentPort: 3737,
+			getConfig: () => vscode.workspace.getConfiguration('aiDevAssistantBridge'),
+			updateConfig: async () => {},
+			sendToAgent: async () => { throw new Error('Test error'); },
+			autoInjectScript: () => {},
+			enableAutoApproval: () => {},
+			disableAutoApproval: () => {},
+			injectAutoApprovalScript: () => {},
+			startCountdownUpdates: () => {},
+			stopCountdownUpdates: () => {},
+			outputChannel: { appendLine: () => {}, show: () => {} } as any,
+			server: null
+		};
+
+		registerCommands(deps);
+
+		const runNowCmd = commandsRegistered.get('ai-dev-assistant-bridge.runNow');
+		await runNowCmd!();
+
+		vscode.window.showErrorMessage = originalShowError;
+		assert.strictEqual(errorShown, true, 'Should show error message');
+	});
+
+	test('addTask command should handle user cancellation (no title)', async () => {
+		const originalShowInput = vscode.window.showInputBox;
+		(vscode.window.showInputBox as any) = () => Promise.resolve(undefined);
+
+		const deps: CommandDependencies = {
+			context: mockContext,
+			currentPort: 3737,
+			getConfig: () => vscode.workspace.getConfiguration('aiDevAssistantBridge'),
+			updateConfig: async () => {},
+			sendToAgent: async () => true,
+			autoInjectScript: () => {},
+			enableAutoApproval: () => {},
+			disableAutoApproval: () => {},
+			injectAutoApprovalScript: () => {},
+			startCountdownUpdates: () => {},
+			stopCountdownUpdates: () => {},
+			outputChannel: { appendLine: () => {}, show: () => {} } as any,
+			server: null
+		};
+
+		registerCommands(deps);
+
+		const addTaskCmd = commandsRegistered.get('ai-dev-assistant-bridge.addTask');
+		await addTaskCmd!();
+
+		vscode.window.showInputBox = originalShowInput;
+		// Should complete without error despite cancellation
+		assert.ok(true, 'Should handle cancellation gracefully');
+	});
+
+	test('listTasks command should handle no tasks', async () => {
+		let messageShown = false;
+		const originalShowInfo = vscode.window.showInformationMessage;
+		(vscode.window.showInformationMessage as any) = (msg: string) => {
+			messageShown = msg.includes('No tasks found');
+			return Promise.resolve();
+		};
+
+		const deps: CommandDependencies = {
+			context: mockContext,
+			currentPort: 3737,
+			getConfig: () => vscode.workspace.getConfiguration('aiDevAssistantBridge'),
+			updateConfig: async () => {},
+			sendToAgent: async () => true,
+			autoInjectScript: () => {},
+			enableAutoApproval: () => {},
+			disableAutoApproval: () => {},
+			injectAutoApprovalScript: () => {},
+			startCountdownUpdates: () => {},
+			stopCountdownUpdates: () => {},
+			outputChannel: { appendLine: () => {}, show: () => {} } as any,
+			server: null
+		};
+
+		registerCommands(deps);
+
+		const listTasksCmd = commandsRegistered.get('ai-dev-assistant-bridge.listTasks');
+		await listTasksCmd!();
+
+		vscode.window.showInformationMessage = originalShowInfo;
+		assert.strictEqual(messageShown, true, 'Should show no tasks message');
+	});
+
+	test('changePort command should handle user cancellation', async () => {
+		const originalShowInput = vscode.window.showInputBox;
+		(vscode.window.showInputBox as any) = () => Promise.resolve(undefined);
+
+		const deps: CommandDependencies = {
+			context: mockContext,
+			currentPort: 3737,
+			getConfig: () => vscode.workspace.getConfiguration('aiDevAssistantBridge'),
+			updateConfig: async () => {},
+			sendToAgent: async () => true,
+			autoInjectScript: () => {},
+			enableAutoApproval: () => {},
+			disableAutoApproval: () => {},
+			injectAutoApprovalScript: () => {},
+			startCountdownUpdates: () => {},
+			stopCountdownUpdates: () => {},
+			outputChannel: { appendLine: () => {}, show: () => {} } as any,
+			server: null
+		};
+
+		registerCommands(deps);
+
+		const changePortCmd = commandsRegistered.get('ai-dev-assistant-bridge.changePort');
+		await changePortCmd!();
+
+		vscode.window.showInputBox = originalShowInput;
+		// Should complete without error despite cancellation
+		assert.ok(true, 'Should handle cancellation gracefully');
+	});
+
+	// Note: Cannot test invalid port input in unit tests because it triggers VS Code reload
+	// which crashes the test runner. Invalid port validation is covered by integration tests.
 });
 
 suite('Commands Integration Tests', () => {
