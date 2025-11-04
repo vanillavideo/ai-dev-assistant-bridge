@@ -176,6 +176,22 @@ suite('TaskManager Module Tests', () => {
 			// Should not throw
 			await taskManager.updateTaskStatus(context, 'non-existent-id', 'completed');
 		});
+
+		test('should allow all valid status values', async () => {
+			const task = await taskManager.addTask(context, 'Test Task', '');
+			
+			await taskManager.updateTaskStatus(context, task.id, 'in-progress');
+			let tasks = await taskManager.getTasks(context);
+			assert.strictEqual(tasks[0].status, 'in-progress');
+			
+			await taskManager.updateTaskStatus(context, task.id, 'completed');
+			tasks = await taskManager.getTasks(context);
+			assert.strictEqual(tasks[0].status, 'completed');
+			
+			await taskManager.updateTaskStatus(context, task.id, 'pending');
+			tasks = await taskManager.getTasks(context);
+			assert.strictEqual(tasks[0].status, 'pending');
+		});
 	});
 
 	suite('removeTask', () => {
@@ -224,6 +240,33 @@ suite('TaskManager Module Tests', () => {
 			assert.ok(!tasks.find(t => t.id === task1.id));
 			assert.ok(tasks.find(t => t.id === task2.id));
 			assert.ok(tasks.find(t => t.id === task3.id));
+		});
+
+		test('should return count of cleared tasks', async () => {
+			const task1 = await taskManager.addTask(context, 'Task 1', '', 'bug');
+			const task2 = await taskManager.addTask(context, 'Task 2', '', 'feature');
+			const task3 = await taskManager.addTask(context, 'Task 3', '', 'improvement');
+			
+			await taskManager.updateTaskStatus(context, task1.id, 'completed');
+			await taskManager.updateTaskStatus(context, task3.id, 'completed');
+			
+			const count = await taskManager.clearCompletedTasks(context);
+			
+			assert.strictEqual(count, 2);
+		});
+
+		test('should return 0 when no completed tasks exist', async () => {
+			await taskManager.addTask(context, 'Task 1', '', 'bug');
+			await taskManager.addTask(context, 'Task 2', '', 'feature');
+			
+			const count = await taskManager.clearCompletedTasks(context);
+			
+			assert.strictEqual(count, 0);
+		});
+
+		test('should handle empty task list', async () => {
+			const count = await taskManager.clearCompletedTasks(context);
+			assert.strictEqual(count, 0);
 		});
 	});
 
@@ -280,6 +323,50 @@ suite('TaskManager Module Tests', () => {
 			// Should not throw, just do nothing
 			await taskManager.updateTaskField(context, 'non-existent-id', 'title', 'New Title');
 			// No assertion needed, just verify it doesn't crash
+		});
+
+		test('should reject description longer than 5000 characters', async () => {
+			const task = await taskManager.addTask(context, 'Valid Title', 'Description');
+			const longDesc = 'x'.repeat(5001);
+			
+			await assert.rejects(
+				async () => await taskManager.updateTaskField(context, task.id, 'description', longDesc),
+				/Invalid.*description/i
+			);
+		});
+
+		test('should trim whitespace from updated title', async () => {
+			const task = await taskManager.addTask(context, 'Original', 'Description');
+			
+			await taskManager.updateTaskField(context, task.id, 'title', '  Trimmed Title  ');
+			
+			const tasks = await taskManager.getTasks(context);
+			const updated = tasks.find(t => t.id === task.id);
+			assert.strictEqual(updated?.title, 'Trimmed Title');
+		});
+
+		test('should trim whitespace from updated description', async () => {
+			const task = await taskManager.addTask(context, 'Title', 'Original');
+			
+			await taskManager.updateTaskField(context, task.id, 'description', '  Trimmed Desc  ');
+			
+			const tasks = await taskManager.getTasks(context);
+			const updated = tasks.find(t => t.id === task.id);
+			assert.strictEqual(updated?.description, 'Trimmed Desc');
+		});
+
+		test('should update updatedAt timestamp when field updated', async () => {
+			const task = await taskManager.addTask(context, 'Title', 'Description');
+			const originalUpdated = task.updatedAt;
+			
+			// Wait a bit to ensure timestamp difference
+			await new Promise(resolve => setTimeout(resolve, 10));
+			
+			await taskManager.updateTaskField(context, task.id, 'title', 'New Title');
+			
+			const tasks = await taskManager.getTasks(context);
+			const updated = tasks.find(t => t.id === task.id);
+			assert.notStrictEqual(updated?.updatedAt, originalUpdated);
 		});
 	});
 });
