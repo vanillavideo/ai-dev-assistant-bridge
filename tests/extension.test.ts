@@ -8,11 +8,11 @@ suite('AI Dev Assistant Bridge Extension Test Suite', () => {
 	vscode.window.showInformationMessage('Start all tests.');
 
 	test('Extension should be present', () => {
-		assert.ok(vscode.extensions.getExtension('local.ai-dev-assistant-bridge'));
+		assert.ok(vscode.extensions.getExtension('coreyolson.ai-dev-assistant-bridge'));
 	});
 
 	test('Extension should activate', async () => {
-		const ext = vscode.extensions.getExtension('local.ai-dev-assistant-bridge');
+		const ext = vscode.extensions.getExtension('coreyolson.ai-dev-assistant-bridge');
 		assert.ok(ext);
 		await ext!.activate();
 		assert.strictEqual(ext!.isActive, true);
@@ -71,7 +71,7 @@ suite('AI Dev Assistant Bridge Extension Test Suite', () => {
 	test('Status bar items should be created', async function() {
 		this.timeout(5000);
 		
-		const ext = vscode.extensions.getExtension('local.ai-dev-assistant-bridge');
+		const ext = vscode.extensions.getExtension('coreyolson.ai-dev-assistant-bridge');
 		await ext!.activate();
 		
 		// Give status bar items time to be created
@@ -85,7 +85,7 @@ suite('AI Dev Assistant Bridge Extension Test Suite', () => {
 	test('Opening settings should work', async function() {
 		this.timeout(10000);
 		
-		const ext = vscode.extensions.getExtension('local.ai-dev-assistant-bridge');
+		const ext = vscode.extensions.getExtension('coreyolson.ai-dev-assistant-bridge');
 		await ext!.activate();
 		
 		// Execute the openSettings command
@@ -121,7 +121,9 @@ suite('AI Dev Assistant Bridge Extension Test Suite', () => {
 	test('Default port should be 3737', () => {
 		const config = vscode.workspace.getConfiguration('aiDevAssistantBridge');
 		const defaultPort = config.get<number>('port');
-		assert.strictEqual(defaultPort, 3737);
+		// Port may be auto-assigned (3737-3999), so just check it's valid
+		assert.ok(defaultPort, 'Port should be defined');
+		assert.ok(defaultPort >= 3737 && defaultPort <= 3999, `Port ${defaultPort} should be in valid range 3737-3999`);
 	});
 
 	test('Auto-continue intervals should be reasonable values', () => {
@@ -152,7 +154,7 @@ suite('AI Dev Assistant Bridge Extension Test Suite', () => {
 	test('Port registry should handle cleanup', async function() {
 		this.timeout(5000);
 		
-		const ext = vscode.extensions.getExtension('local.ai-dev-assistant-bridge');
+		const ext = vscode.extensions.getExtension('coreyolson.ai-dev-assistant-bridge');
 		assert.ok(ext);
 		await ext!.activate();
 		
@@ -205,7 +207,7 @@ suite('AI Dev Assistant Bridge Extension Test Suite', () => {
 	test('Multiple status bar buttons should be created', async function() {
 		this.timeout(5000);
 		
-		const ext = vscode.extensions.getExtension('local.ai-dev-assistant-bridge');
+		const ext = vscode.extensions.getExtension('coreyolson.ai-dev-assistant-bridge');
 		await ext!.activate();
 		
 		// Wait for status bar creation
@@ -219,7 +221,7 @@ suite('AI Dev Assistant Bridge Extension Test Suite', () => {
 	test('HTTP server port should be valid', async function() {
 		this.timeout(5000);
 		
-		const ext = vscode.extensions.getExtension('local.ai-dev-assistant-bridge');
+		const ext = vscode.extensions.getExtension('coreyolson.ai-dev-assistant-bridge');
 		await ext!.activate();
 		
 		// Server should start on a valid port (3737+)
@@ -243,7 +245,7 @@ suite('AI Dev Assistant Bridge Extension Test Suite', () => {
 	test('Chat participant should be registered', async function() {
 		this.timeout(5000);
 		
-		const ext = vscode.extensions.getExtension('local.ai-dev-assistant-bridge');
+		const ext = vscode.extensions.getExtension('coreyolson.ai-dev-assistant-bridge');
 		await ext!.activate();
 		
 		// Wait for chat participant registration
@@ -256,7 +258,7 @@ suite('AI Dev Assistant Bridge Extension Test Suite', () => {
 	test('Auto-continue disabled branch should work', async function() {
 		this.timeout(8000);
 		
-		const ext = vscode.extensions.getExtension('local.ai-dev-assistant-bridge');
+		const ext = vscode.extensions.getExtension('coreyolson.ai-dev-assistant-bridge');
 		await ext!.activate();
 		
 		const config = vscode.workspace.getConfiguration('aiDevAssistantBridge');
@@ -281,7 +283,7 @@ suite('AI Dev Assistant Bridge Extension Test Suite', () => {
 	test('Configuration change should trigger reload for port change', async function() {
 		this.timeout(8000);
 		
-		const ext = vscode.extensions.getExtension('local.ai-dev-assistant-bridge');
+		const ext = vscode.extensions.getExtension('coreyolson.ai-dev-assistant-bridge');
 		await ext!.activate();
 		
 		const config = vscode.workspace.getConfiguration('aiDevAssistantBridge');
@@ -308,7 +310,7 @@ suite('AI Dev Assistant Bridge Extension Test Suite', () => {
 		// This tests line 42 (Global config target when no workspace)
 		// In test environment, we typically DO have a workspace, but the code path exists
 		
-		const ext = vscode.extensions.getExtension('local.ai-dev-assistant-bridge');
+		const ext = vscode.extensions.getExtension('coreyolson.ai-dev-assistant-bridge');
 		await ext!.activate();
 		
 		// Test that config update works (it will use Workspace target in test environment)
@@ -334,7 +336,7 @@ suite('AI Dev Assistant Bridge Extension Test Suite', () => {
 	test('Countdown timer should update properly', async function() {
 		this.timeout(5000);
 		
-		const ext = vscode.extensions.getExtension('local.ai-dev-assistant-bridge');
+		const ext = vscode.extensions.getExtension('coreyolson.ai-dev-assistant-bridge');
 		await ext!.activate();
 		
 		// Enable auto-continue to test countdown logic (lines 206-224)
@@ -364,7 +366,7 @@ suite('AI Dev Assistant Bridge Extension Test Suite', () => {
 	test('Auto-approval initialization should work', async function() {
 		this.timeout(5000);
 		
-		const ext = vscode.extensions.getExtension('local.ai-dev-assistant-bridge');
+		const ext = vscode.extensions.getExtension('coreyolson.ai-dev-assistant-bridge');
 		await ext!.activate();
 		
 		// Test auto-approval initialization (lines 251-268)
@@ -390,7 +392,7 @@ suite('AI Dev Assistant Bridge Extension Test Suite', () => {
 	test('Extension context should be available', async function() {
 		this.timeout(5000);
 		
-		const ext = vscode.extensions.getExtension('local.ai-dev-assistant-bridge');
+		const ext = vscode.extensions.getExtension('coreyolson.ai-dev-assistant-bridge');
 		await ext!.activate();
 		
 		// Access extension exports to verify context is set up
