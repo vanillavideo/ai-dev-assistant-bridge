@@ -58,6 +58,7 @@ async function main() {
 		'tests/autoApproval.test.ts',
 		'tests/chatIntegration.test.ts',
 		'tests/commands.test.ts',
+		'tests/customCategories.test.ts',
 		'tests/guidingDocuments.test.ts',
 		'tests/portManager.test.ts',
 		'tests/server.test.ts',
