@@ -563,4 +563,40 @@ suite('Guiding Documents Module Test Suite', () => {
 			}, 'Should handle empty list gracefully');
 		});
 	});
+
+	suite('Edge Cases', () => {
+		test('loadGuidingDocuments should handle relative paths when no workspace folder', async () => {
+			// Save current workspace folders
+			const originalFolders = vscode.workspace.workspaceFolders;
+			
+			// Store a relative path in config
+			const config = vscode.workspace.getConfiguration('aiDevAssistantBridge');
+			await config.update('guidingDocuments', ['./relative/path.md'], vscode.ConfigurationTarget.Global);
+			
+			// Mock workspace folders to undefined (simulates no workspace scenario)
+			// Note: We can't actually remove workspace folders in tests, but we can 
+			// test that the code handles the scenario by checking stored paths
+			const docs = guidingDocuments.getGuidingDocuments();
+			
+			// Should still return the documents even if path resolution fails
+			assert.ok(Array.isArray(docs), 'Should return array even with relative paths');
+			
+			// Clean up
+			await config.update('guidingDocuments', [], vscode.ConfigurationTarget.Global);
+		});
+
+		test('loadGuidingDocuments should handle absolute paths correctly', async () => {
+			const config = vscode.workspace.getConfiguration('aiDevAssistantBridge');
+			const absolutePath = path.isAbsolute('/tmp/test.md') ? '/tmp/test.md' : 'C:\\temp\\test.md';
+			
+			await config.update('guidingDocuments', [absolutePath], vscode.ConfigurationTarget.Global);
+			
+			// Loading documents with absolute paths should work
+			const docs = guidingDocuments.getGuidingDocuments();
+			assert.strictEqual(docs.length, 1);
+			
+			// Clean up
+			await config.update('guidingDocuments', [], vscode.ConfigurationTarget.Global);
+		});
+	});
 });

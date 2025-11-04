@@ -16,6 +16,7 @@ import {
 } from '../src/modules/autoContinue';
 import { formatCountdown } from '../src/modules/timeFormatting';
 import * as taskManager from '../src/modules/taskManager';
+import * as guidingDocuments from '../src/modules/guidingDocuments';
 
 suite('Auto-Continue Module Tests', () => {
 	let context: vscode.ExtensionContext;
@@ -1207,5 +1208,203 @@ suite('Auto-Continue Module Tests', () => {
 			// Restore original getConfiguration
 			(vscode.workspace as any).getConfiguration = originalGetConfig;
 		}
+	});
+
+	suite('Task Description and Truncation', () => {
+		test('should include task descriptions when available', async () => {
+			const mockConfig = {
+				get: (key: string, defaultValue?: any) => {
+					if (key === 'autoContinue.tasks.enabled') { return true; }
+					if (key === 'autoContinue.tasks.interval') { return 0; }
+					if (key === 'autoContinue.tasks.message') { return 'Check tasks'; }
+					if (key === 'autoContinue.includeTasks') { return true; }
+					return defaultValue;
+				}
+			} as any;
+
+			// Add a task with description
+			await taskManager.addTask(context, 'Task with description', 'This is a detailed description of the task', 'bug');
+
+			const message = await getSmartAutoContinueMessage(context, () => mockConfig, true);
+
+			assert.ok(message.includes('Task with description'), 'Should include task title');
+			assert.ok(message.includes('This is a detailed description'), 'Should include task description');
+
+			// Clean up
+			const tasks = await taskManager.getTasks(context);
+			for (const task of tasks) {
+				await taskManager.removeTask(context, task.id);
+			}
+		});
+
+		test('should truncate long task descriptions', async () => {
+			const mockConfig = {
+				get: (key: string, defaultValue?: any) => {
+					if (key === 'autoContinue.tasks.enabled') { return true; }
+					if (key === 'autoContinue.tasks.interval') { return 0; }
+					if (key === 'autoContinue.tasks.message') { return 'Check tasks'; }
+					if (key === 'autoContinue.includeTasks') { return true; }
+					return defaultValue;
+				}
+			} as any;
+
+			// Add a task with long description (over 60 chars)
+			const longDescription = 'This is a very long description that exceeds sixty characters and should be truncated to prevent overwhelming the message';
+			await taskManager.addTask(context, 'Task with long desc', longDescription, 'feature');
+
+			const message = await getSmartAutoContinueMessage(context, () => mockConfig, true);
+
+			assert.ok(message.includes('...'), 'Should include ellipsis for truncation');
+			assert.ok(!message.includes(longDescription), 'Should not include full long description');
+
+			// Clean up
+			const tasks = await taskManager.getTasks(context);
+			for (const task of tasks) {
+				await taskManager.removeTask(context, task.id);
+			}
+		});
+
+		test('should show "more tasks" message when over 5 tasks', async () => {
+			const mockConfig = {
+				get: (key: string, defaultValue?: any) => {
+					if (key === 'autoContinue.tasks.enabled') { return true; }
+					if (key === 'autoContinue.tasks.interval') { return 0; }
+					if (key === 'autoContinue.tasks.message') { return 'Check tasks'; }
+					if (key === 'autoContinue.includeTasks') { return true; }
+					return defaultValue;
+				}
+			} as any;
+
+			// Add 7 tasks to trigger "more tasks" message
+			for (let i = 1; i <= 7; i++) {
+				await taskManager.addTask(context, `Task ${i}`, `Description ${i}`, 'other');
+			}
+
+			const message = await getSmartAutoContinueMessage(context, () => mockConfig, true);
+
+			assert.ok(message.includes('and 2 more tasks'), 'Should show "more tasks" message for 6th and 7th task');
+
+			// Clean up
+			const tasks = await taskManager.getTasks(context);
+			for (const task of tasks) {
+				await taskManager.removeTask(context, task.id);
+			}
+		});
+	});
+
+	suite('Custom Category Branches', () => {
+		test('should skip disabled custom categories', async () => {
+			const mockConfig = {
+				get: (key: string, defaultValue?: any) => {
+					if (key === 'autoContinue.custom') {
+						return [{
+							id: 'disabled-cat',
+							name: 'Disabled',
+							message: 'Should not appear',
+							interval: 60,
+							enabled: false // Disabled
+						}];
+					}
+					return defaultValue;
+				}
+			} as any;
+
+			const message = await getSmartAutoContinueMessage(context, () => mockConfig, true);
+
+			assert.ok(!message.includes('Should not appear'), 'Should skip disabled custom categories');
+		});
+
+		test('should include emoji in custom category messages', async () => {
+			const mockConfig = {
+				get: (key: string, defaultValue?: any) => {
+					if (key === 'autoContinue.custom') {
+						return [{
+							id: 'emoji-cat',
+							name: 'With Emoji',
+							message: 'Custom message',
+							interval: 60,
+							enabled: true,
+							emoji: '🎯'
+						}];
+					}
+					return defaultValue;
+				}
+			} as any;
+
+			const message = await getSmartAutoContinueMessage(context, () => mockConfig, true);
+
+			assert.ok(message.includes('🎯 Custom message'), 'Should include emoji prefix in message');
+		});
+
+		test('should skip custom categories without emoji prefix when emoji is missing', async () => {
+			const mockConfig = {
+				get: (key: string, defaultValue?: any) => {
+					if (key === 'autoContinue.custom') {
+						return [{
+							id: 'no-emoji-cat',
+							name: 'No Emoji',
+							message: 'Message without emoji',
+							interval: 60,
+							enabled: true
+							// No emoji field
+						}];
+					}
+					return defaultValue;
+				}
+			} as any;
+
+			const message = await getSmartAutoContinueMessage(context, () => mockConfig, true);
+
+			assert.ok(message.includes('Message without emoji'), 'Should include message');
+			assert.ok(!message.includes('undefined'), 'Should not include undefined prefix');
+		});
+	});
+
+	suite('Standard Category Filtering', () => {
+		test('should skip disabled standard categories', async () => {
+			const mockConfig = {
+				get: (key: string, defaultValue?: any) => {
+					if (key === 'autoContinue.errors.enabled') { return false; } // Disabled
+					if (key === 'autoContinue.errors.interval') { return 60; }
+					if (key === 'autoContinue.errors.message') { return 'Should not appear'; }
+					return defaultValue;
+				}
+			} as any;
+
+			const message = await getSmartAutoContinueMessage(context, () => mockConfig, true);
+
+			assert.ok(!message.includes('Should not appear'), 'Should skip disabled standard categories');
+		});
+
+		test('should skip standard categories with empty message', async () => {
+			const mockConfig = {
+				get: (key: string, defaultValue?: any) => {
+					if (key === 'autoContinue.documentation.enabled') { return true; }
+					if (key === 'autoContinue.documentation.interval') { return 60; }
+					if (key === 'autoContinue.documentation.message') { return ''; } // Empty message
+					return defaultValue;
+				}
+			} as any;
+
+			const message = await getSmartAutoContinueMessage(context, () => mockConfig, true);
+
+			// Should return empty string since no valid messages
+			assert.strictEqual(message, '', 'Should return empty when all messages are empty');
+		});
+
+		test('should return empty when no messages are due', async () => {
+			const mockConfig = {
+				get: (key: string, defaultValue?: any) => {
+					// All categories disabled or with empty messages
+					if (key.includes('.enabled')) { return false; }
+					return defaultValue;
+				}
+			} as any;
+
+			// Don't force, so check intervals
+			const message = await getSmartAutoContinueMessage(context, () => mockConfig, false);
+
+			assert.strictEqual(message, '', 'Should return empty when no messages are due');
+		});
 	});
 });
