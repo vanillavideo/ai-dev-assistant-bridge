@@ -183,6 +183,56 @@ suite('PortManager Module Tests', () => {
 			assert.ok(port >= 3737, 'Should successfully allocate port even with potential errors');
 		});
 
+		test('should handle stale entries cleanup', async () => {
+			const testContext = createMockContext();
+			
+			// Add stale entry (older than 1 hour)
+			const oneHourAgo = Date.now() - (61 * 60 * 1000); // 61 minutes ago
+			await testContext.globalState.update('aiDevAssistantBridge.portRegistry', [
+				{
+					port: 3740,
+					workspace: 'old-workspace',
+					timestamp: oneHourAgo
+				}
+			]);
+			
+			// Request port - should clean up stale entry
+			const port = await portManager.findAvailablePort(testContext);
+			
+			// Verify stale entry was removed
+			const registry = testContext.globalState.get<any[]>('aiDevAssistantBridge.portRegistry', []);
+			const hasStale = registry.some(e => e.timestamp === oneHourAgo);
+			assert.strictEqual(hasStale, false, 'Stale entry should be removed');
+			assert.ok(port >= 3737, 'Should successfully allocate port');
+		});
+
+		test('should reuse existing port and update timestamp', async () => {
+			const testContext = createMockContext();
+			const workspaceId = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || 'no-workspace';
+			
+			const oldTimestamp = Date.now() - 10000;
+			
+			// Set up registry with existing entry for current workspace
+			await testContext.globalState.update('aiDevAssistantBridge.portRegistry', [
+				{
+					port: 3745,
+					workspace: workspaceId,
+					timestamp: oldTimestamp
+				}
+			]);
+			
+			// Request port - should reuse and update timestamp
+			const port = await portManager.findAvailablePort(testContext);
+			
+			assert.strictEqual(port, 3745, 'Should reuse existing port');
+			
+			// Verify timestamp was updated
+			const registry = testContext.globalState.get<any[]>('aiDevAssistantBridge.portRegistry', []);
+			const entry = registry.find(e => e.workspace === workspaceId);
+			assert.ok(entry, 'Entry should exist');
+			assert.ok(entry.timestamp > oldTimestamp, 'Timestamp should be updated');
+		});
+
 		test('should handle releasing port that does not match workspace (line 193 false branch)', async () => {
 			const testContext = createMockContext();
 			
