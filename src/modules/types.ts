@@ -16,6 +16,18 @@ export interface Task {
 }
 
 /**
+ * Custom auto-continue category
+ */
+export interface CustomCategory {
+	id: string;
+	name: string;
+	emoji?: string;
+	message: string;
+	interval: number;
+	enabled: boolean;
+}
+
+/**
  * Logging levels for structured output
  */
 export enum LogLevel {
@@ -31,6 +43,8 @@ export enum LogLevel {
 export interface ExtensionConfig {
 	autoContinue: {
 		enabled: boolean;
+		includeTasks: boolean;
+		custom: CustomCategory[];
 		categories: {
 			[key: string]: {
 				enabled: boolean;

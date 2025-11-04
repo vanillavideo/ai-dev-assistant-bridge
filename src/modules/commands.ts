@@ -35,6 +35,7 @@ import * as autoContinue from './autoContinue';
 import * as chatIntegration from './chatIntegration';
 import * as statusBar from './statusBar';
 import * as guidingDocuments from './guidingDocuments';
+import * as customCategories from './customCategories';
 import { Task } from './types';
 import { validatePort, parseIntegerString } from './numberValidation';
 
@@ -379,6 +380,21 @@ export function registerCommands(deps: CommandDependencies): void {
 		vscode.commands.registerCommand(
 			'ai-dev-assistant-bridge.listGuidingDocuments',
 			() => guidingDocuments.showGuidingDocumentsList()
+		)
+	);
+
+	// Custom auto-continue categories commands
+	context.subscriptions.push(
+		vscode.commands.registerCommand(
+			'ai-dev-assistant-bridge.addCustomCategory',
+			() => customCategories.showAddCustomCategoryDialog()
+		)
+	);
+
+	context.subscriptions.push(
+		vscode.commands.registerCommand(
+			'ai-dev-assistant-bridge.manageCustomCategories',
+			() => customCategories.showManageCustomCategoriesDialog()
 		)
 	);
 

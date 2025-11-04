@@ -14,9 +14,11 @@
  */
 
 import * as vscode from 'vscode';
-import { LogLevel } from './types';
+import { LogLevel, CustomCategory } from './types';
 import { log, getErrorMessage } from './logging';
 import * as guidingDocuments from './guidingDocuments';
+import * as taskManager from './taskManager';
+import { getCustomCategories } from './customCategories';
 import { formatCountdown } from './timeFormatting';
 
 let autoContinueTimer: NodeJS.Timeout | undefined;
@@ -71,6 +73,7 @@ export async function getSmartAutoContinueMessage(
 	const lastSent = context.globalState.get<Record<string, number>>(lastSentKey, {});
 	const newLastSent: Record<string, number> = { ...lastSent };
 	
+	// Process built-in categories
 	for (const category of categories) {
 		const enabled = config.get<boolean>(`autoContinue.${category}.enabled`, true);
 		const interval = config.get<number>(`autoContinue.${category}.interval`, 300);
@@ -90,6 +93,24 @@ export async function getSmartAutoContinueMessage(
 		}
 	}
 	
+	// Process custom categories
+	const customCategories = getCustomCategories();
+	for (const category of customCategories) {
+		if (!category.enabled) {
+			continue;
+		}
+		
+		const categoryKey = `custom_${category.id}`;
+		const lastSentTime = lastSent[categoryKey] || 0;
+		const elapsed = (now - lastSentTime) / 1000;
+		
+		if (force || elapsed >= category.interval) {
+			const prefix = category.emoji ? `${category.emoji} ` : '';
+			messages.push(`${prefix}${category.message}`);
+			newLastSent[categoryKey] = now;
+		}
+	}
+	
 	// Save updated last sent times
 	await context.globalState.update(lastSentKey, newLastSent);
 	
@@ -100,6 +121,35 @@ export async function getSmartAutoContinueMessage(
 	
 	// Combine messages with proper formatting
 	let combinedMessage = messages.join('. ') + '.';
+	
+	// Include pending tasks if enabled
+	const includeTasks = config.get<boolean>('autoContinue.includeTasks', true);
+	if (includeTasks) {
+		try {
+			const tasks = await taskManager.getTasks(context);
+			const pendingTasks = tasks.filter(t => t.status === 'pending' || t.status === 'in-progress');
+			
+			if (pendingTasks.length > 0) {
+				combinedMessage += `\n\n📋 Current Tasks (${pendingTasks.length}):`;
+				for (const task of pendingTasks.slice(0, 5)) { // Limit to first 5 tasks
+					const statusEmoji = task.status === 'in-progress' ? '🔄' : '⏳';
+					combinedMessage += `\n${statusEmoji} ${task.title}`;
+					if (task.description) {
+						// Add abbreviated description
+						const shortDesc = task.description.length > 60 
+							? task.description.substring(0, 60) + '...' 
+							: task.description;
+						combinedMessage += ` - ${shortDesc}`;
+					}
+				}
+				if (pendingTasks.length > 5) {
+					combinedMessage += `\n... and ${pendingTasks.length - 5} more tasks`;
+				}
+			}
+		} catch (error) {
+			log(LogLevel.WARN, 'Failed to include tasks in auto-continue message', { error: getErrorMessage(error) });
+		}
+	}
 	
 	// Append guiding documents context if configured
 	const docsContext = await guidingDocuments.getGuidingDocumentsContext();

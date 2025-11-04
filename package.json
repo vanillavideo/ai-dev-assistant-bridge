@@ -2,7 +2,7 @@
 	"name": "ai-dev-assistant-bridge",
 	"displayName": "AI Dev Assistant Bridge",
 	"description": "Supercharge AI-assisted coding with auto-continue reminders, auto-approval, task management, and context injection for GitHub Copilot and other AI tools",
-	"version": "0.9.7",
+	"version": "0.9.8",
 	"publisher": "coreyolson",
 	"repository": {
 		"type": "git",
@@ -59,6 +59,14 @@
 			{
 				"command": "ai-dev-assistant-bridge.listGuidingDocuments",
 				"title": "AI Dev Assistant Bridge: Manage Guiding Documents"
+			},
+			{
+				"command": "ai-dev-assistant-bridge.addCustomCategory",
+				"title": "AI Dev Assistant Bridge: Add Custom Auto-Continue Category"
+			},
+			{
+				"command": "ai-dev-assistant-bridge.manageCustomCategories",
+				"title": "AI Dev Assistant Bridge: Manage Custom Categories"
 			}
 		],
 		"chatParticipants": [
@@ -91,6 +99,50 @@
 					"scope": "resource",
 					"description": "Enable auto-continue reminders",
 					"order": 0
+				},
+				"aiDevAssistantBridge.autoContinue.includeTasks": {
+					"type": "boolean",
+					"default": true,
+					"scope": "resource",
+					"description": "Include pending tasks in reminder messages",
+					"order": 1
+				},
+				"aiDevAssistantBridge.autoContinue.custom": {
+					"type": "array",
+					"default": [],
+					"scope": "resource",
+					"description": "Custom auto-continue categories",
+					"items": {
+						"type": "object",
+						"properties": {
+							"id": {
+								"type": "string",
+								"description": "Unique identifier"
+							},
+							"name": {
+								"type": "string",
+								"description": "Category name"
+							},
+							"emoji": {
+								"type": "string",
+								"description": "Category emoji"
+							},
+							"message": {
+								"type": "string",
+								"description": "Reminder message"
+							},
+							"interval": {
+								"type": "number",
+								"description": "Interval in seconds"
+							},
+							"enabled": {
+								"type": "boolean",
+								"description": "Whether this category is enabled"
+							}
+						},
+						"required": ["id", "name", "message", "interval"]
+					},
+					"order": 5
 				},
 				"aiDevAssistantBridge.autoContinue.tasks.enabled": {
 					"type": "boolean",
